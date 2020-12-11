@@ -1,3 +1,5 @@
+""" The core module of pygrader """
+
 import pathlib
 import enum
 import sys
@@ -16,6 +18,8 @@ class CodeSource(enum.Enum):
 
 
 class Grader:
+    """ Grader class2 """
+
     def __init__(
         self,
         name,
