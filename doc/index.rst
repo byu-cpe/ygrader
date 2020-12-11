@@ -2,7 +2,7 @@ Welcome to pygrader's documentation!
 ====================================
 
 .. automodule:: pygrader.grader
-    :members:
+   :members:
 
 .. toctree::
    :maxdepth: 2

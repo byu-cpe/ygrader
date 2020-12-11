@@ -5,6 +5,7 @@ import enum
 import sys
 import numpy
 import csv
+from typing import Union, Callable
 
 from . import grades_csv
 from . import utils, student_repos
@@ -18,25 +19,46 @@ class CodeSource(enum.Enum):
 
 
 class Grader:
-    """ Grader class2 """
+    """ Grader class """
 
     def __init__(
         self,
-        name,
-        lab_name,
-        points,
-        work_path,
-        code_source,
-        grades_csv_path,
-        grades_col_names,
-        github_csv_path,
-        github_csv_col_name,
-        github_tag,
-        run_on_first_milestone,
-        run_on_each_milestone,
-        format_code=False,
-        build_only=False,
+        name: str,
+        lab_name: str,
+        points: list,
+        work_path: pathlib.Path,
+        code_source: CodeSource,
+        grades_csv_path: pathlib.Path,
+        grades_col_names: list,
+        run_on_first_milestone: Callable[[str, pathlib.Path], None],
+        run_on_each_milestone: Callable[[str, pathlib.Path, bool, bool], None],
+        github_csv_path: pathlib.Path = None,
+        github_csv_col_name: list = [],
+        github_tag: str = None,
+        format_code: bool = False,
+        build_only: bool = False,
     ):
+
+        """
+        Parameters
+        ----------
+        name: str
+            Name of this grading process (ie. 'passoff' or 'coding_standard')
+        lab_name: str
+            Name of the lab that you are grading (ie. 'lab3')
+        points: list of int
+            Number of points the graded milestone(s) are worth.
+        work_path: pathlib.Path
+            Path to directory where student files will be placed.  If you pass in '.', then student code would be placed in './lab3'
+        code_source: CodeSource
+            Type of source code location, ie. Learning Suite zip file or Github
+        grades_csv_path: pathlib.Path
+            Path to CSV file with studnet grades exported from LearningSuite.  You need to export netid, first and last name, and any grade columns you want to populate.
+        grade_col_names: list of str
+            Names of student CSV columns for milestones that will be graded.
+        github_csv_path:
+        """
+
         self.name = name
         self.lab_name = lab_name
         self.points = points
