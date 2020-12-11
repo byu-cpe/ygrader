@@ -1,5 +1,6 @@
 import pandas
 import re
+import numpy
 
 from .utils import error
 
@@ -7,7 +8,6 @@ from .utils import error
 def parse_and_check(grades_csv_path, grades_col_names):
     grades_df = pandas.read_csv(grades_csv_path)
     check_csv_column_names(grades_df, grades_col_names)
-    # needs_grade_df = students.filter_need_grade(grades_df, csv_col_name)
     return grades_df
 
 
@@ -75,3 +75,14 @@ def find_idx_for_netid(df, netid):
     if len(matches) != 1:
         error("Could not find netid =", netid, "(find_idx_for_netid)")
     return matches[0]
+
+
+def num_grades_needed_per_milestone(row, grades_col_names):
+    ret = []
+    for grades_col_name in grades_col_names:
+        n = 0
+        for grade in row[grades_col_name]:
+            if numpy.isnan(grade):
+                n += 1
+        ret.append(n)
+    return ret

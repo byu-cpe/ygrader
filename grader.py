@@ -73,20 +73,24 @@ class Grader:
 
         # Read in CSV and validate.  Print # students who need a grade
         student_grades_df = grades_csv.parse_and_check(self.grades_csv_path, self.grades_col_names)
+        grades_needed_df = grades_csv.filter_need_grade(student_grades_df, self.grades_col_names)
         print_color(
             TermColors.BLUE,
-            str(grades_csv.filter_need_grade(student_grades_df, self.grades_col_names).shape[0]),
+            str(grades_csv.filter_need_grade(grades_needed_df, self.grades_col_names).shape[0]),
             "students need to be graded.",
         )
 
         # Match df index to github URL
         if self.code_source == CodeSource.GITHUB:
-            student_grades_df = grades_csv.match_to_github_url(
+            student_grades_github_df = grades_csv.match_to_github_url(
                 student_grades_df, self.github_csv_path, self.github_csv_col_name
+            )
+            grades_needed_github_df = grades_csv.match_to_github_url(
+                grades_needed_df, self.github_csv_path, self.github_csv_col_name
             )
             print_color(
                 TermColors.BLUE,
-                str(student_grades_df.shape[0]),
+                str(grades_needed_github_df.shape[0]),
                 "of these students have a github URL.",
             )
         else:
@@ -95,7 +99,7 @@ class Grader:
         # Group students into their groups
         if self.code_source == CodeSource.GITHUB:
             df_grouped = (
-                student_grades_df.groupby("github_url").agg(lambda x: list(x)).reset_index()
+                student_grades_github_df.groupby("github_url").agg(lambda x: list(x)).reset_index()
             )
         else:
             raise NotImplementedError
@@ -111,6 +115,16 @@ class Grader:
                     for (first, last, net_id) in zip(first_names, last_names, net_ids)
                 ]
             )
+            num_group_members = len(net_ids)
+
+            # Check if student/group needs grading
+            num_group_members_need_grade_per_milestone = grades_csv.num_grades_needed_per_milestone(
+                row, self.grades_col_names
+            )
+
+            if sum(num_group_members_need_grade_per_milestone) == 0:
+                # This student/group is already fully graded
+                continue
 
             # Print name(s) of who we are grading
             print_color(TermColors.PURPLE, "Grading: ", concated_names)
@@ -141,22 +155,11 @@ class Grader:
             # (will be false if TA chooses to just re-run and not re-build)
             build = True
 
-            for grade_col_name in self.grades_col_names:
-                # Check if student(s) already have a grade for this milestone
-                group_needs_grading = False
-                group_members_with_grade = 0
-                for net_id in net_ids:
-                    if numpy.isnan(
-                        student_grades_df.at[
-                            grades_csv.find_idx_for_netid(student_grades_df, net_id),
-                            grade_col_name,
-                        ]
-                    ):
-                        group_needs_grading = True
-                    else:
-                        group_members_with_grade += 1
-
-                if not group_needs_grading:
+            for col_idx, grade_col_name in enumerate(self.grades_col_names):
+                if not num_group_members_need_grade_per_milestone[col_idx]:
+                    print_color(
+                        TermColors.BLUE, "Grade already exists for ", grade_col_name, "(skipping)"
+                    )
                     continue
 
                 self.run_on_first_milestone(self.lab_name, student_work_path)
@@ -175,12 +178,12 @@ class Grader:
                         break
 
                     # Enter score
-                    if group_members_with_grade:
+                    if num_group_members_need_grade_per_milestone[col_idx] < num_group_members:
                         print_color(
                             TermColors.YELLOW,
-                            "  Warning: ",
-                            group_members_with_grade,
-                            "group members already have a grade for",
+                            "Warning:",
+                            num_group_members - num_group_members_need_grade_per_milestone[col_idx],
+                            "group member(s) already have a grade for",
                             grade_col_name,
                             "; this grade will be overwritten.",
                         )
