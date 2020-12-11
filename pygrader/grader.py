@@ -1,5 +1,3 @@
-""" The core module of pygrader """
-
 import pathlib
 import enum
 import sys
@@ -14,6 +12,8 @@ from .utils import print_color, TermColors, error
 
 
 class CodeSource(enum.Enum):
+    """ Used to indicate whether the student code is submitted via LearningSuite or Github """
+
     LEARNING_SUITE = 1
     GITHUB = 2
 

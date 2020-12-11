@@ -1,10 +1,24 @@
 # Welcome to pygrader’s documentation!
 
-The core module of pygrader
+The package is designed to help you write grading scripts.  The main idea behind the package is that it processes grade CSV files exported from LearningSuite, detects which students still needs grading for an assignment, makes callbacks to your code for lab-specific build and run functions, and then ask you to enter a grade, which is automatically entered into the CSV file.
+
+Major feature:
+
+
+* The package can work with student code submitted via zip files (ie using Learning Suite), *or* with student code on Github.
+
+
+* Supports labs with multiple different grade columns in Learning Suite (referred to as *milestones* in this documentation).  This can allow you to run different tests each worth different number of points.
+
+
+* Supports team-based assignments.
+
+
+* Grades are updated in the CSV files as soon as you enter thme, meaning you can Ctrl+C the grading at any point, and re-run to continue where you left off.
 
 
 ### class pygrader.grader.CodeSource(value)
-An enumeration.
+Used to indicate whether the student code is submitted via LearningSuite or Github
 
 
 ### class pygrader.grader.Grader(name: str, lab_name: str, points: list, work_path: pathlib.Path, code_source: pygrader.grader.CodeSource, grades_csv_path: pathlib.Path, grades_col_names: list, run_on_first_milestone: Callable[[str, pathlib.Path], None], run_on_each_milestone: Callable[[str, pathlib.Path, bool, bool], None], github_csv_path: pathlib.Path = None, github_csv_col_name: list = [], github_tag: str = None, format_code: bool = False, build_only: bool = False)
@@ -70,15 +84,3 @@ Grader class
 
 
     * **build_only** (*bool*) – Whether you only want to build and not run/grade the students code.  This will be passed to your callback function, and is useful for labs that take a while to build.  You can build all the code in one pass, then return and grade the code later.
-
-
-# Indices and tables
-
-
-* Index
-
-
-* Module Index
-
-
-* Search Page
