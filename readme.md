@@ -77,19 +77,19 @@ Grader class
     * **run_on_first_milestone** (*Optional**[**Callable**]*) – If you are grading multiple milestones, this function will only be called once.  Useful for doing one-off actions before running each milestone. This function callback takes the same arguments as the one provided to ‘run_on_each_milestone’.
 
 
-    * **github_csv_path** (*pathlib.Path*) – Path to CSV file with Github URL for each student.  There must be a ‘Net ID’ column name.  One way to get this is to have a Learning Suite quiz where students enter their Github URL, and then export the results.
+    * **github_csv_path** (*Optional**[**pathlib.Path**]*) – Path to CSV file with Github URL for each student.  There must be a ‘Net ID’ column name.  One way to get this is to have a Learning Suite quiz where students enter their Github URL, and then export the results.
 
 
-    * **github_csv_col_name** (*str*) – Column name in the github_csv_path CSV file that should be used as the Github URL.  Note: This column name may be fixed for every lab, or it could vary, which allows you to handle Github groups, and even students changing groups between labs.
+    * **github_csv_col_name** (*Optional**[**str**]*) – Column name in the github_csv_path CSV file that should be used as the Github URL.  Note: This column name may be fixed for every lab, or it could vary, which allows you to handle Github groups, and even students changing groups between labs.
 
 
-    * **github_tag** (*str*) – Tag that holds this students submission for this lab.
+    * **github_tag** (*Optional**[**str**]*) – Tag that holds this students submission for this lab.
 
 
-    * **format_code** (*bool*) – Whether you want the student code formatted using clang-format
+    * **format_code** (*Optional**[**bool**]*) – Whether you want the student code formatted using clang-format
 
 
-    * **build_only** (*bool*) – Whether you only want to build and not run/grade the students code.  This will be passed to your callback function, and is useful for labs that take a while to build.  You can build all the code in one pass, then return and grade the code later.
+    * **build_only** (*Optional**[**bool**]*) – Whether you only want to build and not run/grade the students code.  This will be passed to your callback function, and is useful for labs that take a while to build.  You can build all the code in one pass, then return and grade the code later.
 
 
 

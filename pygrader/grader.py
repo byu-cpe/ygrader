@@ -68,15 +68,15 @@ class Grader:
           * net_ids: (list) List of net_ids of students in the group.
         run_on_first_milestone: Optional[Callable]
             If you are grading multiple milestones, this function will only be called once.  Useful for doing one-off actions before running each milestone. This function callback takes the same arguments as the one provided to 'run_on_each_milestone'.
-        github_csv_path:  pathlib.Path
+        github_csv_path:  Optional[pathlib.Path]
             Path to CSV file with Github URL for each student.  There must be a 'Net ID' column name.  One way to get this is to have a Learning Suite quiz where students enter their Github URL, and then export the results.
-        github_csv_col_name: str
+        github_csv_col_name: Optional[str]
             Column name in the github_csv_path CSV file that should be used as the Github URL.  Note: This column name may be fixed for every lab, or it could vary, which allows you to handle Github groups, and even students changing groups between labs.
-        github_tag: str
+        github_tag: Optional[str]
             Tag that holds this students submission for this lab.
-        format_code: bool
+        format_code: Optional[bool]
             Whether you want the student code formatted using clang-format
-        build_only: bool
+        build_only: Optional[bool]
             Whether you only want to build and not run/grade the students code.  This will be passed to your callback function, and is useful for labs that take a while to build.  You can build all the code in one pass, then return and grade the code later.
         """
 
@@ -118,7 +118,7 @@ class Grader:
         """ Call this to start (or resume) the grading process """
 
         # Print starting message
-        print_color(TermColors.BLUE, "Running", self.name, "grader for lab ", self.lab_name)
+        print_color(TermColors.BLUE, "Running", self.name, "grader for lab", self.lab_name)
 
         # Read in CSV and validate.  Print # students who need a grade
         student_grades_df = grades_csv.parse_and_check(self.grades_csv_path, self.grades_col_names)
@@ -228,6 +228,8 @@ class Grader:
                     self.run_on_each_milestone(
                         self.lab_name,
                         student_work_path,
+                        build=build,
+                        run=not self.build_only,
                         first_names=first_names,
                         last_names=last_names,
                         net_ids=net_ids,
