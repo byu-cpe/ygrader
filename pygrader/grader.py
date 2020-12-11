@@ -30,8 +30,8 @@ class Grader:
         code_source: CodeSource,
         grades_csv_path: pathlib.Path,
         grades_col_names: list,
-        run_on_first_milestone: Callable[[str, pathlib.Path], None],
-        run_on_each_milestone: Callable[[str, pathlib.Path, bool, bool], None],
+        run_on_each_milestone: Callable[[str, pathlib.Path], None],
+        run_on_first_milestone: Callable[[str, pathlib.Path], None] = None,
         github_csv_path: pathlib.Path = None,
         github_csv_col_name: list = [],
         github_tag: str = None,
@@ -56,14 +56,18 @@ class Grader:
             Path to CSV file with student grades exported from LearningSuite.  You need to export netid, first and last name, and any grade columns you want to populate.
         grades_col_names: list of str
             Names of student CSV columns for milestones that will be graded.
-        run_on_first_milestone: Function callback.  If you are grading multiple milestones, this function will only be called once.  Useful for doing one-off actions before running each milestone. This function is provided with two arguments:
-          * lab_name: (str) The lab_name provided earlier.
-          * student_path: (pathlib.Path) The page to where the student files are stored.
-        run_on_each_milestone: Function callback, called on each graded milestone.  Arguments provided:
+        run_on_each_milestone: Callable
+            Called on each graded milestone.  Arguments provided (I suggest you make use of \*\*kwargs as I may need to pass more information back in the future):
+
           * lab_name: (str) The lab_name provided earlier.
           * student_path (pathlib.Path)  The page to where the student files are stored.
           * build: (bool) Whether files should be built/compiled.
           * run: (bool) Whether milestone should be run.
+          * first_names: (list) List of first name of students in the group
+          * last_names: (list) List of last names of students in the group
+          * net_ids: (list) List of net_ids of students in the group.
+        run_on_first_milestone: Optional[Callable]
+            If you are grading multiple milestones, this function will only be called once.  Useful for doing one-off actions before running each milestone. This function callback takes the same arguments as the one provided to 'run_on_each_milestone'.
         github_csv_path:  pathlib.Path
             Path to CSV file with Github URL for each student.  There must be a 'Net ID' column name.  One way to get this is to have a Learning Suite quiz where students enter their Github URL, and then export the results.
         github_csv_col_name: str
@@ -111,6 +115,8 @@ class Grader:
         utils.check_file_exists(self.github_csv_path)
 
     def run(self):
+        """ Call this to start (or resume) the grading process """
+
         # Print starting message
         print_color(TermColors.BLUE, "Running", self.name, "grader for lab ", self.lab_name)
 
@@ -205,13 +211,26 @@ class Grader:
                     )
                     continue
 
-                self.run_on_first_milestone(self.lab_name, student_work_path)
+                if self.run_on_first_milestone is not None:
+                    self.run_on_first_milestone(
+                        self.lab_name,
+                        student_work_path,
+                        build=build,
+                        run=not self.build_only,
+                        first_names=first_names,
+                        last_names=last_names,
+                        net_ids=net_ids,
+                    )
 
                 while True:
                     # Build it and run
                     # runner.run_lab_cmd(args.tag, student_repo_path, build, run=not args.build_only)
                     self.run_on_each_milestone(
-                        self.lab_name, student_work_path, build, run=not self.build_only
+                        self.lab_name,
+                        student_work_path,
+                        first_names=first_names,
+                        last_names=last_names,
+                        net_ids=net_ids,
                     )
 
                     # reset the flag

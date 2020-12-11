@@ -1,6 +1,6 @@
 # Welcome to pygrader’s documentation!
 
-The package is designed to help you write grading scripts.  The main idea behind the package is that it processes grade CSV files exported from LearningSuite, detects which students still needs grading for an assignment, makes callbacks to your code for lab-specific build and run functions, and then ask you to enter a grade, which is automatically entered into the CSV file.
+The package is designed to help you write grading scripts.  The main idea behind the package is that it processes grade CSV files exported from LearningSuite, detects which students still needs grading for an assignment, makes callbacks to your code for lab-specific build and run functions, and then asks you to enter a grade, which is automatically entered into the CSV file.
 
 Major feature:
 
@@ -21,7 +21,7 @@ Major feature:
 Used to indicate whether the student code is submitted via LearningSuite or Github
 
 
-### class pygrader.grader.Grader(name: str, lab_name: str, points: list, work_path: pathlib.Path, code_source: pygrader.grader.CodeSource, grades_csv_path: pathlib.Path, grades_col_names: list, run_on_first_milestone: Callable[[str, pathlib.Path], None], run_on_each_milestone: Callable[[str, pathlib.Path, bool, bool], None], github_csv_path: pathlib.Path = None, github_csv_col_name: list = [], github_tag: str = None, format_code: bool = False, build_only: bool = False)
+### class pygrader.grader.Grader(name: str, lab_name: str, points: list, work_path: pathlib.Path, code_source: pygrader.grader.CodeSource, grades_csv_path: pathlib.Path, grades_col_names: list, run_on_each_milestone: Callable[[str, pathlib.Path], None], run_on_first_milestone: Callable[[str, pathlib.Path], None] = None, github_csv_path: pathlib.Path = None, github_csv_col_name: list = [], github_tag: str = None, format_code: bool = False, build_only: bool = False)
 Grader class
 
 
@@ -49,15 +49,9 @@ Grader class
     * **grades_col_names** (*list of str*) – Names of student CSV columns for milestones that will be graded.
 
 
-    * **run_on_first_milestone** (*Function callback.  If you are grading multiple milestones**, **this function will only be called once.  Useful for doing one-off actions before running each milestone. This function is provided with two arguments:*) – 
-        * lab_name: (str) The lab_name provided earlier.
+    * **run_on_each_milestone** (*Callable*) – Called on each graded milestone.  Arguments provided (I suggest you make use of \*\*kwargs as I may need to pass more information back in the future):
 
 
-        * student_path: (pathlib.Path) The page to where the student files are stored.
-
-
-
-    * **run_on_each_milestone** (*Function callback**, **called on each graded milestone.  Arguments provided:*) – 
         * lab_name: (str) The lab_name provided earlier.
 
 
@@ -69,6 +63,18 @@ Grader class
 
         * run: (bool) Whether milestone should be run.
 
+
+        * first_names: (list) List of first name of students in the group
+
+
+        * last_names: (list) List of last names of students in the group
+
+
+        * net_ids: (list) List of net_ids of students in the group.
+
+
+
+    * **run_on_first_milestone** (*Optional**[**Callable**]*) – If you are grading multiple milestones, this function will only be called once.  Useful for doing one-off actions before running each milestone. This function callback takes the same arguments as the one provided to ‘run_on_each_milestone’.
 
 
     * **github_csv_path** (*pathlib.Path*) – Path to CSV file with Github URL for each student.  There must be a ‘Net ID’ column name.  One way to get this is to have a Learning Suite quiz where students enter their Github URL, and then export the results.
@@ -84,3 +90,8 @@ Grader class
 
 
     * **build_only** (*bool*) – Whether you only want to build and not run/grade the students code.  This will be passed to your callback function, and is useful for labs that take a while to build.  You can build all the code in one pass, then return and grade the code later.
+
+
+
+#### run()
+Call this to start (or resume) the grading process

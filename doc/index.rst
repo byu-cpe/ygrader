@@ -1,7 +1,7 @@
 Welcome to pygrader's documentation!
 ====================================
 
-The package is designed to help you write grading scripts.  The main idea behind the package is that it processes grade CSV files exported from LearningSuite, detects which students still needs grading for an assignment, makes callbacks to your code for lab-specific build and run functions, and then ask you to enter a grade, which is automatically entered into the CSV file.  
+The package is designed to help you write grading scripts.  The main idea behind the package is that it processes grade CSV files exported from LearningSuite, detects which students still needs grading for an assignment, makes callbacks to your code for lab-specific build and run functions, and then asks you to enter a grade, which is automatically entered into the CSV file.  
 
 Major feature:
 

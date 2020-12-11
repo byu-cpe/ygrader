@@ -82,63 +82,6 @@ def clone_repo(git_path, tag, student_repo_path):
     return True
 
 
-def run_coding_standard_checker(student_names, student_repo_path, lab_screenshot_path):
-    print_color(TermColors.BLUE, "Running coding standard checker")
-
-    cmd = [code_checker_path / "run_report_dir.py", student_repo_path]
-    p = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
-    if p.returncode:
-        print(p.stdout.decode())
-        error("code checker failed")
-
-    html_path = student_repo_path / "report" / "index.html"
-    html_path.parent.mkdir(parents=True, exist_ok=True)
-
-    # Save a screenshot
-    screenshot_path = lab_screenshot_path / (student_names + ".png")
-    screenshot_path.parent.mkdir(parents=True, exist_ok=True)
-    print_color(
-        TermColors.BLUE,
-        "Saving HTML screenshot to",
-        screenshot_path.relative_to(root_path),
-    )
-    cmd = [
-        "chromium-browser",
-        "--headless",
-        "--screenshot=" + str(screenshot_path),
-        html_path,
-    ]
-    subprocess.run(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-    return html_path
-
-
-def run_browser(html_path):
-    # Open chromium
-    cmd = ["chromium-browser", html_path]
-    try:
-        subprocess.run(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-    except KeyboardInterrupt:
-        pass
-
-
-def copy_lab_code(student_repo_path, lab, student_code_path):
-    print_color(TermColors.BLUE, "Copying files out of student repo")
-    student_code_path.mkdir(parents=True, exist_ok=True)
-
-    dirs = []
-
-    if lab == "lab2":
-        dirs.append((student_repo_path / "userspace" / "drivers" / "buttons", (".c",)))
-        dirs.append((student_repo_path / "userspace" / "drivers" / "switches", (".c",)))
-        dirs.append((student_repo_path / "userspace" / "drivers" / "intc", (".c",)))
-        dirs.append((student_repo_path / "userspace" / "apps" / "clock", (".c", ".h")))
-    else:
-        error("Unhandled lab argument (" + lab + ") provided to copoy_lab_code()")
-
-    for dir_path, exts in dirs:
-        utils.copy_all_files_in_dir(src_dir=dir_path, dest=student_code_path, exts=exts)
-
-
 def print_date(student_repo_path):
     print("Last commit: ")
     cmd = ["git", "log", "-1", r"--format=%cd"]
