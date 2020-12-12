@@ -30,6 +30,24 @@ Major Features
 * Can be run in analysis mode, where student code is fetched and callbacks are made, but no grades are entered. (Provide empty list to 'grades_col_names')
 
 
+How to Use This
+###############
+
+The typical usage model is that you create your own grader repository for your class, and would add this repository as a submodule.  In your repository you would keep your grading CSVs exported from Learning Suite, and student code submissions (if using Learning Suite submission and not Github).
+
+You would then create any grading scripts you like (ie in 330 we have a grading script for pass-off, and one for coding standard).  In my code, these scripts take a single command-line argument, which indicates which lab to grade.  An example:
+
+.. code-block:: bash
+
+    ./run_passoff_grader.py lab3
+
+
+This script would then create an instance of the ``Grader`` class below, passing in the several required configuration options, followed by calling ``run()``. The configuration options you pass in will likely depend on the lab you are grading.  For example, in my code, I typically have functions that take in the lab name, and then return the different configuration options.
+
+The bulk of your code will be placed in your callback functions that will build and run each student's code.
+
+I typically give TAs access to this grading repo, and put them in charge of both exporting CSVs from Learning Suite, and importing them after grading.
+
 Examples
 ########
 * ECEN 330 grader (Learning Suite submission style): https://github.com/byu-cpe/ecen330_grader
