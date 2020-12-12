@@ -14,7 +14,7 @@ Major feature:
 * Supports team-based assignments (currently via Github submission only).
 
 
-* Grades are updated in the CSV files as soon as you enter thme, meaning you can Ctrl+C the grading at any point, and re-run to continue where you left off.
+* Grades are updated in the CSV files as soon as you enter them, meaning you can Ctrl+C the grading at any point, and re-run to continue where you left off.
 
 
 ### class pygrader.grader.CodeSource(value)
