@@ -58,8 +58,13 @@ def clone_repo(git_path, tag, student_repo_path):
             TermColors.BLUE,
             "Student repo",
             student_repo_path.name,
-            "already cloned.",
+            "already cloned. Running git pull",
         )
+        cmd = ["git", "pull"]
+        p = subprocess.run(cmd)
+        if p.returncode:
+            print_color(TermColors.RED, "git pull failed")
+            return False
         return True
 
     print_color(TermColors.BLUE, "Cloning repo, tag =", tag)

@@ -97,6 +97,9 @@ class Grader:
 
         self.name = name
         self.lab_name = lab_name
+
+        if not isinstance(points, (list, tuple)):
+            error("points must a be list or tuple (points per milestone)")
         self.points = points
 
         self.work_path = pathlib.Path(work_path)
@@ -108,6 +111,9 @@ class Grader:
         assert isinstance(code_source, CodeSource)
 
         self.grades_csv_path = pathlib.Path(grades_csv_path)
+
+        if not isinstance(grades_col_names, (list, tuple)):
+            error("grades_col_names must be list or tuple (column name per milestone)")
         self.grades_col_names = grades_col_names
 
         self.github_csv_path = github_csv_path
