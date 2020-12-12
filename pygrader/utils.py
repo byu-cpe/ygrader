@@ -57,34 +57,3 @@ def names_to_dir(first_names, last_names, net_ids):
     return (
         first_names[0].replace(" ", "_") + "_" + last_names[0].replace(" ", "_") + "_" + net_ids[0]
     )
-
-
-def get_score(names, assignment_name, max_score, extra_message=""):
-    if extra_message:
-        print_color(TermColors.BOLD, extra_message)
-    input_txt = (
-        TermColors.YELLOW
-        + "Enter score for "
-        + names
-        + ", "
-        + (assignment_name + ":")
-        + (" (0-" + str(max_score) + "), ")
-    )
-    input_txt += (
-        "'s' to skip, 'r' to retry (w/ rebuild), or 't' to do a test re-run (w/o rebuild):"
-        + TermColors.END
-    )
-
-    while True:
-        txt = input(input_txt)
-        if txt in ["s", "r", "t"]:
-            return txt
-        else:
-            if not txt.isdigit():
-                print("Invalid input. Try again.")
-                continue
-            score = int(txt)
-            if 0 <= score <= max_score:
-                return score
-            else:
-                print("  Invalid input. Try again.")

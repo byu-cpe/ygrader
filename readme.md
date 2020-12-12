@@ -55,6 +55,9 @@ Grader class
         * lab_name: (str) The lab_name provided earlier.
 
 
+        * milestone_name: (str) Grade CSV column name of milestone to run
+
+
         * student_path (pathlib.Path)  The page to where the student files are stored.
 
 
@@ -73,8 +76,12 @@ Grader class
         * net_ids: (list) List of net_ids of students in the group.
 
 
+        * Return value: (str)
+    When this function returns, the program will ask the user for a grade input.  If you return a string from this function, it will print that message first.  This can be a helpful reminder to the TAs of a grading rubric, things they should watch out for, etc.
 
-    * **run_on_first_milestone** (*Optional**[**Callable**]*) – If you are grading multiple milestones, this function will only be called once.  Useful for doing one-off actions before running each milestone. This function callback takes the same arguments as the one provided to ‘run_on_each_milestone’.
+
+
+    * **run_on_first_milestone** (*Optional**[**Callable**]*) – If you are grading multiple milestones, this function will only be called once.  Useful for doing one-off actions before running each milestone. This function callback takes the same arguments as the one provided to ‘run_on_each_milestone’, except is does not have a ‘milestone_name’ argument.
 
 
     * **github_csv_path** (*Optional**[**pathlib.Path**]*) – Path to CSV file with Github URL for each student.  There must be a ‘Net ID’ column name.  One way to get this is to have a Learning Suite quiz where students enter their Github URL, and then export the results.

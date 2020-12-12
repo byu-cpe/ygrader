@@ -40,6 +40,8 @@ class Grader:
         learning_suite_submissions_zip_path: pathlib.Path = None,
         format_code: bool = False,
         build_only: bool = False,
+        allow_rebuild: bool = True,
+        allow_rerun: bool = True,
     ):
 
         """
@@ -63,14 +65,17 @@ class Grader:
             Called on each graded milestone.  Arguments provided (I suggest you make use of \*\*kwargs as I may need to pass more information back in the future):
 
           * lab_name: (str) The lab_name provided earlier.
+          * milestone_name: (str) Grade CSV column name of milestone to run
           * student_path (pathlib.Path)  The page to where the student files are stored.
           * build: (bool) Whether files should be built/compiled.
           * run: (bool) Whether milestone should be run.
           * first_names: (list) List of first name of students in the group
           * last_names: (list) List of last names of students in the group
           * net_ids: (list) List of net_ids of students in the group.
+          * Return value: (str)
+            When this function returns, the program will ask the user for a grade input.  If you return a string from this function, it will print that message first.  This can be a helpful reminder to the TAs of a grading rubric, things they should watch out for, etc.
         run_on_first_milestone: Optional[Callable]
-            If you are grading multiple milestones, this function will only be called once.  Useful for doing one-off actions before running each milestone. This function callback takes the same arguments as the one provided to 'run_on_each_milestone'.
+            If you are grading multiple milestones, this function will only be called once.  Useful for doing one-off actions before running each milestone. This function callback takes the same arguments as the one provided to 'run_on_each_milestone', except is does not have a 'milestone_name' argument.
         github_csv_path:  Optional[pathlib.Path]
             Path to CSV file with Github URL for each student.  There must be a 'Net ID' column name.  One way to get this is to have a Learning Suite quiz where students enter their Github URL, and then export the results.
         github_csv_col_name: Optional[str]
@@ -83,6 +88,10 @@ class Grader:
             Whether you want the student code formatted using clang-format
         build_only: Optional[bool]
             Whether you only want to build and not run/grade the students code.  This will be passed to your callback function, and is useful for labs that take a while to build.  You can build all the code in one pass, then return and grade the code later.
+        allow_rebuild: Optional[bool]
+            When asking for a grade, the program will normally allow the grader to request a "rebuild and run".  If your grader doesn't support this, then set this to False.
+        allow_rerun: Optional[bool]
+            When asking for a grade, the program will normally allow the grader to request a "re-run only (no rebuld)". If your grader doesn't support this, then set this to False.  At least one of 'allow_rebuild' and 'allow_rerun' must be True.
         """
 
         self.name = name
@@ -110,6 +119,8 @@ class Grader:
         self.run_on_each_milestone = run_on_each_milestone
         self.format_code = format_code
         self.build_only = build_only
+        self.allow_rebuild = allow_rebuild
+        self.allow_rerun = allow_rerun
 
         utils.check_file_exists(self.grades_csv_path)
 
@@ -129,6 +140,9 @@ class Grader:
                     "You must specify the learning_suite_submissions_zip_path argument if using CodeSource.LEARNING_SUITE"
                 )
             utils.check_file_exists(self.learning_suite_submissions_zip_path)
+
+        if not (self.allow_rebuild or self.allow_rerun):
+            error("At least one of allow_rebuild and allow_rerun needs to be True.")
 
     def run(self):
         """ Call this to start (or resume) the grading process """
@@ -153,12 +167,6 @@ class Grader:
             # Unzip submissions and map groups to their submission
             self._unzip_submissions()
             self._build_df_idx_to_zip_map(grouped_df)
-            # print_color(
-            #     TermColors.BLUE,
-            #     "Found zip submissions for",
-            #     len(self.df_idx_to_zip_path),
-            #     "of these students.",
-            # )
 
         # Loop through all of the students/groups and perform grading
         for index, row in grouped_df.iterrows():
@@ -186,6 +194,7 @@ class Grader:
             student_work_path = self.work_path / utils.names_to_dir(
                 first_names, last_names, net_ids
             )
+            student_work_path.mkdir(exist_ok=True)
             print_color(
                 TermColors.PURPLE,
                 "Grading: ",
@@ -208,6 +217,17 @@ class Grader:
             # (will be false if TA chooses to just re-run and not re-build)
             build = True
 
+            if self.run_on_first_milestone is not None:
+                self.run_on_first_milestone(
+                    lab_name=self.lab_name,
+                    student_code_path=student_work_path,
+                    build=build,
+                    run=not self.build_only,
+                    first_names=first_names,
+                    last_names=last_names,
+                    net_ids=net_ids,
+                )
+
             for col_idx, grade_col_name in enumerate(self.grades_col_names):
                 if not num_group_members_need_grade_per_milestone[col_idx]:
                     print_color(
@@ -215,23 +235,12 @@ class Grader:
                     )
                     continue
 
-                if self.run_on_first_milestone is not None:
-                    self.run_on_first_milestone(
-                        self.lab_name,
-                        student_work_path,
-                        build=build,
-                        run=not self.build_only,
-                        first_names=first_names,
-                        last_names=last_names,
-                        net_ids=net_ids,
-                    )
-
                 while True:
                     # Build it and run
-                    # runner.run_lab_cmd(args.tag, student_repo_path, build, run=not args.build_only)
-                    self.run_on_each_milestone(
-                        self.lab_name,
-                        student_work_path,
+                    msg = self.run_on_each_milestone(
+                        lab_name=self.lab_name,
+                        milestone_name=grade_col_name,
+                        student_code_path=student_work_path,
                         build=build,
                         run=not self.build_only,
                         first_names=first_names,
@@ -256,16 +265,23 @@ class Grader:
                             "; this grade will be overwritten.",
                         )
                     try:
-                        score = utils.get_score(concated_names, self.lab_name, self.points)
+                        score = self._get_score(
+                            concated_names,
+                            self.lab_name,
+                            self.points[col_idx],
+                            self.allow_rebuild,
+                            self.allow_rerun,
+                            msg,
+                        )
                     except KeyboardInterrupt:
                         print_color(TermColors.RED, "\nExiting")
                         sys.exit(0)
 
                     if score == "s":
                         break
-                    elif score == "r":
+                    elif score == "b":
                         continue
-                    elif score == "t":
+                    elif score == "r":
                         # run again, but don't build
                         build = False
                         continue
@@ -374,3 +390,44 @@ class Grader:
                 print_color(TermColors.RED, "Bad zip file", zip_file)
                 return False
         return True
+
+    def _get_score(
+        self, names, assignment_name, max_score, allow_rebuild, allow_rerun, extra_message=""
+    ):
+        if extra_message:
+            print_color(TermColors.BOLD, extra_message)
+        input_txt = (
+            TermColors.YELLOW
+            + "Enter score for "
+            + names
+            + ", "
+            + (assignment_name + ":")
+            + (" (0-" + str(max_score) + "), ")
+        )
+
+        input_txt += "'s' to skip, "
+        allowed_entrys = ["s"]
+
+        if allow_rebuild:
+            input_txt += "'b' to build and run, "
+            allowed_entrys.append("b")
+        if allow_rerun:
+            input_txt += "'r' to re-run (w/o rebuild), "
+            allowed_entrys.append("r")
+
+        # Remmove trailing ", " and terminate
+        input_txt = input_txt[:-2] + ":" + TermColors.END
+
+        while True:
+            txt = input(input_txt)
+            if txt in allowed_entrys:
+                return txt
+            else:
+                if not txt.isdigit():
+                    print("Invalid input. Try again.")
+                    continue
+                score = int(txt)
+                if 0 <= score <= max_score:
+                    return score
+                else:
+                    print("  Invalid input. Try again.")
