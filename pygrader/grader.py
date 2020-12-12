@@ -434,7 +434,7 @@ class Grader:
         allowed_entrys = ["s"]
 
         if allow_rebuild:
-            input_txt += "'b' to build and run, "
+            input_txt += "'b' to build and run again, "
             allowed_entrys.append("b")
         if allow_rerun:
             input_txt += "'r' to re-run (w/o rebuild), "
