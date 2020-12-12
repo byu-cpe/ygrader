@@ -1,8 +1,38 @@
 # Welcome to pygrader’s documentation!
 
-The package is designed to help you write grading scripts.  The main idea behind the package is that it processes grade CSV files exported from LearningSuite, detects which students still needs grading for an assignment, makes callbacks to your code for lab-specific build and run functions, and then asks you to enter a grade, which is automatically entered into the CSV file.
+The package is designed to help you write grading scripts.  The main idea behind the package is that it removes all of the overhead that is common between grading different classes (extracing student code into their own folder, updating grade CSV files, etc), and allows you to focus on just writing scripts for running student code in your classes environment.
 
-Major feature:
+## Grading Flow
+
+When you configure the script correctly, the expected flow is:
+
+
+1. Grade CSV from LearningSuite is parsed, and student grades are tracked in a pandas DataFrame
+
+
+2. Students are filtered down to only those that still need a grade for the assignment.
+
+
+3. Students are formed into their groups (groups of 1 for individual assignments)
+
+
+4. For each student:
+
+
+    * Student code is retrieved (from Github or Learning suite zip file) and copied into a per-group working folder.
+
+
+    * *Callbacks are made to your code*, where you can build and run the student’s code.
+
+
+    * The grader is prompted to enter a grade.  They can optionally rebuild and rerun the students code, or skip to the next student without entering a grade.
+
+
+    * Grade CSV is updated with grade for all group members.
+
+In the above process, *you will only need to write the callback code to buil and run the users code*.
+
+## Major Features
 
 
 * The package can work with student code submitted via zip files (ie using Learning Suite), *or* with student code on Github.
@@ -16,12 +46,14 @@ Major feature:
 
 * Grades are updated in the CSV files as soon as you enter them, meaning you can Ctrl+C the grading at any point, and re-run to continue where you left off.
 
+## Class Documentation
+
 
 ### class pygrader.grader.CodeSource(value)
 Used to indicate whether the student code is submitted via LearningSuite or Github
 
 
-### class pygrader.grader.Grader(name: str, lab_name: str, points: list, work_path: pathlib.Path, code_source: pygrader.grader.CodeSource, grades_csv_path: pathlib.Path, grades_col_names: list, run_on_each_milestone: Callable[[str, pathlib.Path], None], run_on_first_milestone: Callable[[str, pathlib.Path], None] = None, github_csv_path: pathlib.Path = None, github_csv_col_name: list = [], github_tag: str = None, learning_suite_submissions_zip_path: pathlib.Path = None, format_code: bool = False, build_only: bool = False)
+### class pygrader.grader.Grader(name: str, lab_name: str, points: list, work_path: pathlib.Path, code_source: pygrader.grader.CodeSource, grades_csv_path: pathlib.Path, grades_col_names: list, run_on_each_milestone: Callable[[str, pathlib.Path], None], run_on_first_milestone: Callable[[str, pathlib.Path], None] = None, github_csv_path: pathlib.Path = None, github_csv_col_name: list = [], github_tag: str = None, learning_suite_submissions_zip_path: pathlib.Path = None, format_code: bool = False, build_only: bool = False, allow_rebuild: bool = True, allow_rerun: bool = True)
 Grader class
 
 
@@ -100,6 +132,12 @@ Grader class
 
 
     * **build_only** (*Optional**[**bool**]*) – Whether you only want to build and not run/grade the students code.  This will be passed to your callback function, and is useful for labs that take a while to build.  You can build all the code in one pass, then return and grade the code later.
+
+
+    * **allow_rebuild** (*Optional**[**bool**]*) – When asking for a grade, the program will normally allow the grader to request a “rebuild and run”.  If your grader doesn’t support this, then set this to False.
+
+
+    * **allow_rerun** (*Optional**[**bool**]*) – When asking for a grade, the program will normally allow the grader to request a “re-run only (no rebuld)”. If your grader doesn’t support this, then set this to False.  At least one of ‘allow_rebuild’ and ‘allow_rerun’ must be True.
 
 
 
