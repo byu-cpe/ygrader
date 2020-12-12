@@ -1,6 +1,6 @@
 # Welcome to pygrader’s documentation!
 
-The package is designed to help you write grading scripts.  The main idea behind the package is that it removes all of the overhead that is common between grading different classes (extracing student code into their own folder, updating grade CSV files, etc), and allows you to focus on just writing scripts for running student code in your classes environment.
+The package is designed to help you write grading scripts.  The main idea behind the package is that it removes all of the overhead that is common between grading different classes (extracing student code into their own folder, updating grade CSV files, etc), and allows you to focus on just writing scripts for running student code in your class’ environment.  This framework does not assume anything about the student’s code structure; it should be equally helpful for grading hardware or software labs.
 
 ## Grading Flow
 
