@@ -46,6 +46,26 @@ In the above process, *you will only need to write the callback code to buil and
 
 * Grades are updated in the CSV files as soon as you enter them, meaning you can Ctrl+C the grading at any point, and re-run to continue where you left off.
 
+## Examples
+
+
+* ECEN 330 grader: [https://github.com/byu-cpe/ecen330_grader](https://github.com/byu-cpe/ecen330_grader)
+
+
+    * [https://github.com/byu-cpe/ecen330_grader/blob/master/run_passoff_grader.py](https://github.com/byu-cpe/ecen330_grader/blob/master/run_passoff_grader.py)
+
+
+    * [https://github.com/byu-cpe/ecen330_grader/blob/master/run_coding_standard_grader.py](https://github.com/byu-cpe/ecen330_grader/blob/master/run_coding_standard_grader.py)
+
+
+* ECEN 427 grader: [https://github.com/byu-cpe/ecen427_grader](https://github.com/byu-cpe/ecen427_grader)
+
+
+    * [https://github.com/byu-cpe/ecen427_grader/blob/master/run_passoff.py](https://github.com/byu-cpe/ecen427_grader/blob/master/run_passoff.py)
+
+
+    * [https://github.com/byu-cpe/ecen427_grader/blob/master/run_coding_standard.py](https://github.com/byu-cpe/ecen427_grader/blob/master/run_coding_standard.py)
+
 ## Class Documentation
 
 
