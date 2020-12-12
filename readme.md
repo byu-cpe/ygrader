@@ -52,7 +52,7 @@ In the above process, *you will only need to write the callback code to buil and
 ## Examples
 
 
-* ECEN 330 grader: [https://github.com/byu-cpe/ecen330_grader](https://github.com/byu-cpe/ecen330_grader)
+* ECEN 330 grader (Learning Suite submission style): [https://github.com/byu-cpe/ecen330_grader](https://github.com/byu-cpe/ecen330_grader)
 
 
     * [https://github.com/byu-cpe/ecen330_grader/blob/master/run_passoff_grader.py](https://github.com/byu-cpe/ecen330_grader/blob/master/run_passoff_grader.py)
@@ -61,7 +61,10 @@ In the above process, *you will only need to write the callback code to buil and
     * [https://github.com/byu-cpe/ecen330_grader/blob/master/run_coding_standard_grader.py](https://github.com/byu-cpe/ecen330_grader/blob/master/run_coding_standard_grader.py)
 
 
-* ECEN 427 grader: [https://github.com/byu-cpe/ecen427_grader](https://github.com/byu-cpe/ecen427_grader)
+    * [https://github.com/byu-cpe/ecen330_grader/blob/master/run_moss.py](https://github.com/byu-cpe/ecen330_grader/blob/master/run_moss.py) (Analysis mode only)
+
+
+* ECEN 427 grader (Github submission style): [https://github.com/byu-cpe/ecen427_grader](https://github.com/byu-cpe/ecen427_grader)
 
 
     * [https://github.com/byu-cpe/ecen427_grader/blob/master/run_passoff.py](https://github.com/byu-cpe/ecen427_grader/blob/master/run_passoff.py)
