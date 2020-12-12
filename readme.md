@@ -46,6 +46,9 @@ In the above process, *you will only need to write the callback code to buil and
 
 * Grades are updated in the CSV files as soon as you enter them, meaning you can Ctrl+C the grading at any point, and re-run to continue where you left off.
 
+
+* Can be run in analysis mode, where student code is fetched and callbacks are made, but no grades are entered. (Provide empty list to ‘grades_col_names’)
+
 ## Examples
 
 
@@ -73,7 +76,7 @@ In the above process, *you will only need to write the callback code to buil and
 Used to indicate whether the student code is submitted via LearningSuite or Github
 
 
-### class pygrader.grader.Grader(name: str, lab_name: str, points: list, work_path: pathlib.Path, code_source: pygrader.grader.CodeSource, grades_csv_path: pathlib.Path, grades_col_names: list, run_on_each_milestone: Callable[[str, pathlib.Path], None], run_on_first_milestone: Callable[[str, pathlib.Path], None] = None, github_csv_path: pathlib.Path = None, github_csv_col_name: list = [], github_tag: str = None, learning_suite_submissions_zip_path: pathlib.Path = None, format_code: bool = False, build_only: bool = False, allow_rebuild: bool = True, allow_rerun: bool = True)
+### class pygrader.grader.Grader(name: str, lab_name: str, points: list, work_path: pathlib.Path, code_source: pygrader.grader.CodeSource, grades_csv_path: pathlib.Path, grades_col_names: list, run_on_milestone: Callable[[str, pathlib.Path], None] = None, run_on_lab: Callable[[str, pathlib.Path], None] = None, github_csv_path: pathlib.Path = None, github_csv_col_name: list = [], github_tag: str = None, learning_suite_submissions_zip_path: pathlib.Path = None, format_code: bool = False, build_only: bool = False, allow_rebuild: bool = True, allow_rerun: bool = True)
 Grader class
 
 
@@ -101,7 +104,7 @@ Grader class
     * **grades_col_names** (*list of str*) – Names of student CSV columns for milestones that will be graded.
 
 
-    * **run_on_each_milestone** (*Callable*) – Called on each graded milestone.  Arguments provided (I suggest you make use of \*\*kwargs as I may need to pass more information back in the future):
+    * **run_on_milestone** (*Callable*) – Called on each graded milestone.  Arguments provided (I suggest you make use of \*\*kwargs as I may need to pass more information back in the future):
 
 
         * lab_name: (str) The lab_name provided earlier.
@@ -133,7 +136,7 @@ Grader class
 
 
 
-    * **run_on_first_milestone** (*Optional**[**Callable**]*) – If you are grading multiple milestones, this function will only be called once.  Useful for doing one-off actions before running each milestone. This function callback takes the same arguments as the one provided to ‘run_on_each_milestone’, except is does not have a ‘milestone_name’ argument.
+    * **run_on_lab** (*Optional**[**Callable**]*) – This function will be called once, before any milestones are graded.  Useful for doing one-off actions before running each milestone, or if you are not grading any milestones and only running in analysis mode. This function callback takes the same arguments as the one provided to ‘run_on_milestone’, except it does not have a ‘milestone_name’ argument.
 
 
     * **github_csv_path** (*Optional**[**pathlib.Path**]*) – Path to CSV file with Github URL for each student.  There must be a ‘Net ID’ column name.  One way to get this is to have a Learning Suite quiz where students enter their Github URL, and then export the results.

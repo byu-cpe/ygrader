@@ -27,6 +27,7 @@ Major Features
 * Supports labs with multiple different grade columns in Learning Suite (referred to as *milestones* in this documentation).  This can allow you to run different tests each worth different number of points.
 * Supports team-based assignments (currently via Github submission only).
 * Grades are updated in the CSV files as soon as you enter them, meaning you can Ctrl+C the grading at any point, and re-run to continue where you left off.
+* Can be run in analysis mode, where student code is fetched and callbacks are made, but no grades are entered. (Provide empty list to 'grades_col_names')
 
 
 Examples

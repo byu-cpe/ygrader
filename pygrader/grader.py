@@ -5,6 +5,7 @@ import csv
 import zipfile
 import time
 import os
+import shutil
 from typing import Callable
 
 from . import grades_csv
@@ -32,8 +33,8 @@ class Grader:
         code_source: CodeSource,
         grades_csv_path: pathlib.Path,
         grades_col_names: list,
-        run_on_each_milestone: Callable[[str, pathlib.Path], None],
-        run_on_first_milestone: Callable[[str, pathlib.Path], None] = None,
+        run_on_milestone: Callable[[str, pathlib.Path], None] = None,
+        run_on_lab: Callable[[str, pathlib.Path], None] = None,
         github_csv_path: pathlib.Path = None,
         github_csv_col_name: list = [],
         github_tag: str = None,
@@ -61,7 +62,7 @@ class Grader:
             Path to CSV file with student grades exported from LearningSuite.  You need to export netid, first and last name, and any grade columns you want to populate.
         grades_col_names: list of str
             Names of student CSV columns for milestones that will be graded.
-        run_on_each_milestone: Callable
+        run_on_milestone: Callable
             Called on each graded milestone.  Arguments provided (I suggest you make use of \*\*kwargs as I may need to pass more information back in the future):
 
           * lab_name: (str) The lab_name provided earlier.
@@ -74,8 +75,8 @@ class Grader:
           * net_ids: (list) List of net_ids of students in the group.
           * Return value: (str)
             When this function returns, the program will ask the user for a grade input.  If you return a string from this function, it will print that message first.  This can be a helpful reminder to the TAs of a grading rubric, things they should watch out for, etc.
-        run_on_first_milestone: Optional[Callable]
-            If you are grading multiple milestones, this function will only be called once.  Useful for doing one-off actions before running each milestone. This function callback takes the same arguments as the one provided to 'run_on_each_milestone', except is does not have a 'milestone_name' argument.
+        run_on_lab: Optional[Callable]
+            This function will be called once, before any milestones are graded.  Useful for doing one-off actions before running each milestone, or if you are not grading any milestones and only running in analysis mode. This function callback takes the same arguments as the one provided to 'run_on_milestone', except it does not have a 'milestone_name' argument.
         github_csv_path:  Optional[pathlib.Path]
             Path to CSV file with Github URL for each student.  There must be a 'Net ID' column name.  One way to get this is to have a Learning Suite quiz where students enter their Github URL, and then export the results.
         github_csv_col_name: Optional[str]
@@ -102,7 +103,6 @@ class Grader:
         if not self.work_path.is_dir():
             error("work_path", self.work_path, "is not a directory")
         self.work_path = self.work_path / (lab_name + "_" + name)
-        self.work_path.mkdir(exist_ok=True)
 
         self.code_source = code_source
         assert isinstance(code_source, CodeSource)
@@ -115,14 +115,15 @@ class Grader:
         self.github_tag = github_tag
         self.learning_suite_submissions_zip_path = learning_suite_submissions_zip_path
 
-        self.run_on_first_milestone = run_on_first_milestone
-        self.run_on_each_milestone = run_on_each_milestone
+        self.run_on_lab = run_on_lab
+        self.run_on_milestone = run_on_milestone
         self.format_code = format_code
         self.build_only = build_only
         self.allow_rebuild = allow_rebuild
         self.allow_rerun = allow_rerun
 
-        utils.check_file_exists(self.grades_csv_path)
+        if self.grades_csv_path is not None:
+            utils.check_file_exists(self.grades_csv_path)
 
         if self.code_source == CodeSource.GITHUB:
             if self.github_csv_path is None:
@@ -147,21 +148,31 @@ class Grader:
     def run(self):
         """ Call this to start (or resume) the grading process """
 
+        analyze_only = len(self.grades_col_names) == 0
+
         # Print starting message
         print_color(TermColors.BLUE, "Running", self.name, "grader for lab", self.lab_name)
 
         # Read in CSV and validate.  Print # students who need a grade
         student_grades_df = grades_csv.parse_and_check(self.grades_csv_path, self.grades_col_names)
-        grades_needed_df = grades_csv.filter_need_grade(student_grades_df, self.grades_col_names)
-        print_color(
-            TermColors.BLUE,
-            str(grades_csv.filter_need_grade(grades_needed_df, self.grades_col_names).shape[0]),
-            "students need to be graded.",
-        )
+
+        # Filter by students who need a grade
+        if not analyze_only:
+            grades_needed_df = grades_csv.filter_need_grade(
+                student_grades_df, self.grades_col_names
+            )
+            print_color(
+                TermColors.BLUE,
+                str(grades_csv.filter_need_grade(grades_needed_df, self.grades_col_names).shape[0]),
+                "students need to be graded.",
+            )
 
         # Add column for group name to DataFrame
         # For GitHub sources, the group name is the github URL
         grouped_df = self._group_students(student_grades_df)
+
+        # Create work path
+        self._create_work_path()
 
         if self.code_source == CodeSource.LEARNING_SUITE:
             # Unzip submissions and map groups to their submission
@@ -182,13 +193,16 @@ class Grader:
             num_group_members = len(net_ids)
 
             # Check if student/group needs grading
-            num_group_members_need_grade_per_milestone = grades_csv.num_grades_needed_per_milestone(
-                row, self.grades_col_names
-            )
+            if not analyze_only:
+                num_group_members_need_grade_per_milestone = (
+                    grades_csv.num_grades_needed_per_milestone(row, self.grades_col_names)
+                )
 
-            if sum(num_group_members_need_grade_per_milestone) == 0:
-                # This student/group is already fully graded
-                continue
+                if sum(num_group_members_need_grade_per_milestone) == 0:
+                    # This student/group is already fully graded
+                    continue
+            else:
+                num_group_members_need_grade_per_milestone = None
 
             # Print name(s) of who we are grading
             student_work_path = self.work_path / utils.names_to_dir(
@@ -197,7 +211,7 @@ class Grader:
             student_work_path.mkdir(exist_ok=True)
             print_color(
                 TermColors.PURPLE,
-                "Grading: ",
+                "Analyzing: " if analyze_only else "Grading: ",
                 concated_names,
                 "-",
                 student_work_path.relative_to(self.work_path.parent),
@@ -217,8 +231,8 @@ class Grader:
             # (will be false if TA chooses to just re-run and not re-build)
             build = True
 
-            if self.run_on_first_milestone is not None:
-                self.run_on_first_milestone(
+            if self.run_on_lab is not None:
+                self.run_on_lab(
                     lab_name=self.lab_name,
                     student_code_path=student_work_path,
                     build=build,
@@ -229,24 +243,29 @@ class Grader:
                 )
 
             for col_idx, grade_col_name in enumerate(self.grades_col_names):
-                if not num_group_members_need_grade_per_milestone[col_idx]:
-                    print_color(
-                        TermColors.BLUE, "Grade already exists for ", grade_col_name, "(skipping)"
-                    )
-                    continue
+                if not analyze_only:
+                    if not num_group_members_need_grade_per_milestone[col_idx]:
+                        print_color(
+                            TermColors.BLUE,
+                            "Grade already exists for ",
+                            grade_col_name,
+                            "(skipping)",
+                        )
+                        continue
 
                 while True:
                     # Build it and run
-                    msg = self.run_on_each_milestone(
-                        lab_name=self.lab_name,
-                        milestone_name=grade_col_name,
-                        student_code_path=student_work_path,
-                        build=build,
-                        run=not self.build_only,
-                        first_names=first_names,
-                        last_names=last_names,
-                        net_ids=net_ids,
-                    )
+                    if self.run_on_milestone is not None:
+                        msg = self.run_on_milestone(
+                            lab_name=self.lab_name,
+                            milestone_name=grade_col_name,
+                            student_code_path=student_work_path,
+                            build=build,
+                            run=not self.build_only,
+                            first_names=first_names,
+                            last_names=last_names,
+                            net_ids=net_ids,
+                        )
 
                     # reset the flag
                     build = True
@@ -431,3 +450,15 @@ class Grader:
                     return score
                 else:
                     print("  Invalid input. Try again.")
+
+    def _create_work_path(self):
+        if self.code_source == CodeSource.LEARNING_SUITE:
+            if self.work_path.is_dir() and (
+                self.learning_suite_submissions_zip_path.stat().st_mtime
+                > self.work_path.stat().st_mtime
+            ):
+                shutil.rmtree(self.work_path)
+
+        if not self.work_path.is_dir():
+            print_color(TermColors.BLUE, "Creating", self.work_path)
+            self.work_path.mkdir()

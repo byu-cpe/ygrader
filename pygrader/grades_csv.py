@@ -27,9 +27,10 @@ def check_csv_column_names(df, expected_grade_col_names):
     if df.columns[2] != "Net ID":
         error("Column 2 of grades CSV must be 'Net ID'")
 
-    for expected_col_name in expected_grade_col_names:
-        if expected_col_name not in df.columns:
-            error("Grades CSV does not contain column with name", expected_col_name)
+    if expected_grade_col_names is not None:
+        for expected_col_name in expected_grade_col_names:
+            if expected_col_name not in df.columns:
+                error("Grades CSV does not contain column with name", expected_col_name)
 
 
 # Filter down to only those students that need a grade
