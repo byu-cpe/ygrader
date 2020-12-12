@@ -1,9 +1,11 @@
 import pathlib
 import enum
 import sys
-import numpy
 import csv
-from typing import Union, Callable
+import zipfile
+import time
+import os
+from typing import Callable
 
 from . import grades_csv
 from . import utils, student_repos
@@ -35,6 +37,7 @@ class Grader:
         github_csv_path: pathlib.Path = None,
         github_csv_col_name: list = [],
         github_tag: str = None,
+        learning_suite_submissions_zip_path: pathlib.Path = None,
         format_code: bool = False,
         build_only: bool = False,
     ):
@@ -74,6 +77,8 @@ class Grader:
             Column name in the github_csv_path CSV file that should be used as the Github URL.  Note: This column name may be fixed for every lab, or it could vary, which allows you to handle Github groups, and even students changing groups between labs.
         github_tag: Optional[str]
             Tag that holds this students submission for this lab.
+        learning_suite_submissions_zip_path: Optional[pathlib.Path]
+            Path to zip file with all learning suite submissions.  This zip file should contain one zip file per student (if student has multiple submissions, only the most recent will be used).
         format_code: Optional[bool]
             Whether you want the student code formatted using clang-format
         build_only: Optional[bool]
@@ -94,17 +99,12 @@ class Grader:
         assert isinstance(code_source, CodeSource)
 
         self.grades_csv_path = pathlib.Path(grades_csv_path)
-
-        # Listify
         self.grades_col_names = grades_col_names
-        if isinstance(self.grades_col_names, str):
-            self.grades_col_names = [
-                self.grades_col_names,
-            ]
 
         self.github_csv_path = github_csv_path
         self.github_csv_col_name = github_csv_col_name
         self.github_tag = github_tag
+        self.learning_suite_submissions_zip_path = learning_suite_submissions_zip_path
 
         self.run_on_first_milestone = run_on_first_milestone
         self.run_on_each_milestone = run_on_each_milestone
@@ -112,7 +112,23 @@ class Grader:
         self.build_only = build_only
 
         utils.check_file_exists(self.grades_csv_path)
-        utils.check_file_exists(self.github_csv_path)
+
+        if self.code_source == CodeSource.GITHUB:
+            if self.github_csv_path is None:
+                error("You must specify the github_csv_path argument if using CodeSource.GITHUB")
+            if self.github_csv_col_name is None:
+                error(
+                    "You must specify the github_csv_col_name argument if using CodeSource.GITHUB"
+                )
+            if self.github_tag is None:
+                error("You must specify the github_tag argument if using CodeSource.GITHUB")
+            utils.check_file_exists(self.github_csv_path)
+        elif self.code_source == CodeSource.LEARNING_SUITE:
+            if self.learning_suite_submissions_zip_path is None:
+                error(
+                    "You must specify the learning_suite_submissions_zip_path argument if using CodeSource.LEARNING_SUITE"
+                )
+            utils.check_file_exists(self.learning_suite_submissions_zip_path)
 
     def run(self):
         """ Call this to start (or resume) the grading process """
@@ -129,32 +145,23 @@ class Grader:
             "students need to be graded.",
         )
 
-        # Match df index to github URL
-        if self.code_source == CodeSource.GITHUB:
-            student_grades_github_df = grades_csv.match_to_github_url(
-                student_grades_df, self.github_csv_path, self.github_csv_col_name
-            )
-            grades_needed_github_df = grades_csv.match_to_github_url(
-                grades_needed_df, self.github_csv_path, self.github_csv_col_name
-            )
-            print_color(
-                TermColors.BLUE,
-                str(grades_needed_github_df.shape[0]),
-                "of these students have a github URL.",
-            )
-        else:
-            raise NotImplementedError
+        # Add column for group name to DataFrame
+        # For GitHub sources, the group name is the github URL
+        grouped_df = self._group_students(student_grades_df)
 
-        # Group students into their groups
-        if self.code_source == CodeSource.GITHUB:
-            df_grouped = (
-                student_grades_github_df.groupby("github_url").agg(lambda x: list(x)).reset_index()
-            )
-        else:
-            raise NotImplementedError
+        if self.code_source == CodeSource.LEARNING_SUITE:
+            # Unzip submissions and map groups to their submission
+            self._unzip_submissions()
+            self._build_df_idx_to_zip_map(grouped_df)
+            # print_color(
+            #     TermColors.BLUE,
+            #     "Found zip submissions for",
+            #     len(self.df_idx_to_zip_path),
+            #     "of these students.",
+            # )
 
         # Loop through all of the students/groups and perform grading
-        for index, row in df_grouped.iterrows():
+        for index, row in grouped_df.iterrows():
             first_names = row["First Name"]
             last_names = row["Last Name"]
             net_ids = row["Net ID"]
@@ -176,27 +183,24 @@ class Grader:
                 continue
 
             # Print name(s) of who we are grading
-            print_color(TermColors.PURPLE, "Grading: ", concated_names)
             student_work_path = self.work_path / utils.names_to_dir(
                 first_names, last_names, net_ids
             )
+            print_color(
+                TermColors.PURPLE,
+                "Grading: ",
+                concated_names,
+                "-",
+                student_work_path.relative_to(self.work_path.parent),
+            )
 
-            # Get student code
-            if self.code_source == CodeSource.GITHUB:
-                # Clone student repo
-
-                # Print out the student's repo url
-                print("Student repo url: " + row["github_url"])
-
-                if not student_repos.clone_repo(
-                    row["github_url"], self.github_tag, student_work_path
-                ):
-                    continue
-            else:
-                raise NotImplementedError
+            # Get student code from zip or github
+            if not self._get_student_code(index, row, student_work_path):
+                continue
 
             # Format student code
             if self.format_code:
+                print_color(TermColors.BLUE, "Formatting code")
                 utils.clang_format_code(student_work_path)
 
             # variable to flag if build needs to be performed
@@ -278,3 +282,95 @@ class Grader:
                             str(self.grades_csv_path), index=False, quoting=csv.QUOTE_ALL
                         )
                         break
+
+    def _unzip_submissions(self):
+        with zipfile.ZipFile(self.learning_suite_submissions_zip_path, "r") as zf:
+            for zi in zf.infolist():
+                # Remove old zip file if it exists
+                unpack_path = self.work_path / zi.filename
+                if unpack_path.is_file():
+                    unpack_path.unlink()
+
+                # Unzip
+                zf.extract(zi, self.work_path)
+
+                # Fix timestamp
+                date_time = time.mktime(zi.date_time + (0, 0, -1))
+                os.utime(unpack_path, (date_time, date_time))
+
+    def _build_df_idx_to_zip_map(self, df):
+        # Map dataframe index to student zip file
+        self.df_idx_to_zip_path = {}
+
+        for index, row in df.iterrows():
+            group_name = row["group"]
+
+            # For now, group name will always be net id
+            zip_matches = list(self.work_path.glob("*_" + group_name + "_*.zip"))
+            if len(zip_matches) == 0:
+                # print("No zip files match", group_name)
+                continue
+            elif len(zip_matches) > 1:
+                # Multiple submissions -- get the latest one
+                zip_matches.sort(key=lambda x: x.stat().st_mtime, reverse=True)
+
+            self.df_idx_to_zip_path[index] = zip_matches[0]
+
+    def _group_students(self, df):
+        if self.code_source == CodeSource.GITHUB:
+            # For Github source, group name is simply github URL
+            df = grades_csv.match_to_github_url(df, self.github_csv_path, self.github_csv_col_name)
+
+            df_needs_grades = grades_csv.filter_need_grade(df, self.grades_col_names)
+
+            # grades_needed_github_df = grades_csv.match_to_github_url(
+            #     grades_needed_df, self.github_csv_path, self.github_csv_col_name
+            # )
+            print_color(
+                TermColors.BLUE,
+                str(df_needs_grades.shape[0]),
+                "of these students have a github URL.",
+            )
+            groupby_column = "github_url"
+        else:
+            # For learning suite, I don't currently handle groups, but it could be added fairly easily here.
+            # Right now I am just putting them in a group with their Net ID (every student will be in their own group)
+            df["group"] = df["Net ID"]
+            groupby_column = "group"
+
+        # Group students into their groups
+        return df.groupby(groupby_column).agg(lambda x: list(x)).reset_index()
+
+    def _get_student_code(self, index, row, student_work_path):
+        if self.code_source == CodeSource.GITHUB:
+            # Clone student repo
+            print("Student repo url: " + row["github_url"])
+            if not student_repos.clone_repo(row["github_url"], self.github_tag, student_work_path):
+                return False
+        else:
+            # Skip if student has no submission
+            if (
+                self.code_source == CodeSource.LEARNING_SUITE
+                and index not in self.df_idx_to_zip_path
+            ):
+                print_color(TermColors.YELLOW, "No submission")
+                return False
+
+            # Unzip student files (if student_dir doesn't alreayd exist) and delete zip
+            zip_file = self.df_idx_to_zip_path[index]
+            try:
+                # Unzip if sutdent work path is empty
+                if not list(student_work_path.iterdir()):
+                    print(
+                        "Unzipping",
+                        zip_file.name,
+                        "into",
+                        student_work_path.relative_to(self.work_path.parent),
+                    )
+                    with zipfile.ZipFile(zip_file, "r") as zf:
+                        zf.extractall(student_work_path)
+                    zip_file.unlink()
+            except zipfile.BadZipFile:
+                print_color(TermColors.RED, "Bad zip file", zip_file)
+                return False
+        return True

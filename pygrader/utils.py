@@ -1,6 +1,7 @@
 import sys
 import shutil
 import subprocess
+import pathlib
 
 
 class TermColors:
@@ -40,7 +41,6 @@ def check_file_exists(path):
 
 
 def clang_format_code(dir_path):
-    print_color(TermColors.BLUE, "Formatting code in", dir_path)
     for f in dir_path.glob("*"):
         if f.suffix in (".c", ".h"):
             cmd = ["clang-format", "-i", f]

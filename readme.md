@@ -11,7 +11,7 @@ Major feature:
 * Supports labs with multiple different grade columns in Learning Suite (referred to as *milestones* in this documentation).  This can allow you to run different tests each worth different number of points.
 
 
-* Supports team-based assignments.
+* Supports team-based assignments (currently via Github submission only).
 
 
 * Grades are updated in the CSV files as soon as you enter thme, meaning you can Ctrl+C the grading at any point, and re-run to continue where you left off.
@@ -21,7 +21,7 @@ Major feature:
 Used to indicate whether the student code is submitted via LearningSuite or Github
 
 
-### class pygrader.grader.Grader(name: str, lab_name: str, points: list, work_path: pathlib.Path, code_source: pygrader.grader.CodeSource, grades_csv_path: pathlib.Path, grades_col_names: list, run_on_each_milestone: Callable[[str, pathlib.Path], None], run_on_first_milestone: Callable[[str, pathlib.Path], None] = None, github_csv_path: pathlib.Path = None, github_csv_col_name: list = [], github_tag: str = None, format_code: bool = False, build_only: bool = False)
+### class pygrader.grader.Grader(name: str, lab_name: str, points: list, work_path: pathlib.Path, code_source: pygrader.grader.CodeSource, grades_csv_path: pathlib.Path, grades_col_names: list, run_on_each_milestone: Callable[[str, pathlib.Path], None], run_on_first_milestone: Callable[[str, pathlib.Path], None] = None, github_csv_path: pathlib.Path = None, github_csv_col_name: list = [], github_tag: str = None, learning_suite_submissions_zip_path: pathlib.Path = None, format_code: bool = False, build_only: bool = False)
 Grader class
 
 
@@ -84,6 +84,9 @@ Grader class
 
 
     * **github_tag** (*Optional**[**str**]*) – Tag that holds this students submission for this lab.
+
+
+    * **learning_suite_submissions_zip_path** (*Optional**[**pathlib.Path**]*) – Path to zip file with all learning suite submissions.  This zip file should contain one zip file per student (if student has multiple submissions, only the most recent will be used).
 
 
     * **format_code** (*Optional**[**bool**]*) – Whether you want the student code formatted using clang-format
