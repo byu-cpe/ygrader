@@ -44,6 +44,8 @@ You would then create any grading scripts you like (ie in 330 we have a grading 
 
 This script would then create an instance of the ``Grader`` class below, passing in the several required configuration options, followed by calling ``run()``. The configuration options you pass in will likely depend on the lab you are grading.  For example, in my code, I typically have functions that take in the lab name, and then return the different configuration options.
 
+Here's a code snippet of ``main()`` from the 330 pass-off script:
+
 .. code-block:: 
   
   def main():
