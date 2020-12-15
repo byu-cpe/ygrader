@@ -4,10 +4,11 @@ import subprocess
 import sys
 
 from .utils import print_color, TermColors
+from pygrader import utils
 
 
 def clone_repo(git_path, tag, student_repo_path):
-    if student_repo_path.is_dir():
+    if student_repo_path.is_dir() and list(student_repo_path.iterdir()):
         print_color(
             TermColors.BLUE,
             "Student repo",
