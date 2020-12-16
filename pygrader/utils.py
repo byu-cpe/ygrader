@@ -28,8 +28,10 @@ def error(*msg, returncode=-1):
     sys.exit(returncode)
 
 
-def copy_all_files_in_dir(src_dir, dest, exts=None):
+def copy_all_files_in_dir(src_dir, dest, exts=None, exclude=[]):
     for f in src_dir.rglob("*"):
+        if f.name in exclude:
+            continue
         if exts is None or f.suffix in exts:
             print("Copying", f, "to", dest)
             shutil.copy(f, dest)
