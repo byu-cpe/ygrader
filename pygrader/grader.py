@@ -261,6 +261,7 @@ class Grader:
 
                 while True:
                     # Build it and run
+                    msg = None
                     if self.run_on_milestone is not None:
                         msg = self.run_on_milestone(
                             lab_name=self.lab_name,
@@ -292,7 +293,7 @@ class Grader:
                     try:
                         score = self._get_score(
                             concated_names,
-                            self.lab_name,
+                            self.lab_name + "-" + grade_col_name,
                             self.points[col_idx],
                             self.allow_rebuild,
                             self.allow_rerun,
