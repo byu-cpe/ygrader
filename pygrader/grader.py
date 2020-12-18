@@ -236,17 +236,20 @@ class Grader:
             # initialize to False as the code must be built at least once
             # (will be false if TA chooses to just re-run and not re-build)
             build = True
-
+            
             if self.run_on_lab is not None:
-                self.run_on_lab(
-                    lab_name=self.lab_name,
-                    student_code_path=student_work_path,
-                    build=build,
-                    run=not self.build_only,
-                    first_names=first_names,
-                    last_names=last_names,
-                    net_ids=net_ids,
-                )
+                try:
+                    self.run_on_lab(
+                        lab_name=self.lab_name,
+                        student_code_path=student_work_path,
+                        build=build,
+                        run=not self.build_only,
+                        first_names=first_names,
+                        last_names=last_names,
+                        net_ids=net_ids,
+                    )
+                except KeyboardInterrupt:
+                    pass
 
             for col_idx, grade_col_name in enumerate(self.grades_col_names):
                 if not analyze_only:
@@ -260,18 +263,23 @@ class Grader:
                         continue
 
                 while True:
+                    msg = "" 
                     # Build it and run
+                    msg = None
                     if self.run_on_milestone is not None:
-                        msg = self.run_on_milestone(
-                            lab_name=self.lab_name,
-                            milestone_name=grade_col_name,
-                            student_code_path=student_work_path,
-                            build=build,
-                            run=not self.build_only,
-                            first_names=first_names,
-                            last_names=last_names,
-                            net_ids=net_ids,
-                        )
+                        try:
+                            msg = self.run_on_milestone(
+                                lab_name=self.lab_name,
+                                milestone_name=grade_col_name,
+                                student_code_path=student_work_path,
+                                build=build,
+                                run=not self.build_only,
+                                first_names=first_names,
+                                last_names=last_names,
+                                net_ids=net_ids,
+                            )
+                        except KeyboardInterrupt:
+                            print("")
 
                     # reset the flag
                     build = True
@@ -292,7 +300,7 @@ class Grader:
                     try:
                         score = self._get_score(
                             concated_names,
-                            self.lab_name,
+                            self.lab_name + "-" + grade_col_name,
                             self.points[col_idx],
                             self.allow_rebuild,
                             self.allow_rerun,
