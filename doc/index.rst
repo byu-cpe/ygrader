@@ -46,7 +46,7 @@ This script would then create an instance of the ``Grader`` class below, passing
 
 Here's a code snippet of ``main()`` from the 330 pass-off script:
 
-.. code-block:: 
+.. code-block:: python
   
   def main():
     # Command-line arguments

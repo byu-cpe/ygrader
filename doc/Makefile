@@ -21,3 +21,7 @@ help:
 # "make mode" option.  $(O) is meant as a shortcut for $(SPHINXOPTS).
 %: Makefile
 	@$(SPHINXBUILD) -M $@ "$(SOURCEDIR)" "$(BUILDDIR)" $(SPHINXOPTS) $(O)
+
+install:
+	sudo apt-get install -y sphinx-common
+	sudo pip3 install sphinx-markdown-builder

@@ -41,6 +41,15 @@ def filter_need_grade(df, expected_grade_col_names):
 
 def match_to_github_url(df_needs_grade, github_csv_path, github_csv_col_name):
     def _github_url_to_ssh(github_url):
+        if not isinstance(github_url, str):
+            error(
+                "Student github URL retrieved from CSV file is not a string. Value:",
+                github_url,
+                "is of type",
+                type(github_url),
+                ". Check that you provided the correct column name.  Also check that the Github CSV header row contains a comma at the end.",
+            )
+
         # Legacy -- non-lab 3 urls are only usernames -- fix this in future year quizzes
         if not "github.com" in github_url:
             github_url = "git@github.com:byu-ecen427-classroom/427-labs-" + github_url + ".git"

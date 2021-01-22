@@ -55,7 +55,7 @@ The typical usage model is that you create your own grader repository for your c
 
 You would then create any grading scripts you like (ie in 330 we have a grading script for pass-off, and one for coding standard).  In my code, these scripts take a single command-line argument, which indicates which lab to grade.  An example:
 
-```
+```bash
 ./run_passoff_grader.py lab3
 ```
 
@@ -63,7 +63,7 @@ This script would then create an instance of the `Grader` class below, passing i
 
 Here’s a code snippet of `main()` from the 330 pass-off script:
 
-```
+```python
 def main():
   # Command-line arguments
   parser = argparse.ArgumentParser()
@@ -134,11 +134,11 @@ A: My usual approach is to make this repo a submodule in your class-specific rep
 ## Class Documentation
 
 
-### class pygrader.grader.CodeSource(value)
+### class pygrader.grader.CodeSource()
 Used to indicate whether the student code is submitted via LearningSuite or Github
 
 
-### class pygrader.grader.Grader(name: str, lab_name: str, points: list, work_path: pathlib.Path, code_source: pygrader.grader.CodeSource, grades_csv_path: pathlib.Path, grades_col_names: list, run_on_milestone: Callable[[str, pathlib.Path], None] = None, run_on_lab: Callable[[str, pathlib.Path], None] = None, github_csv_path: pathlib.Path = None, github_csv_col_name: list = [], github_tag: str = None, learning_suite_submissions_zip_path: pathlib.Path = None, format_code: bool = False, build_only: bool = False, allow_rebuild: bool = True, allow_rerun: bool = True)
+### class pygrader.grader.Grader(name: str, lab_name: str, points: list, work_path: pathlib.Path, code_source: pygrader.grader.CodeSource, grades_csv_path: pathlib.Path, grades_col_names: list, run_on_milestone: Callable[[str, pathlib.Path], None] = None, run_on_lab: Callable[[str, pathlib.Path], None] = None, github_csv_path: pathlib.Path = None, github_csv_col_name: str = '', github_tag: str = None, learning_suite_submissions_zip_path: pathlib.Path = None, format_code: bool = False, build_only: bool = False, run_only: bool = False, allow_rebuild: bool = True, allow_rerun: bool = True)
 Grader class
 
 
@@ -175,7 +175,7 @@ Grader class
         * milestone_name: (str) Grade CSV column name of milestone to run
 
 
-        * student_path (pathlib.Path)  The page to where the student files are stored.
+        * student_code_path (pathlib.Path)  The page to where the student files are stored.
 
 
         * build: (bool) Whether files should be built/compiled.
@@ -217,6 +217,9 @@ Grader class
 
 
     * **build_only** (*Optional**[**bool**]*) – Whether you only want to build and not run/grade the students code.  This will be passed to your callback function, and is useful for labs that take a while to build.  You can build all the code in one pass, then return and grade the code later.
+
+
+    * **run_only** (*Optional**[**bool**]*) – Whether you only want to run/grade and not build the students code.  This will be passed to your callback function, and is useful for labs that take a while to build.  You can build all the code in one pass, then return and grade the code later.
 
 
     * **allow_rebuild** (*Optional**[**bool**]*) – When asking for a grade, the program will normally allow the grader to request a “rebuild and run”.  If your grader doesn’t support this, then set this to False.

@@ -36,11 +36,12 @@ class Grader:
         run_on_milestone: Callable[[str, pathlib.Path], None] = None,
         run_on_lab: Callable[[str, pathlib.Path], None] = None,
         github_csv_path: pathlib.Path = None,
-        github_csv_col_name: list = [],
+        github_csv_col_name: str = "",
         github_tag: str = None,
         learning_suite_submissions_zip_path: pathlib.Path = None,
         format_code: bool = False,
         build_only: bool = False,
+        run_only: bool = False,
         allow_rebuild: bool = True,
         allow_rerun: bool = True,
     ):
@@ -67,7 +68,7 @@ class Grader:
 
           * lab_name: (str) The lab_name provided earlier.
           * milestone_name: (str) Grade CSV column name of milestone to run
-          * student_path (pathlib.Path)  The page to where the student files are stored.
+          * student_code_path (pathlib.Path)  The page to where the student files are stored.
           * build: (bool) Whether files should be built/compiled.
           * run: (bool) Whether milestone should be run.
           * first_names: (list) List of first name of students in the group
@@ -89,6 +90,8 @@ class Grader:
             Whether you want the student code formatted using clang-format
         build_only: Optional[bool]
             Whether you only want to build and not run/grade the students code.  This will be passed to your callback function, and is useful for labs that take a while to build.  You can build all the code in one pass, then return and grade the code later.
+        run_only: Optional[bool]
+            Whether you only want to run/grade and not build the students code.  This will be passed to your callback function, and is useful for labs that take a while to build.  You can build all the code in one pass, then return and grade the code later.
         allow_rebuild: Optional[bool]
             When asking for a grade, the program will normally allow the grader to request a "rebuild and run".  If your grader doesn't support this, then set this to False.
         allow_rerun: Optional[bool]
@@ -125,6 +128,7 @@ class Grader:
         self.run_on_milestone = run_on_milestone
         self.format_code = format_code
         self.build_only = build_only
+        self.run_only = run_only
         self.allow_rebuild = allow_rebuild
         self.allow_rerun = allow_rerun
 
@@ -236,13 +240,13 @@ class Grader:
             # initialize to False as the code must be built at least once
             # (will be false if TA chooses to just re-run and not re-build)
             build = True
-            
+
             if self.run_on_lab is not None:
                 try:
                     self.run_on_lab(
                         lab_name=self.lab_name,
                         student_code_path=student_work_path,
-                        build=build,
+                        build=build and not self.run_only,
                         run=not self.build_only,
                         first_names=first_names,
                         last_names=last_names,
@@ -263,7 +267,7 @@ class Grader:
                         continue
 
                 while True:
-                    msg = "" 
+                    msg = ""
                     # Build it and run
                     msg = None
                     if self.run_on_milestone is not None:
@@ -272,7 +276,7 @@ class Grader:
                                 lab_name=self.lab_name,
                                 milestone_name=grade_col_name,
                                 student_code_path=student_work_path,
-                                build=build,
+                                build=build and not self.run_only,
                                 run=not self.build_only,
                                 first_names=first_names,
                                 last_names=last_names,
