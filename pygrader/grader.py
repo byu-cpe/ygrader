@@ -434,7 +434,7 @@ class Grader:
         if extra_message:
             print_color(TermColors.BOLD, extra_message)
         input_txt = (
-            TermColors.YELLOW
+            TermColors.BLUE
             + "Enter score for "
             + names
             + ", "
