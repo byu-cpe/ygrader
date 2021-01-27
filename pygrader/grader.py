@@ -171,7 +171,7 @@ class Grader:
             )
 
         # If help message is a single string, duplicate to each milestone
-        if isinstance(self.help_msg, str):
+        if isinstance(self.help_msg, str) or self.help_msg is None:
             self.help_msg = [self.help_msg] * len(self.grades_col_names)
 
     def run(self):
@@ -286,10 +286,12 @@ class Grader:
                         continue
 
                 while True:
+                    score = None
+
                     # Build it and run
                     if self.run_on_milestone is not None:
                         try:
-                            self.run_on_milestone(
+                            score = self.run_on_milestone(
                                 lab_name=self.lab_name,
                                 milestone_name=grade_col_name,
                                 student_code_path=student_work_path,
@@ -318,18 +320,20 @@ class Grader:
                             grade_col_name,
                             "; this grade will be overwritten.",
                         )
-                    try:
-                        score = self._get_score(
-                            concated_names,
-                            self.lab_name + "-" + grade_col_name,
-                            self.points[col_idx],
-                            self.allow_rebuild,
-                            self.allow_rerun,
-                            self.help_msg[col_idx],
-                        )
-                    except KeyboardInterrupt:
-                        print_color(TermColors.RED, "\nExiting")
-                        sys.exit(0)
+
+                    if score is None:
+                        try:
+                            score = self._get_score(
+                                concated_names,
+                                self.lab_name + "-" + grade_col_name,
+                                self.points[col_idx],
+                                self.allow_rebuild,
+                                self.allow_rerun,
+                                self.help_msg[col_idx],
+                            )
+                        except KeyboardInterrupt:
+                            print_color(TermColors.RED, "\nExiting")
+                            sys.exit(0)
 
                     if score == "s":
                         break
