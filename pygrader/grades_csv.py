@@ -20,22 +20,12 @@ def check_csv_column_names(df, expected_grade_col_names):
     """This function checks that the provided CSV file has the correct number of coulumns,
     and that each column name matches the expected values for the lab being graded"""
 
-    # Check that column [0] is last name
-    if df.columns[0] != "Last Name":
-        error("Column 0 of grades CSV must be 'Last Name'")
+    required_columns = ["Last Name", "First Name", "Net ID"]
+    required_columns += expected_grade_col_names
 
-    # Check that column [1] is first name
-    if df.columns[1] != "First Name":
-        error("Column 1 of grades CSV must be 'First Name'")
-
-    # Check that column [2] is Net ID
-    if df.columns[2] != "Net ID":
-        error("Column 2 of grades CSV must be 'Net ID'")
-
-    if expected_grade_col_names is not None:
-        for expected_col_name in expected_grade_col_names:
-            if expected_col_name not in df.columns:
-                error("Grades CSV does not contain column with name", expected_col_name)
+    for required_column in required_columns:
+        if required_column not in df.columns:
+            error("Grades CSV must contain column '" + required_column + "'")
 
 
 # Filter down to only those students that need a grade
