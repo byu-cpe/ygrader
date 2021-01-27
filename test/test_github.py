@@ -20,7 +20,7 @@ class TestGithub(unittest.TestCase):
             name="test_github",
             lab_name="lab1",
             points=(10,),
-            work_path=TEST_PATH,
+            work_path=TEST_PATH / "temp",
             code_source=CodeSource.GITHUB,
             grades_csv_path=TEST_RESOURCES_PATH / "grades.csv",
             grades_col_names=("lab1",),
@@ -36,7 +36,7 @@ class TestGithub(unittest.TestCase):
 class TestLearningSuite(unittest.TestCase):
     def test_me(self):
         grader = Grader(
-            name="test_github",
+            name="test_learningsuite",
             lab_name="lab1",
             points=(10,),
             work_path=TEST_PATH / "temp",

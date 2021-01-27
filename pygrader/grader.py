@@ -106,8 +106,6 @@ class Grader:
         self.points = points
 
         self.work_path = pathlib.Path(work_path)
-        if not self.work_path.is_dir():
-            error("work_path", self.work_path, "is not a directory")
         self.work_path = self.work_path / (lab_name + "_" + name)
 
         self.code_source = code_source
@@ -479,4 +477,4 @@ class Grader:
 
         if not self.work_path.is_dir():
             print_color(TermColors.BLUE, "Creating", self.work_path)
-            self.work_path.mkdir()
+            self.work_path.mkdir(exist_ok=True, parents=True)
