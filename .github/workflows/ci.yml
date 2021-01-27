@@ -6,8 +6,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v2
-    # - name: Install packages
-    #   run: 
+    - name: Install packages
+      run: 
+          sudo pip3 install pandas
     #     sudo pip3 install cmake
     #     sudo apt-get update
     #     sudo apt-get install -y qt5-default gcc-arm-none-eabi libnewlib-arm-none-eabi libstdc++-arm-none-eabi-newlib clang-format-6.0    
