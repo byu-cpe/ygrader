@@ -19,11 +19,11 @@ class TestGithub(unittest.TestCase):
         grader = Grader(
             name="test_github",
             lab_name="lab1",
-            points=(10,),
+            points=10,
             work_path=TEST_PATH / "temp",
             code_source=CodeSource.GITHUB,
             grades_csv_path=TEST_RESOURCES_PATH / "grades.csv",
-            grades_col_names=("lab1",),
+            grades_col_names="lab1",
             github_csv_path=TEST_RESOURCES_PATH / "github.csv",
             github_csv_col_name="github_url",
             github_tag="master",
