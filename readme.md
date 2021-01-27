@@ -154,9 +154,6 @@ Grader class
     * **work_path** (*pathlib.Path*) – Path to directory where student files will be placed.  For example, if you pass in ‘.’, then student code would be placed in ‘./lab3’
 
 
-    * **code_source** (*CodeSource*) – Type of source code location, ie. Learning Suite zip file or Github
-
-
     * **grades_csv_path** (*pathlib.Path*) – Path to CSV file with student grades exported from LearningSuite.  You need to export netid, first and last name, and any grade columns you want to populate.
 
 
@@ -166,7 +163,24 @@ Grader class
     * **points** (*int | list of int*) – Number of points the graded milestone(s) are worth.
 
 
-    * **run_on_milestone** (*Callable*) – Called on each graded milestone.  Arguments provided (I suggest you make use of \*\*kwargs as I may need to pass more information back in the future):
+    * **code_source** (*CodeSource*) – Type of source code location, ie. Learning Suite zip file or Github. If Github, then you need to provide the subsequent github_\* arguments.  If Learning Suite, then provide the learning_suite_\* arguments.
+
+
+    * **github_csv_path** (*Optional**[**pathlib.Path**]*) – Path to CSV file with Github URL for each student.  There must be a ‘Net ID’ column name.  One way to get this is to have a Learning Suite quiz where students enter their Github URL, and then export the results.
+
+
+    * **github_csv_col_name** (*Optional**[**str**]*) – Column name in the github_csv_path CSV file that should be used as the Github URL.  Note: This column name may be fixed for every lab, or it could vary, which allows you to handle Github groups, and even students changing groups between labs.
+
+
+    * **github_tag** (*Optional**[**str**]*) – Tag that holds this students submission for this lab.
+
+
+    * **learning_suite_submissions_zip_path** (*Optional**[**pathlib.Path**]*) – Path to zip file with all learning suite submissions.  This zip file should contain one zip file per student (if student has multiple submissions, only the most recent will be used).
+
+
+    * **run_on_milestone** (*Callable*) – This is the main callback function that you should provide to build, run and/or evaluate the student’s file.  You can do anything you like in this function (compile and run software, build bitstreams, program boards, etc).
+
+    > The callback will be called on each graded milestone.  Your callback function will be provided with several arguments (I suggest you make use of \*\*kwargs as I may need to pass more information back in the future):
 
 
         * lab_name: (str) The lab_name provided earlier.
@@ -193,24 +207,18 @@ Grader class
         * net_ids: (list) List of net_ids of students in the group.
 
 
+        * section: (str) Student section number, assuming ‘Section Number’ was contained in grades_csv exported from Learning Suite.
+
+
+        * homework_id: (str) Student homework ID, assuming ‘Course Homework ID’ was contained in grades_csv exported from Learning Suite.
+
+
         * Return value: (int)
     If you return nothing, the default script behavior is that the program will ask the user to input a grade.  If you already know the grade you want to assign, and don’t want to prompt the user, just return the grade from this callback.
 
 
 
-    * **run_on_lab** (*Optional**[**Callable**]*) – This function will be called once, before any milestones are graded.  Useful for doing one-off actions before running each milestone, or if you are not grading any milestones and only running in analysis mode. This function callback takes the same arguments as the one provided to ‘run_on_milestone’, except it does not have a ‘milestone_name’ argument, and you should not return any value.
-
-
-    * **github_csv_path** (*Optional**[**pathlib.Path**]*) – (Only required if code_source == CodeSource.GITHUB) Path to CSV file with Github URL for each student.  There must be a ‘Net ID’ column name.  One way to get this is to have a Learning Suite quiz where students enter their Github URL, and then export the results.
-
-
-    * **github_csv_col_name** (*Optional**[**str**]*) – Column name in the github_csv_path CSV file that should be used as the Github URL.  Note: This column name may be fixed for every lab, or it could vary, which allows you to handle Github groups, and even students changing groups between labs.
-
-
-    * **github_tag** (*Optional**[**str**]*) – Tag that holds this students submission for this lab.
-
-
-    * **learning_suite_submissions_zip_path** (*Optional**[**pathlib.Path**]*) – Path to zip file with all learning suite submissions.  This zip file should contain one zip file per student (if student has multiple submissions, only the most recent will be used).
+    * **run_on_lab** (*Optional**[**Callable**]*) – This is an additional callback function, but will only be called once, even if you are grading multiple milestones.  It will be called before any milestones are graded.  This is useful for doing one-off actions before running each milestone, or if you are not grading any milestones and only running in analysis mode. This function callback takes the same arguments as the one provided to ‘run_on_milestone’, except it does not have a ‘milestone_name’ argument, and you should not return any value.  If you only have single milestone to grade, you can use either callback method, although if you want to return a grade, you will need to use run_on_milestone.
 
 
 

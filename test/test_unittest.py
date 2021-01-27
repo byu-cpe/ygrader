@@ -56,4 +56,7 @@ class TestLearningSuite(unittest.TestCase):
 
     def runner(self, **kw):
         print("Modified time:", kw["modified_time"])
+
+        self.assertIn("section", kw)
+        self.assertIn("homework_id", kw)
         return 3
