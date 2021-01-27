@@ -6,6 +6,7 @@ import zipfile
 import time
 import os
 import shutil
+import datetime
 from typing import Callable
 
 from . import grades_csv
@@ -246,10 +247,14 @@ class Grader:
                 student_work_path.relative_to(self.work_path.parent),
             )
 
-            # Get student code from zip or github
-            if not self._get_student_code(index, row, student_work_path):
+            # Get student code from zip or github.  If this fails it returns False.
+            # Code from zip will return modified time (epoch, float). Code from github will return True.
+            timestamp = self._get_student_code(index, row, student_work_path)
+            if timestamp is False:
                 continue
-
+            modified_time = None
+            if isinstance(timestamp, float):
+                modified_time = datetime.datetime.fromtimestamp(timestamp)
             # Format student code
             if self.format_code:
                 print_color(TermColors.BLUE, "Formatting code")
@@ -267,6 +272,8 @@ class Grader:
             callback_args["first_names"] = first_names
             callback_args["last_names"] = last_names
             callback_args["net_ids"] = net_ids
+            if modified_time is not None:
+                callback_args["modified_time"] = modified_time
 
             if self.run_on_lab is not None:
                 try:
@@ -351,7 +358,9 @@ class Grader:
                             ] = score
 
                         student_grades_df.to_csv(
-                            str(self.grades_csv_path), index=False, quoting=csv.QUOTE_ALL
+                            str(self.grades_csv_path),
+                            index=False,
+                            quoting=csv.QUOTE_ALL,
                         )
                         break
 
@@ -419,6 +428,8 @@ class Grader:
             print("Student repo url: " + row["github_url"])
             if not student_repos.clone_repo(row["github_url"], self.github_tag, student_work_path):
                 return False
+            return True
+
         else:
             # Skip if student has no submission
             if (
@@ -428,10 +439,10 @@ class Grader:
                 print_color(TermColors.YELLOW, "No submission")
                 return False
 
-            # Unzip student files (if student_dir doesn't alreayd exist) and delete zip
+            # Unzip student files (if student_dir doesn't already exist) and delete zip
             zip_file = self.df_idx_to_zip_path[index]
             try:
-                # Unzip if sutdent work path is empty
+                # Unzip if student work path is empty
                 if not list(student_work_path.iterdir()):
                     print(
                         "Unzipping",
@@ -441,14 +452,19 @@ class Grader:
                     )
                     with zipfile.ZipFile(zip_file, "r") as zf:
                         zf.extractall(student_work_path)
-                    zip_file.unlink()
             except zipfile.BadZipFile:
                 print_color(TermColors.RED, "Bad zip file", zip_file)
                 return False
-        return True
+            return zip_file.stat().st_mtime
 
     def _get_score(
-        self, names, assignment_name, max_score, allow_rebuild, allow_rerun, extra_message=""
+        self,
+        names,
+        assignment_name,
+        max_score,
+        allow_rebuild,
+        allow_rerun,
+        extra_message="",
     ):
         if extra_message:
             print_color(TermColors.BOLD, extra_message)

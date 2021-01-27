@@ -55,4 +55,5 @@ class TestLearningSuite(unittest.TestCase):
         self.assertTrue(filecmp.cmp(grades_path, grades_path_golden))
 
     def runner(self, **kw):
+        print("Modified time:", kw["modified_time"])
         return 3
