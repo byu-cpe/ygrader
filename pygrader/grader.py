@@ -36,7 +36,7 @@ class Grader:
         run_on_milestone: Callable[[str, pathlib.Path], None] = None,
         run_on_lab: Callable[[str, pathlib.Path], None] = None,
         github_csv_path: pathlib.Path = None,
-        github_csv_col_name: str = "",
+        github_csv_col_name: str = None,
         github_tag: str = None,
         learning_suite_submissions_zip_path: pathlib.Path = None,
         format_code: bool = False,

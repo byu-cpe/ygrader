@@ -6,7 +6,12 @@ from .utils import error
 
 
 def parse_and_check(grades_csv_path, grades_col_names):
-    grades_df = pandas.read_csv(grades_csv_path)
+    try:
+        grades_df = pandas.read_csv(grades_csv_path)
+    except pandas.errors.EmptyDataError:
+        error(
+            "Exception: pandas.errors.EmptyDataError.  Is your", grades_csv_path.name, "file empty?"
+        )
     check_csv_column_names(grades_df, grades_col_names)
     return grades_df
 
@@ -60,7 +65,12 @@ def match_to_github_url(df_needs_grade, github_csv_path, github_csv_col_name):
         else:
             return github_url
 
-    df_github = pandas.read_csv(github_csv_path)
+    try:
+        df_github = pandas.read_csv(github_csv_path)
+    except pandas.errors.EmptyDataError:
+        error(
+            "Exception pandas.errors.EmptyDataError. Is your", github_csv_path.name, "file empty?"
+        )
 
     # Strip whitespace from CSV header names
     df_github.rename(columns=lambda x: x.strip(), inplace=True)
