@@ -260,16 +260,19 @@ class Grader:
             # (will be false if TA chooses to just re-run and not re-build)
             build = True
 
+            callback_args = {}
+            callback_args["lab_name"] = self.lab_name
+            callback_args["student_code_path"] = student_work_path
+            callback_args["run"] = not self.build_only
+            callback_args["first_names"] = first_names
+            callback_args["last_names"] = last_names
+            callback_args["net_ids"] = net_ids
+
             if self.run_on_lab is not None:
                 try:
                     self.run_on_lab(
-                        lab_name=self.lab_name,
-                        student_code_path=student_work_path,
+                        **callback_args,
                         build=build and not self.run_only,
-                        run=not self.build_only,
-                        first_names=first_names,
-                        last_names=last_names,
-                        net_ids=net_ids,
                     )
                 except KeyboardInterrupt:
                     pass
@@ -292,14 +295,9 @@ class Grader:
                     if self.run_on_milestone is not None:
                         try:
                             score = self.run_on_milestone(
-                                lab_name=self.lab_name,
+                                **callback_args,
                                 milestone_name=grade_col_name,
-                                student_code_path=student_work_path,
                                 build=build and not self.run_only,
-                                run=not self.build_only,
-                                first_names=first_names,
-                                last_names=last_names,
-                                net_ids=net_ids,
                             )
                         except KeyboardInterrupt:
                             print("")
