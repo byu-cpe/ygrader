@@ -6,6 +6,7 @@ import zipfile
 import time
 import os
 import shutil
+import datetime
 from typing import Callable
 
 from . import grades_csv
@@ -36,15 +37,17 @@ class Grader:
         run_on_milestone: Callable[[str, pathlib.Path], None] = None,
         run_on_lab: Callable[[str, pathlib.Path], None] = None,
         github_csv_path: pathlib.Path = None,
-        github_csv_col_name: list = [],
+        github_csv_col_name: str = None,
         github_tag: str = None,
         learning_suite_submissions_zip_path: pathlib.Path = None,
         learning_suite_groups_csv_path: pathlib.Path = None,
         learning_suite_groups_csv_col_name: str = None,
         format_code: bool = False,
         build_only: bool = False,
+        run_only: bool = False,
         allow_rebuild: bool = True,
         allow_rerun: bool = True,
+        help_msg: str = None,
     ):
 
         """
@@ -54,31 +57,16 @@ class Grader:
             Name of the grading process (ie. 'passoff' or 'coding_standard').  This is just used for folder naming.
         lab_name: str
             Name of the lab that you are grading (ie. 'lab3').  This is passed back to your run_on_* functions.
-        points: list of int
-            Number of points the graded milestone(s) are worth.
         work_path: pathlib.Path
             Path to directory where student files will be placed.  For example, if you pass in '.', then student code would be placed in './lab3'
-        code_source: CodeSource
-            Type of source code location, ie. Learning Suite zip file or Github
         grades_csv_path: pathlib.Path
             Path to CSV file with student grades exported from LearningSuite.  You need to export netid, first and last name, and any grade columns you want to populate.
-        grades_col_names: list of str
+        grades_col_names: str | list of str
             Names of student CSV columns for milestones that will be graded.
-        run_on_milestone: Callable
-            Called on each graded milestone.  Arguments provided (I suggest you make use of \*\*kwargs as I may need to pass more information back in the future):
-
-          * lab_name: (str) The lab_name provided earlier.
-          * milestone_name: (str) Grade CSV column name of milestone to run
-          * student_path (pathlib.Path)  The page to where the student files are stored.
-          * build: (bool) Whether files should be built/compiled.
-          * run: (bool) Whether milestone should be run.
-          * first_names: (list) List of first name of students in the group
-          * last_names: (list) List of last names of students in the group
-          * net_ids: (list) List of net_ids of students in the group.
-          * Return value: (str)
-            When this function returns, the program will ask the user for a grade input.  If you return a string from this function, it will print that message first.  This can be a helpful reminder to the TAs of a grading rubric, things they should watch out for, etc.
-        run_on_lab: Optional[Callable]
-            This function will be called once, before any milestones are graded.  Useful for doing one-off actions before running each milestone, or if you are not grading any milestones and only running in analysis mode. This function callback takes the same arguments as the one provided to 'run_on_milestone', except it does not have a 'milestone_name' argument.
+        points: int | list of int
+            Number of points the graded milestone(s) are worth.
+        code_source: CodeSource
+            Type of source code location, ie. Learning Suite zip file or Github. If Github, then you need to provide the subsequent github_* arguments.  If Learning Suite, then provide the learning_suite_* arguments.
         github_csv_path:  Optional[pathlib.Path]
             Path to CSV file with Github URL for each student.  There must be a 'Net ID' column name.  One way to get this is to have a Learning Suite quiz where students enter their Github URL, and then export the results.
         github_csv_col_name: Optional[str]
@@ -91,26 +79,51 @@ class Grader:
             If you have groups, this arguments points to a CSV file that contains group names.
         learning_suite_groups_csv_col_name: Optional[str]
             If you have groups, this arguments provides the column name to use for the group.
+        run_on_milestone: Callable
+            This is the main callback function that you should provide to build, run and/or evaluate the student's file.  You can do anything you like in this function (compile and run software, build bitstreams, program boards, etc).
+
+            The callback will be called on each graded milestone.  Your callback function will be provided with several arguments (I suggest you make use of \*\*kwargs as I may need to pass more information back in the future):
+
+          * lab_name: (str) The lab_name provided earlier.
+          * milestone_name: (str) Grade CSV column name of milestone to run
+          * student_code_path (pathlib.Path)  The page to where the student files are stored.
+          * build: (bool) Whether files should be built/compiled.
+          * run: (bool) Whether milestone should be run.
+          * first_names: (list) List of first name of students in the group
+          * last_names: (list) List of last names of students in the group
+          * net_ids: (list) List of net_ids of students in the group.
+          * section: (str) Student section number, assuming 'Section Number' was contained in grades_csv exported from Learning Suite.
+          * homework_id: (str) Student homework ID, assuming 'Course Homework ID' was contained in grades_csv exported from Learning Suite.
+          * Return value: (int)
+            If you return nothing, the default script behavior is that the program will ask the user to input a grade.  If you already know the grade you want to assign, and don't want to prompt the user, just return the grade from this callback.
+
+        run_on_lab: Optional[Callable]
+            This is an additional callback function, but will only be called once, even if you are grading multiple milestones.  It will be called before any milestones are graded.  This is useful for doing one-off actions before running each milestone, or if you are not grading any milestones and only running in analysis mode. This function callback takes the same arguments as the one provided to 'run_on_milestone', except it does not have a 'milestone_name' argument, and you should not return any value.  If you only have single milestone to grade, you can use either callback method, although if you want to return a grade, you will need to use run_on_milestone.
+
+        Other Parameters
+        ----------
         format_code: Optional[bool]
             Whether you want the student code formatted using clang-format
         build_only: Optional[bool]
             Whether you only want to build and not run/grade the students code.  This will be passed to your callback function, and is useful for labs that take a while to build.  You can build all the code in one pass, then return and grade the code later.
+        run_only: Optional[bool]
+            Whether you only want to run/grade and not build the students code.  This will be passed to your callback function, and is useful for labs that take a while to build.  You can build all the code in one pass, then return and grade the code later.
         allow_rebuild: Optional[bool]
             When asking for a grade, the program will normally allow the grader to request a "rebuild and run".  If your grader doesn't support this, then set this to False.
         allow_rerun: Optional[bool]
             When asking for a grade, the program will normally allow the grader to request a "re-run only (no rebuld)". If your grader doesn't support this, then set this to False.  At least one of 'allow_rebuild' and 'allow_rerun' must be True.
+        help_msg: Optional[str]
+            When the script asks the user for a grade, it will print this message first.  This can be a helpful reminder to the TAs of a grading rubric, things they should watch out for, etc. This can be provided as a single string or a list of strings if there is a different message for each milestone.
         """
 
         self.name = name
         self.lab_name = lab_name
 
         if not isinstance(points, (list, tuple)):
-            error("points must a be list or tuple (points per milestone)")
+            points = [points]
         self.points = points
 
         self.work_path = pathlib.Path(work_path)
-        if not self.work_path.is_dir():
-            error("work_path", self.work_path, "is not a directory")
         self.work_path = self.work_path / (lab_name + "_" + name)
 
         self.code_source = code_source
@@ -119,7 +132,7 @@ class Grader:
         self.grades_csv_path = pathlib.Path(grades_csv_path)
 
         if not isinstance(grades_col_names, (list, tuple)):
-            error("grades_col_names must be list or tuple (column name per milestone)")
+            grades_col_names = [grades_col_names]
         self.grades_col_names = grades_col_names
 
         self.github_csv_path = github_csv_path
@@ -133,8 +146,10 @@ class Grader:
         self.run_on_milestone = run_on_milestone
         self.format_code = format_code
         self.build_only = build_only
+        self.run_only = run_only
         self.allow_rebuild = allow_rebuild
         self.allow_rerun = allow_rerun
+        self.help_msg = help_msg
 
         if self.grades_csv_path is not None:
             utils.check_file_exists(self.grades_csv_path)
@@ -163,6 +178,20 @@ class Grader:
 
         if not (self.allow_rebuild or self.allow_rerun):
             error("At least one of allow_rebuild and allow_rerun needs to be True.")
+
+        # Check that # of CSV columns to grade matches # of points list
+        if len(self.grades_col_names) != len(self.points):
+            error(
+                "List length of grades_col_names (",
+                len(self.grades_col_names),
+                ") does not match length of points (",
+                len(self.points),
+                ")",
+            )
+
+        # If help message is a single string, duplicate to each milestone
+        if isinstance(self.help_msg, str) or self.help_msg is None:
+            self.help_msg = [self.help_msg] * len(self.grades_col_names)
 
     def run(self):
         """ Call this to start (or resume) the grading process """
@@ -236,10 +265,14 @@ class Grader:
                 student_work_path.relative_to(self.work_path.parent),
             )
 
-            # Get student code from zip or github
-            if not self._get_student_code(index, row, student_work_path):
+            # Get student code from zip or github.  If this fails it returns False.
+            # Code from zip will return modified time (epoch, float). Code from github will return True.
+            timestamp = self._get_student_code(index, row, student_work_path)
+            if timestamp is False:
                 continue
-
+            modified_time = None
+            if isinstance(timestamp, float):
+                modified_time = datetime.datetime.fromtimestamp(timestamp)
             # Format student code
             if self.format_code:
                 print_color(TermColors.BLUE, "Formatting code")
@@ -250,16 +283,24 @@ class Grader:
             # (will be false if TA chooses to just re-run and not re-build)
             build = True
 
+            callback_args = {}
+            callback_args["lab_name"] = self.lab_name
+            callback_args["student_code_path"] = student_work_path
+            callback_args["run"] = not self.build_only
+            callback_args["first_names"] = first_names
+            callback_args["last_names"] = last_names
+            callback_args["net_ids"] = net_ids
+            if modified_time is not None:
+                callback_args["modified_time"] = modified_time
+            if "Section Number" in row:
+                callback_args["section"] = row["Section Number"]
+            if "Course Homework ID" in row:
+                callback_args["homework_id"] = row["Course Homework ID"]
+
             if self.run_on_lab is not None:
                 try:
                     self.run_on_lab(
-                        lab_name=self.lab_name,
-                        student_code_path=student_work_path,
-                        build=build,
-                        run=not self.build_only,
-                        first_names=first_names,
-                        last_names=last_names,
-                        net_ids=net_ids,
+                        **callback_args, build=build and not self.run_only,
                     )
                 except KeyboardInterrupt:
                     pass
@@ -276,20 +317,15 @@ class Grader:
                         continue
 
                 while True:
-                    msg = ""
+                    score = None
+
                     # Build it and run
-                    msg = None
                     if self.run_on_milestone is not None:
                         try:
-                            msg = self.run_on_milestone(
-                                lab_name=self.lab_name,
+                            score = self.run_on_milestone(
+                                **callback_args,
                                 milestone_name=grade_col_name,
-                                student_code_path=student_work_path,
-                                build=build,
-                                run=not self.build_only,
-                                first_names=first_names,
-                                last_names=last_names,
-                                net_ids=net_ids,
+                                build=build and not self.run_only,
                             )
                         except KeyboardInterrupt:
                             print("")
@@ -310,18 +346,20 @@ class Grader:
                             grade_col_name,
                             "; this grade will be overwritten.",
                         )
-                    try:
-                        score = self._get_score(
-                            concated_names,
-                            self.lab_name + "-" + grade_col_name,
-                            self.points[col_idx],
-                            self.allow_rebuild,
-                            self.allow_rerun,
-                            msg,
-                        )
-                    except KeyboardInterrupt:
-                        print_color(TermColors.RED, "\nExiting")
-                        sys.exit(0)
+
+                    if score is None:
+                        try:
+                            score = self._get_score(
+                                concated_names,
+                                self.lab_name + "-" + grade_col_name,
+                                self.points[col_idx],
+                                self.allow_rebuild,
+                                self.allow_rerun,
+                                self.help_msg[col_idx],
+                            )
+                        except KeyboardInterrupt:
+                            print_color(TermColors.RED, "\nExiting")
+                            sys.exit(0)
 
                     if score == "s":
                         break
@@ -341,7 +379,7 @@ class Grader:
                             ] = score
 
                         student_grades_df.to_csv(
-                            str(self.grades_csv_path), index=False, quoting=csv.QUOTE_ALL
+                            str(self.grades_csv_path), index=False, quoting=csv.QUOTE_ALL,
                         )
                         break
 
@@ -428,6 +466,8 @@ class Grader:
             print("Student repo url: " + row["github_url"])
             if not student_repos.clone_repo(row["github_url"], self.github_tag, student_work_path):
                 return False
+            return True
+
         else:
             # Skip if student has no submission
             if (
@@ -437,10 +477,10 @@ class Grader:
                 print_color(TermColors.YELLOW, "No submission")
                 return False
 
-            # Unzip student files (if student_dir doesn't alreayd exist) and delete zip
+            # Unzip student files (if student_dir doesn't already exist) and delete zip
             zip_file = self.df_idx_to_zip_path[index]
             try:
-                # Unzip if sutdent work path is empty
+                # Unzip if student work path is empty
                 if not list(student_work_path.iterdir()):
                     print(
                         "Unzipping",
@@ -450,19 +490,18 @@ class Grader:
                     )
                     with zipfile.ZipFile(zip_file, "r") as zf:
                         zf.extractall(student_work_path)
-                    zip_file.unlink()
             except zipfile.BadZipFile:
                 print_color(TermColors.RED, "Bad zip file", zip_file)
                 return False
-        return True
+            return zip_file.stat().st_mtime
 
     def _get_score(
-        self, names, assignment_name, max_score, allow_rebuild, allow_rerun, extra_message=""
+        self, names, assignment_name, max_score, allow_rebuild, allow_rerun, extra_message="",
     ):
         if extra_message:
             print_color(TermColors.BOLD, extra_message)
         input_txt = (
-            TermColors.YELLOW
+            TermColors.BLUE
             + "Enter score for "
             + names
             + ", "
@@ -507,4 +546,4 @@ class Grader:
 
         if not self.work_path.is_dir():
             print_color(TermColors.BLUE, "Creating", self.work_path)
-            self.work_path.mkdir()
+            self.work_path.mkdir(exist_ok=True, parents=True)
