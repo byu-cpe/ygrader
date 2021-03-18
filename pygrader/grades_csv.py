@@ -71,6 +71,23 @@ def match_to_github_url(df_needs_grade, github_csv_path, github_csv_col_name):
     return df_joined
 
 
+def match_to_group(df, groups_csv_path, groups_csv_col_name):
+    df_groups = pandas.read_csv(groups_csv_path)
+
+    assert "group_id" not in df.columns
+
+    # Rename appropriate column to group
+    df_groups.rename(columns={groups_csv_col_name: "group_id"}, inplace=True)
+
+    # Filter down to relevant columns
+    df_groups = df_groups[["Net ID", "group_id"]]
+
+    # Merge with student dataframe (inner merge will drop students not in group CSv)
+    df_joined = df.merge(df_groups)
+
+    return df_joined
+
+
 def find_idx_for_netid(df, netid):
     matches = df.index[df["Net ID"] == netid].tolist()
     if len(matches) != 1:

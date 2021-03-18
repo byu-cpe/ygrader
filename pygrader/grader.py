@@ -39,6 +39,8 @@ class Grader:
         github_csv_col_name: list = [],
         github_tag: str = None,
         learning_suite_submissions_zip_path: pathlib.Path = None,
+        learning_suite_groups_csv_path: pathlib.Path = None,
+        learning_suite_groups_csv_col_name: str = None,
         format_code: bool = False,
         build_only: bool = False,
         allow_rebuild: bool = True,
@@ -85,6 +87,10 @@ class Grader:
             Tag that holds this students submission for this lab.
         learning_suite_submissions_zip_path: Optional[pathlib.Path]
             Path to zip file with all learning suite submissions.  This zip file should contain one zip file per student (if student has multiple submissions, only the most recent will be used).
+        learning_suite_groups_csv_path: Optional[pathlib.Path]
+            If you have groups, this arguments points to a CSV file that contains group names.
+        learning_suite_groups_csv_col_name: Optional[str]
+            If you have groups, this arguments provides the column name to use for the group.
         format_code: Optional[bool]
             Whether you want the student code formatted using clang-format
         build_only: Optional[bool]
@@ -120,6 +126,8 @@ class Grader:
         self.github_csv_col_name = github_csv_col_name
         self.github_tag = github_tag
         self.learning_suite_submissions_zip_path = learning_suite_submissions_zip_path
+        self.learning_suite_groups_csv_path = learning_suite_groups_csv_path
+        self.learning_suite_groups_csv_col_name = learning_suite_groups_csv_col_name
 
         self.run_on_lab = run_on_lab
         self.run_on_milestone = run_on_milestone
@@ -147,6 +155,11 @@ class Grader:
                     "You must specify the learning_suite_submissions_zip_path argument if using CodeSource.LEARNING_SUITE"
                 )
             utils.check_file_exists(self.learning_suite_submissions_zip_path)
+
+            if self.learning_suite_groups_csv_path and not self.learning_suite_groups_csv_col_name:
+                error(
+                    "If you provide a learning_suite_groups_csv_path, you must provide a column name (learning_suite_groups_csv_col_name)"
+                )
 
         if not (self.allow_rebuild or self.allow_rerun):
             error("At least one of allow_rebuild and allow_rerun needs to be True.")
@@ -236,7 +249,7 @@ class Grader:
             # initialize to False as the code must be built at least once
             # (will be false if TA chooses to just re-run and not re-build)
             build = True
-            
+
             if self.run_on_lab is not None:
                 try:
                     self.run_on_lab(
@@ -263,7 +276,7 @@ class Grader:
                         continue
 
                 while True:
-                    msg = "" 
+                    msg = ""
                     # Build it and run
                     msg = None
                     if self.run_on_milestone is not None:
