@@ -213,8 +213,8 @@ class Grader:
 
             # Check if student/group needs grading
             if not analyze_only:
-                num_group_members_need_grade_per_milestone = (
-                    grades_csv.num_grades_needed_per_milestone(row, self.grades_col_names)
+                num_group_members_need_grade_per_milestone = grades_csv.num_grades_needed_per_milestone(
+                    row, self.grades_col_names
                 )
 
                 if sum(num_group_members_need_grade_per_milestone) == 0:
@@ -365,10 +365,13 @@ class Grader:
         self.df_idx_to_zip_path = {}
 
         for index, row in df.iterrows():
-            group_name = row["group"]
+            # group_name = row["group_id"]
+            net_ids = row["Net ID"]
 
-            # For now, group name will always be net id
-            zip_matches = list(self.work_path.glob("*_" + group_name + "_*.zip"))
+            # Find all submissions that belong to the group
+            zip_matches = []
+            for net_id in net_ids:
+                zip_matches.extend(list(self.work_path.glob("*_" + net_id + "_*.zip")))
             if len(zip_matches) == 0:
                 # print("No zip files match", group_name)
                 continue
@@ -395,10 +398,26 @@ class Grader:
             )
             groupby_column = "github_url"
         else:
-            # For learning suite, I don't currently handle groups, but it could be added fairly easily here.
-            # Right now I am just putting them in a group with their Net ID (every student will be in their own group)
-            df["group"] = df["Net ID"]
-            groupby_column = "group"
+            if not self.learning_suite_groups_csv_path:
+                df["group_id"] = df["Net ID"]
+                groupby_column = "group_id"
+            else:
+                # Group students
+                df = grades_csv.match_to_group(
+                    df, self.learning_suite_groups_csv_path, self.learning_suite_groups_csv_col_name
+                )
+
+                df_needs_grades = grades_csv.filter_need_grade(df, self.grades_col_names)
+
+                print_color(
+                    TermColors.BLUE,
+                    str(df_needs_grades.shape[0]),
+                    "of these students belong to a group.",
+                )
+
+                groupby_column = "group_id"
+
+            # If no groupings are provided, just put the student in a group with their Net ID (every student will be in their own group)
 
         # Group students into their groups
         return df.groupby(groupby_column).agg(lambda x: list(x)).reset_index()
