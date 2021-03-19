@@ -40,6 +40,8 @@ class Grader:
         github_csv_col_name: str = None,
         github_tag: str = None,
         learning_suite_submissions_zip_path: pathlib.Path = None,
+        learning_suite_groups_csv_path: pathlib.Path = None,
+        learning_suite_groups_csv_col_name: str = None,
         format_code: bool = False,
         build_only: bool = False,
         run_only: bool = False,
@@ -73,7 +75,10 @@ class Grader:
             Tag that holds this students submission for this lab.
         learning_suite_submissions_zip_path: Optional[pathlib.Path]
             Path to zip file with all learning suite submissions.  This zip file should contain one zip file per student (if student has multiple submissions, only the most recent will be used).
-
+        learning_suite_groups_csv_path: Optional[pathlib.Path]
+            If you have groups, this arguments points to a CSV file that contains group names.
+        learning_suite_groups_csv_col_name: Optional[str]
+            If you have groups, this arguments provides the column name to use for the group.
         run_on_milestone: Callable
             This is the main callback function that you should provide to build, run and/or evaluate the student's file.  You can do anything you like in this function (compile and run software, build bitstreams, program boards, etc).
 
@@ -134,6 +139,8 @@ class Grader:
         self.github_csv_col_name = github_csv_col_name
         self.github_tag = github_tag
         self.learning_suite_submissions_zip_path = learning_suite_submissions_zip_path
+        self.learning_suite_groups_csv_path = learning_suite_groups_csv_path
+        self.learning_suite_groups_csv_col_name = learning_suite_groups_csv_col_name
 
         self.run_on_lab = run_on_lab
         self.run_on_milestone = run_on_milestone
@@ -163,6 +170,11 @@ class Grader:
                     "You must specify the learning_suite_submissions_zip_path argument if using CodeSource.LEARNING_SUITE"
                 )
             utils.check_file_exists(self.learning_suite_submissions_zip_path)
+
+            if self.learning_suite_groups_csv_path and not self.learning_suite_groups_csv_col_name:
+                error(
+                    "If you provide a learning_suite_groups_csv_path, you must provide a column name (learning_suite_groups_csv_col_name)"
+                )
 
         if not (self.allow_rebuild or self.allow_rerun):
             error("At least one of allow_rebuild and allow_rerun needs to be True.")
@@ -394,10 +406,13 @@ class Grader:
         self.df_idx_to_zip_path = {}
 
         for index, row in df.iterrows():
-            group_name = row["group"]
+            # group_name = row["group_id"]
+            net_ids = row["Net ID"]
 
-            # For now, group name will always be net id
-            zip_matches = list(self.work_path.glob("*_" + group_name + "_*.zip"))
+            # Find all submissions that belong to the group
+            zip_matches = []
+            for net_id in net_ids:
+                zip_matches.extend(list(self.work_path.glob("*_" + net_id + "_*.zip")))
             if len(zip_matches) == 0:
                 # print("No zip files match", group_name)
                 continue
@@ -424,10 +439,26 @@ class Grader:
             )
             groupby_column = "github_url"
         else:
-            # For learning suite, I don't currently handle groups, but it could be added fairly easily here.
-            # Right now I am just putting them in a group with their Net ID (every student will be in their own group)
-            df["group"] = df["Net ID"]
-            groupby_column = "group"
+            if not self.learning_suite_groups_csv_path:
+                df["group_id"] = df["Net ID"]
+                groupby_column = "group_id"
+            else:
+                # Group students
+                df = grades_csv.match_to_group(
+                    df, self.learning_suite_groups_csv_path, self.learning_suite_groups_csv_col_name
+                )
+
+                df_needs_grades = grades_csv.filter_need_grade(df, self.grades_col_names)
+
+                print_color(
+                    TermColors.BLUE,
+                    str(df_needs_grades.shape[0]),
+                    "of these students belong to a group.",
+                )
+
+                groupby_column = "group_id"
+
+            # If no groupings are provided, just put the student in a group with their Net ID (every student will be in their own group)
 
         # Group students into their groups
         return df.groupby(groupby_column).agg(lambda x: list(x)).reset_index()
