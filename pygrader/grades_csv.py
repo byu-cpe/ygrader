@@ -30,7 +30,7 @@ def check_csv_column_names(df, expected_grade_col_names):
 
 # Filter down to only those students that need a grade
 def filter_need_grade(df, expected_grade_col_names):
-    filtered_df = df[df[df.columns & expected_grade_col_names].isnull().any(1)]
+    filtered_df = df[df[df.columns.intersection(expected_grade_col_names)].isnull().any(1)]
     return filtered_df
 
 
