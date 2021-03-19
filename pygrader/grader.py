@@ -242,8 +242,8 @@ class Grader:
 
             # Check if student/group needs grading
             if not analyze_only:
-                num_group_members_need_grade_per_milestone = grades_csv.num_grades_needed_per_milestone(
-                    row, self.grades_col_names
+                num_group_members_need_grade_per_milestone = (
+                    grades_csv.num_grades_needed_per_milestone(row, self.grades_col_names)
                 )
 
                 if sum(num_group_members_need_grade_per_milestone) == 0:
@@ -300,7 +300,8 @@ class Grader:
             if self.run_on_lab is not None:
                 try:
                     self.run_on_lab(
-                        **callback_args, build=build and not self.run_only,
+                        **callback_args,
+                        build=build and not self.run_only,
                     )
                 except KeyboardInterrupt:
                     pass
@@ -379,7 +380,9 @@ class Grader:
                             ] = score
 
                         student_grades_df.to_csv(
-                            str(self.grades_csv_path), index=False, quoting=csv.QUOTE_ALL,
+                            str(self.grades_csv_path),
+                            index=False,
+                            quoting=csv.QUOTE_ALL,
                         )
                         break
 
@@ -496,7 +499,13 @@ class Grader:
             return zip_file.stat().st_mtime
 
     def _get_score(
-        self, names, assignment_name, max_score, allow_rebuild, allow_rerun, extra_message="",
+        self,
+        names,
+        assignment_name,
+        max_score,
+        allow_rebuild,
+        allow_rerun,
+        extra_message="",
     ):
         if extra_message:
             print_color(TermColors.BOLD, extra_message)
