@@ -121,6 +121,8 @@ I typically give TAs access to this grading repo, and put them in charge of both
 
     * [https://github.com/byu-cpe/ecen427_grader/blob/master/run_coding_standard.py](https://github.com/byu-cpe/ecen427_grader/blob/master/run_coding_standard.py)
 
+* ECEN 625 grader (Simple Github submission style): [https://github.com/byu-cpe/ecen625_solns/tree/main/grader](https://github.com/byu-cpe/ecen625_solns/tree/main/grader)
+
 ## FAQs
 
 **Q: Do you recommend creating a new dedicated repository for the class specific grading scripts? Or incorporate into a current lab solutions repository?**
