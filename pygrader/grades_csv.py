@@ -36,7 +36,7 @@ def filter_need_grade(df, expected_grade_col_names):
 
 def match_to_github_url(df_needs_grade, github_csv_path, github_csv_col_name):
     try:
-        df_github = pandas.read_csv(github_csv_path)
+        df_github = pandas.read_csv(github_csv_path, index_col=False)
     except pandas.errors.EmptyDataError:
         error(
             "Exception pandas.errors.EmptyDataError. Is your", github_csv_path.name, "file empty?"
