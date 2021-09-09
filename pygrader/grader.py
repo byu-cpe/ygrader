@@ -16,14 +16,14 @@ from .utils import print_color, TermColors, error
 
 
 class CodeSource(enum.Enum):
-    """ Used to indicate whether the student code is submitted via LearningSuite or Github """
+    """Used to indicate whether the student code is submitted via LearningSuite or Github"""
 
     LEARNING_SUITE = 1
     GITHUB = 2
 
 
 class Grader:
-    """ Grader class """
+    """Grader class"""
 
     def __init__(
         self,
@@ -194,7 +194,7 @@ class Grader:
             self.help_msg = [self.help_msg] * len(self.grades_col_names)
 
     def run(self):
-        """ Call this to start (or resume) the grading process """
+        """Call this to start (or resume) the grading process"""
 
         analyze_only = len(self.grades_col_names) == 0
 
@@ -379,7 +379,8 @@ class Grader:
                                 grade_col_name,
                             ] = score
 
-                        student_grades_df.to_csv(
+                        student_grades_df_csv = student_grades_df.drop("group_id", axis="columns")
+                        student_grades_df_csv.to_csv(
                             str(self.grades_csv_path),
                             index=False,
                             quoting=csv.QUOTE_ALL,
