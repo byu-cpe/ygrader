@@ -379,8 +379,7 @@ class Grader:
                                 grade_col_name,
                             ] = score
 
-                        student_grades_df_csv = student_grades_df.drop("group_id", axis="columns")
-                        student_grades_df_csv.to_csv(
+                        student_grades_df.to_csv(
                             str(self.grades_csv_path),
                             index=False,
                             quoting=csv.QUOTE_ALL,
@@ -441,6 +440,7 @@ class Grader:
             groupby_column = "github_url"
         else:
             if not self.learning_suite_groups_csv_path:
+                df = df.copy()
                 df["group_id"] = df["Net ID"]
                 groupby_column = "group_id"
             else:
