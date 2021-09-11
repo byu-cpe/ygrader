@@ -5,7 +5,7 @@ import pathlib
 
 
 class TermColors:
-    """ Terminal codes for printing in color """
+    """Terminal codes for printing in color"""
 
     PURPLE = "\033[95m"
     BLUE = "\033[94m"
@@ -18,12 +18,12 @@ class TermColors:
 
 
 def print_color(color, *msg):
-    """ Print a message in color """
+    """Print a message in color"""
     print(color + " ".join(str(item) for item in msg), TermColors.END)
 
 
 def error(*msg, returncode=-1):
-    """ Print an error message and exit program """
+    """Print an error message and exit program"""
     print_color(TermColors.RED, "ERROR:", *msg)
     sys.exit(returncode)
 
@@ -59,3 +59,38 @@ def names_to_dir(first_names, last_names, net_ids):
     return (
         first_names[0].replace(" ", "_") + "_" + last_names[0].replace(" ", "_") + "_" + net_ids[0]
     )
+
+
+def hash_file(file_path):
+    import sys
+    import hashlib
+
+    # BUF_SIZE is totally arbitrary, change for your app!
+    BUF_SIZE = 65536  # lets read stuff in 64kb chunks!
+
+    md5 = hashlib.md5()
+    sha1 = hashlib.sha1()
+
+    with open(file_path, "rb") as f:
+        while True:
+            data = f.read(BUF_SIZE)
+            if not data:
+                break
+            md5.update(data)
+            sha1.update(data)
+
+    return md5.hexdigest()
+
+
+def verify_workflow_hash(workflow_file_path, hash_str):
+
+    if not workflow_file_path.is_file():
+        error(workflow_file_path, "is missing")
+
+    workflow_dir_path = workflow_file_path.parent
+    if not (len(list(workflow_dir_path.glob("**/*"))) == 1):
+        error(workflow_dir_path, "has more than one file")
+
+    hash = hash_file(workflow_file_path)
+    if hash != hash_str:
+        error("Incorrect hash (", hash, ") of workflow dir", workflow_dir_path)
