@@ -13,12 +13,21 @@ def clone_repo(git_path, tag, student_repo_path):
             TermColors.BLUE,
             "Student repo",
             student_repo_path.name,
-            "already cloned. Running git pull",
+            "already cloned. Re-fetching tag",
         )
-        cmd = ["git", "pull"]
-        p = subprocess.run(cmd)
+
+        # Fetch
+        cmd = ["git", "fetch"]
+        p = subprocess.run(cmd, cwd=student_repo_path)
         if p.returncode:
-            print_color(TermColors.RED, "git pull failed")
+            print_color(TermColors.RED, "git fetch failed")
+            return False
+
+        # Checkout tag
+        cmd = ["git", "checkout", "tags/" + tag]
+        p = subprocess.run(cmd, cwd=student_repo_path)
+        if p.returncode:
+            print_color(TermColors.RED, "git checkout of tag failed")
             return False
         return True
 
