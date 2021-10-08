@@ -304,7 +304,7 @@ class Grader:
                         build=build and not self.run_only,
                     )
                 except CallbackFailed as e:
-                    print_color(TermColors.RED, type(e).__name__)
+                    print_color(TermColors.RED, repr(e))
                     continue
                 except KeyboardInterrupt:
                     pass
@@ -332,7 +332,7 @@ class Grader:
                                 build=build and not self.run_only,
                             )
                         except CallbackFailed as e:
-                            print_color(TermColors.RED, type(e).__name__)
+                            print_color(TermColors.RED, repr(e))
                             break
                         except KeyboardInterrupt:
                             print("")
