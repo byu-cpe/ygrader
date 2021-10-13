@@ -17,14 +17,14 @@ def clone_repo(git_path, tag, student_repo_path):
         )
 
         # Fetch
-        cmd = ["git", "fetch"]
+        cmd = ["git", "fetch", "--tags", "-f"]
         p = subprocess.run(cmd, cwd=student_repo_path)
         if p.returncode:
             print_color(TermColors.RED, "git fetch failed")
             return False
 
         # Checkout tag
-        cmd = ["git", "checkout", "tags/" + tag]
+        cmd = ["git", "checkout", "tags/" + tag, "-f"]
         p = subprocess.run(cmd, cwd=student_repo_path)
         if p.returncode:
             print_color(TermColors.RED, "git checkout of tag failed")
