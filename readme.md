@@ -1,4 +1,4 @@
-![example workflow](https://github.com/byu-cpe/pygrader/actions/workflows/ci/badge.svg)
+![example workflow](https://github.com/byu-cpe/pygrader/actions/workflows/ci.yml/badge.svg)
 
 
 # Welcome to pygrader’s documentation!
