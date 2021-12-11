@@ -82,6 +82,16 @@ def hash_file(file_path):
     return md5.hexdigest()
 
 
+class CallbackFailed(Exception):
+    """Raise this exception (or subclass it and raise it) in your callback to indicate some failure, and skip to the next student."""
+
+    pass
+
+
+class WorkflowHashError(CallbackFailed):
+    pass
+
+
 def verify_workflow_hash(workflow_file_path, hash_str):
 
     if not workflow_file_path.is_file():
@@ -93,4 +103,4 @@ def verify_workflow_hash(workflow_file_path, hash_str):
 
     hash = hash_file(workflow_file_path)
     if hash != hash_str:
-        error("Incorrect hash (", hash, ") of workflow dir", workflow_dir_path)
+        raise WorkflowHashError

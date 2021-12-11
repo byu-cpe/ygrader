@@ -14,7 +14,7 @@ import pandas
 from . import grades_csv
 from . import utils, student_repos
 
-from .utils import print_color, TermColors, error
+from .utils import CallbackFailed, print_color, TermColors, error
 
 
 class CodeSource(enum.Enum):
@@ -333,6 +333,9 @@ class Grader:
                         **callback_args,
                         build=build and not self.run_only,
                     )
+                except CallbackFailed as e:
+                    print_color(TermColors.RED, repr(e))
+                    continue
                 except KeyboardInterrupt:
                     pass
 
@@ -358,6 +361,9 @@ class Grader:
                                 milestone_name=grade_col_name,
                                 build=build and not self.run_only,
                             )
+                        except CallbackFailed as e:
+                            print_color(TermColors.RED, repr(e))
+                            break
                         except KeyboardInterrupt:
                             print("")
 
