@@ -1,0 +1,4 @@
+pandas
+myst_parser
+sphinxcontrib-fulltoc
+sphinx-rtd-theme
