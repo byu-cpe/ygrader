@@ -9,6 +9,8 @@ import shutil
 import datetime
 from typing import Callable
 
+import pandas
+
 from . import grades_csv
 from . import utils, student_repos
 
@@ -24,6 +26,101 @@ class CodeSource(enum.Enum):
 
 class Grader:
     """Grader class"""
+
+    def __init__(
+        self,
+        name: str,
+        lab_name: str,
+        grades_csv_path: pathlib.Path,
+        grades_col_name: str,
+        points: int,
+        work_path: pathlib.Path = pathlib.Path.cwd(),
+    ):
+        self.name = name
+        self.lab_name = lab_name
+
+        self.grades_csv_path = pathlib.Path(grades_csv_path)
+
+        # Listify grade_col_name and points
+        # (Grader can grade multiple columns at once)
+        if not isinstance(grades_col_name, (list, tuple)):
+            grades_col_name = [grades_col_name]
+        self.grades_col_names = grades_col_name
+        if not isinstance(points, (list, tuple)):
+            points = [points]
+        self.points = points
+
+        # Check that # of CSV columns to grade matches # of points list
+        if len(self.grades_col_names) != len(self.points):
+            error(
+                "List length of grades_col_name (",
+                len(self.grades_col_names),
+                ") does not match length of points (",
+                len(self.points),
+                ")",
+            )
+
+        # Make sure grades csv col names exist
+        if not self.grades_csv_path.is_file():
+            error("grades_csv_path", grades_csv_path, "does not exist")
+        df = pandas.read_csv(self.grades_csv_path)
+        for col_name in self.grades_col_names:
+            if col_name not in df:
+                error(
+                    "Provided grade column name",
+                    col_name,
+                    "does not exist in",
+                    self.grades_csv_path,
+                )
+
+        # Create a working directory
+        self.work_path = pathlib.Path(work_path)
+        self.work_path = self.work_path / (lab_name + "_" + name)
+
+        # Initialize other class members
+        self.code_source = None
+        self.run_on_lab = None
+        self.run_on_milestone = None
+        self.set_other_options()
+
+    def set_callback_fcn(self, grading_fcn, prep_fcn=None):
+        self.run_on_milestone = grading_fcn
+        self.run_on_lab = prep_fcn
+
+    def set_submission_system_learning_suite(self, zip_path):
+        self.code_source = CodeSource.LEARNING_SUITE
+        self.learning_suite_submissions_zip_path = zip_path
+
+        if not self.learning_suite_submissions_zip_path.is_file():
+            error("Provided zip_path", self.learning_suite_submissions_zip_path, "does not exist")
+
+    def set_submission_system_github(self, tag, github_url_csv_path, col_name="github_url"):
+        self.code_source = CodeSource.GITHUB
+        self.github_csv_path = github_url_csv_path
+        self.github_csv_col_name = col_name
+        self.github_tag = tag
+
+        if not self.github_csv_path.is_file():
+            error("Provided github_url_csv_path", self.github_csv_path, "does not exist")
+
+    def set_other_options(
+        self,
+        format_code=False,
+        build_only=False,
+        run_only=False,
+        allow_rebuild=True,
+        allow_rerun=True,
+        help_msg="",
+    ):
+        self.format_code = format_code
+        self.build_only = build_only
+        self.run_only = run_only
+        self.allow_rebuild = allow_rebuild
+        self.allow_rerun = allow_rerun
+        self.help_msg = help_msg
+
+    def validate_config(self):
+        pass
 
     def __init__(
         self,
@@ -116,78 +213,11 @@ class Grader:
             When the script asks the user for a grade, it will print this message first.  This can be a helpful reminder to the TAs of a grading rubric, things they should watch out for, etc. This can be provided as a single string or a list of strings if there is a different message for each milestone.
         """
 
-        self.name = name
-        self.lab_name = lab_name
-
-        if not isinstance(points, (list, tuple)):
-            points = [points]
-        self.points = points
-
-        self.work_path = pathlib.Path(work_path)
-        self.work_path = self.work_path / (lab_name + "_" + name)
-
-        self.code_source = code_source
-        assert isinstance(code_source, CodeSource)
-
-        self.grades_csv_path = pathlib.Path(grades_csv_path)
-
-        if not isinstance(grades_col_names, (list, tuple)):
-            grades_col_names = [grades_col_names]
-        self.grades_col_names = grades_col_names
-
-        self.github_csv_path = github_csv_path
-        self.github_csv_col_name = github_csv_col_name
-        self.github_tag = github_tag
-        self.learning_suite_submissions_zip_path = learning_suite_submissions_zip_path
         self.learning_suite_groups_csv_path = learning_suite_groups_csv_path
         self.learning_suite_groups_csv_col_name = learning_suite_groups_csv_col_name
 
-        self.run_on_lab = run_on_lab
-        self.run_on_milestone = run_on_milestone
-        self.format_code = format_code
-        self.build_only = build_only
-        self.run_only = run_only
-        self.allow_rebuild = allow_rebuild
-        self.allow_rerun = allow_rerun
-        self.help_msg = help_msg
-
-        if self.grades_csv_path is not None:
-            utils.check_file_exists(self.grades_csv_path)
-
-        if self.code_source == CodeSource.GITHUB:
-            if self.github_csv_path is None:
-                error("You must specify the github_csv_path argument if using CodeSource.GITHUB")
-            if self.github_csv_col_name is None:
-                error(
-                    "You must specify the github_csv_col_name argument if using CodeSource.GITHUB"
-                )
-            if self.github_tag is None:
-                error("You must specify the github_tag argument if using CodeSource.GITHUB")
-            utils.check_file_exists(self.github_csv_path)
-        elif self.code_source == CodeSource.LEARNING_SUITE:
-            if self.learning_suite_submissions_zip_path is None:
-                error(
-                    "You must specify the learning_suite_submissions_zip_path argument if using CodeSource.LEARNING_SUITE"
-                )
-            utils.check_file_exists(self.learning_suite_submissions_zip_path)
-
-            if self.learning_suite_groups_csv_path and not self.learning_suite_groups_csv_col_name:
-                error(
-                    "If you provide a learning_suite_groups_csv_path, you must provide a column name (learning_suite_groups_csv_col_name)"
-                )
-
         if not (self.allow_rebuild or self.allow_rerun):
             error("At least one of allow_rebuild and allow_rerun needs to be True.")
-
-        # Check that # of CSV columns to grade matches # of points list
-        if len(self.grades_col_names) != len(self.points):
-            error(
-                "List length of grades_col_names (",
-                len(self.grades_col_names),
-                ") does not match length of points (",
-                len(self.points),
-                ")",
-            )
 
         # If help message is a single string, duplicate to each milestone
         if isinstance(self.help_msg, str) or self.help_msg is None:

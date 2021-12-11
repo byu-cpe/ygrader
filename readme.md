@@ -55,7 +55,7 @@ The typical usage model is that you create your own grader repository for your c
 
 You would then create any grading scripts you like (ie in 330 we have a grading script for pass-off, and one for coding standard).  In my code, these scripts take a single command-line argument, which indicates which lab to grade.  An example:
 
-```bash
+```
 ./run_passoff_grader.py lab3
 ```
 
@@ -63,7 +63,7 @@ This script would then create an instance of the `Grader` class below, passing i
 
 Here’s a code snippet of `main()` from the 330 pass-off script:
 
-```python
+```
 def main():
   # Command-line arguments
   parser = argparse.ArgumentParser()
@@ -121,8 +121,6 @@ I typically give TAs access to this grading repo, and put them in charge of both
 
     * [https://github.com/byu-cpe/ecen427_grader/blob/master/run_coding_standard.py](https://github.com/byu-cpe/ecen427_grader/blob/master/run_coding_standard.py)
 
-* ECEN 625 grader (Simple Github submission style): [https://github.com/byu-cpe/ecen625_solns/tree/main/grader](https://github.com/byu-cpe/ecen625_solns/tree/main/grader)
-
 ## FAQs
 
 **Q: Do you recommend creating a new dedicated repository for the class specific grading scripts? Or incorporate into a current lab solutions repository?**
@@ -136,11 +134,11 @@ A: My usual approach is to make this repo a submodule in your class-specific rep
 ## Class Documentation
 
 
-### class pygrader.grader.CodeSource()
+### class pygrader.grader.CodeSource(value)
 Used to indicate whether the student code is submitted via LearningSuite or Github
 
 
-### class pygrader.grader.Grader(name: str, lab_name: str, points: list, work_path: pathlib.Path, code_source: pygrader.grader.CodeSource, grades_csv_path: pathlib.Path, grades_col_names: list, run_on_milestone: Callable[[str, pathlib.Path], None] = None, run_on_lab: Callable[[str, pathlib.Path], None] = None, github_csv_path: pathlib.Path = None, github_csv_col_name: str = None, github_tag: str = None, learning_suite_submissions_zip_path: pathlib.Path = None, format_code: bool = False, build_only: bool = False, run_only: bool = False, allow_rebuild: bool = True, allow_rerun: bool = True, help_msg: str = None)
+### class pygrader.grader.Grader(name: str, lab_name: str, points: list, work_path: pathlib.Path, code_source: pygrader.grader.CodeSource, grades_csv_path: pathlib.Path, grades_col_names: list, run_on_milestone: Optional[Callable[[str, pathlib.Path], None]] = None, run_on_lab: Optional[Callable[[str, pathlib.Path], None]] = None, github_csv_path: Optional[pathlib.Path] = None, github_csv_col_name: Optional[str] = None, github_tag: Optional[str] = None, learning_suite_submissions_zip_path: Optional[pathlib.Path] = None, learning_suite_groups_csv_path: Optional[pathlib.Path] = None, learning_suite_groups_csv_col_name: Optional[str] = None, format_code: bool = False, build_only: bool = False, run_only: bool = False, allow_rebuild: bool = True, allow_rerun: bool = True, help_msg: Optional[str] = None)
 Grader class
 
 
@@ -159,10 +157,10 @@ Grader class
     * **grades_csv_path** (*pathlib.Path*) – Path to CSV file with student grades exported from LearningSuite.  You need to export netid, first and last name, and any grade columns you want to populate.
 
 
-    * **grades_col_names** (*str | list of str*) – Names of student CSV columns for milestones that will be graded.
+    * **grades_col_names** (*str** | **list of str*) – Names of student CSV columns for milestones that will be graded.
 
 
-    * **points** (*int | list of int*) – Number of points the graded milestone(s) are worth.
+    * **points** (*int** | **list of int*) – Number of points the graded milestone(s) are worth.
 
 
     * **code_source** (*CodeSource*) – Type of source code location, ie. Learning Suite zip file or Github. If Github, then you need to provide the subsequent github_\* arguments.  If Learning Suite, then provide the learning_suite_\* arguments.
@@ -178,6 +176,12 @@ Grader class
 
 
     * **learning_suite_submissions_zip_path** (*Optional**[**pathlib.Path**]*) – Path to zip file with all learning suite submissions.  This zip file should contain one zip file per student (if student has multiple submissions, only the most recent will be used).
+
+
+    * **learning_suite_groups_csv_path** (*Optional**[**pathlib.Path**]*) – If you have groups, this arguments points to a CSV file that contains group names.
+
+
+    * **learning_suite_groups_csv_col_name** (*Optional**[**str**]*) – If you have groups, this arguments provides the column name to use for the group.
 
 
     * **run_on_milestone** (*Callable*) – This is the main callback function that you should provide to build, run and/or evaluate the student’s file.  You can do anything you like in this function (compile and run software, build bitstreams, program boards, etc).
@@ -223,26 +227,22 @@ Grader class
     * **run_on_lab** (*Optional**[**Callable**]*) – This is an additional callback function, but will only be called once, even if you are grading multiple milestones.  It will be called before any milestones are graded.  This is useful for doing one-off actions before running each milestone, or if you are not grading any milestones and only running in analysis mode. This function callback takes the same arguments as the one provided to ‘run_on_milestone’, except it does not have a ‘milestone_name’ argument, and you should not return any value.  If you only have single milestone to grade, you can use either callback method, although if you want to return a grade, you will need to use run_on_milestone.
 
 
-
-* **Other Parameters**
-
-    
-    * **format_code** (*Optional[bool]*) – Whether you want the student code formatted using clang-format
+    * **format_code** (*Optional**[**bool**]*) – Whether you want the student code formatted using clang-format
 
 
-    * **build_only** (*Optional[bool]*) – Whether you only want to build and not run/grade the students code.  This will be passed to your callback function, and is useful for labs that take a while to build.  You can build all the code in one pass, then return and grade the code later.
+    * **build_only** (*Optional**[**bool**]*) – Whether you only want to build and not run/grade the students code.  This will be passed to your callback function, and is useful for labs that take a while to build.  You can build all the code in one pass, then return and grade the code later.
 
 
-    * **run_only** (*Optional[bool]*) – Whether you only want to run/grade and not build the students code.  This will be passed to your callback function, and is useful for labs that take a while to build.  You can build all the code in one pass, then return and grade the code later.
+    * **run_only** (*Optional**[**bool**]*) – Whether you only want to run/grade and not build the students code.  This will be passed to your callback function, and is useful for labs that take a while to build.  You can build all the code in one pass, then return and grade the code later.
 
 
-    * **allow_rebuild** (*Optional[bool]*) – When asking for a grade, the program will normally allow the grader to request a “rebuild and run”.  If your grader doesn’t support this, then set this to False.
+    * **allow_rebuild** (*Optional**[**bool**]*) – When asking for a grade, the program will normally allow the grader to request a “rebuild and run”.  If your grader doesn’t support this, then set this to False.
 
 
-    * **allow_rerun** (*Optional[bool]*) – When asking for a grade, the program will normally allow the grader to request a “re-run only (no rebuld)”. If your grader doesn’t support this, then set this to False.  At least one of ‘allow_rebuild’ and ‘allow_rerun’ must be True.
+    * **allow_rerun** (*Optional**[**bool**]*) – When asking for a grade, the program will normally allow the grader to request a “re-run only (no rebuld)”. If your grader doesn’t support this, then set this to False.  At least one of ‘allow_rebuild’ and ‘allow_rerun’ must be True.
 
 
-    * **help_msg** (*Optional[str]*) – When the script asks the user for a grade, it will print this message first.  This can be a helpful reminder to the TAs of a grading rubric, things they should watch out for, etc. This can be provided as a single string or a list of strings if there is a different message for each milestone.
+    * **help_msg** (*Optional**[**str**]*) – When the script asks the user for a grade, it will print this message first.  This can be a helpful reminder to the TAs of a grading rubric, things they should watch out for, etc. This can be provided as a single string or a list of strings if there is a different message for each milestone.
 
 
 

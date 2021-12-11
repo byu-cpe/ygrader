@@ -1,0 +1,3 @@
+sphinx-markdown-parser
+sphinx-markdown-builder
+pandas
