@@ -1,7 +1,7 @@
 import sys
 import shutil
 import subprocess
-import pathlib
+import traceback
 
 
 class TermColors:
@@ -25,7 +25,12 @@ def print_color(color, *msg):
 def error(*msg, returncode=-1):
     """Print an error message and exit program"""
     print_color(TermColors.RED, "ERROR:", *msg)
+    # print(traceback.print_stack())
     sys.exit(returncode)
+
+
+def warning(*msg):
+    print_color(TermColors.YELLOW, "Warning:", *msg)
 
 
 def copy_all_files_in_dir(src_dir, dest, exts=None, exclude=[]):

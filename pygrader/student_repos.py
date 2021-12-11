@@ -24,7 +24,9 @@ def clone_repo(git_path, tag, student_repo_path):
             return False
 
         # Checkout tag
-        cmd = ["git", "checkout", "tags/" + tag, "-f"]
+        if tag not in ("master", "main"):
+            tag = "tags/" + tag
+        cmd = ["git", "checkout", tag, "-f"]
         p = subprocess.run(cmd, cwd=student_repo_path)
         if p.returncode:
             print_color(TermColors.RED, "git checkout of tag failed")

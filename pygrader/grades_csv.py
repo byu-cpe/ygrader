@@ -57,18 +57,18 @@ def match_to_github_url(df_needs_grade, github_csv_path, github_csv_col_name):
     return df_joined
 
 
-def match_to_group(df, groups_csv_path, groups_csv_col_name):
+def add_group_column_from_csv(df, column_name, groups_csv_path, groups_csv_col_name):
     df_groups = pandas.read_csv(groups_csv_path)
 
-    assert "group_id" not in df.columns
+    assert column_name not in df.columns
 
     # Rename appropriate column to group
-    df_groups.rename(columns={groups_csv_col_name: "group_id"}, inplace=True)
+    df_groups.rename(columns={groups_csv_col_name: column_name}, inplace=True)
 
     # Filter down to relevant columns
-    df_groups = df_groups[["Net ID", "group_id"]]
+    df_groups = df_groups[["Net ID", column_name]]
 
-    # Merge with student dataframe (inner merge will drop students not in group CSv)
+    # Merge with student dataframe (inner merge will drop students not in group CSV)
     df_joined = df.merge(df_groups)
 
     return df_joined
