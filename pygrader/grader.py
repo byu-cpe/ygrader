@@ -151,6 +151,8 @@ class Grader:
                     )
 
     def set_submission_system_learning_suite(self, zip_path):
+        zip_path = pathlib.Path(zip_path)
+
         self.code_source = CodeSource.LEARNING_SUITE
         self.learning_suite_submissions_zip_path = zip_path
 
@@ -394,7 +396,7 @@ class Grader:
             student_work_path.mkdir(exist_ok=True)
             print_color(
                 TermColors.PURPLE,
-                "Analyzing: " if analyze_only else "Grading: ",
+                "\nAnalyzing: " if analyze_only else "\nGrading: ",
                 concated_names,
                 "-",
                 student_work_path.relative_to(self.work_path.parent),
@@ -564,6 +566,7 @@ class Grader:
             df_idx_to_zip_path[index] = zip_matches[0]
 
         df["submitted_zip_path"] = pandas.Series(df_idx_to_zip_path)
+        df["submitted_zip_path"] = df["submitted_zip_path"].fillna(value="")
         return df
 
     def _group_students(self, df):
@@ -616,7 +619,7 @@ class Grader:
             zip_path = row["submitted_zip_path"]
 
             # Skip if student has no submission
-            if self.code_source == CodeSource.LEARNING_SUITE and zip_path is None:
+            if self.code_source == CodeSource.LEARNING_SUITE and zip_path == "":
                 print_color(TermColors.YELLOW, "No submission")
                 return False
 
