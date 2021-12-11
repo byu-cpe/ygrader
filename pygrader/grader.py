@@ -145,6 +145,8 @@ class Grader:
                     )
 
     def set_submission_system_learning_suite(self, zip_path):
+        zip_path = pathlib.Path(zip_path)
+
         self.code_source = CodeSource.LEARNING_SUITE
         self.learning_suite_submissions_zip_path = zip_path
 
