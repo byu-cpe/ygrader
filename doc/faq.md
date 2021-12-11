@@ -2,12 +2,7 @@
 # FAQs
 
 **Q: How do I do group grading**
-* Groups
-* Analysis
-* Multiple assignments
-* Multiple grade files
-* Change teams
-* One script for every lab?
+
 
 **Q: Do you recommend creating a new dedicated repository for the class specific grading scripts? Or incorporate into a current lab solutions repository?**
 
@@ -18,3 +13,9 @@ A: Up to you.  I typically use separate grading and solutions repos.  I do this 
 A: My usual approach is to make this repo a submodule in your class-specific repo, so TAs would clone your class grade repo.  To get submodule code you need to run `git submodule init` and `git submodule update`, but I usually wrap these into a `make install` Makefile that also installs necessary packages.  (See [427 Install Makefile](https://github.com/byu-cpe/ecen427_grader/blob/master/Makefile)).
 
 * Building takes a long time?
+* Groups
+* Analysis
+* Multiple assignments
+* Multiple grade files
+* Change teams
+* One script for every lab?
