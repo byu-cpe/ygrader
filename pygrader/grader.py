@@ -63,14 +63,20 @@ class Grader:
         # Make sure grades csv col names exist
         if not self.grades_csv_path.is_file():
             error("grades_csv_path", "(" + str(grades_csv_path) + ")", "does not exist")
-        df = pandas.read_csv(self.grades_csv_path)
+
+        try:
+            df = pandas.read_csv(self.grades_csv_path)
+        except pandas.errors.EmptyDataError:
+            error("Your grades csv", "(" + str(grades_csv_path) + ")", "appears to be empty")
         for col_name in self.grades_col_names:
             if col_name not in df:
                 error(
                     "Provided grade column name",
                     "(" + col_name + ")",
                     "does not exist in grades_csv_path",
-                    "(" + str(self.grades_csv_path) + ")",
+                    "(" + str(self.grades_csv_path) + ").",
+                    "Columns:",
+                    list(df.columns),
                 )
 
         # Create a working directory

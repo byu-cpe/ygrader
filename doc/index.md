@@ -1,17 +1,22 @@
-Welcome to pygrader's documentation!
-====================================
+
+
+# Welcome to pygrader's documentation!
 
 The package is designed to help you write grading scripts.  The main idea behind the package is that it removes all of the overhead that is common between grading different classes (extracing student code into their own folder, updating grade CSV files, etc), and allows you to focus on just writing scripts for running student code in your class' environment.  This framework does not assume anything about the student's code structure; it should be equally helpful for grading hardware or software labs.
 
-Grading Flow
-############
+## Example
+
+
+
+
+## Grading Flow
 
 When you configure the script correctly, the expected flow is:
 
 1. Grade CSV from LearningSuite is parsed, and student grades are tracked in a pandas DataFrame
-2. Students are filtered down to only those that still need a grade for the assignment.
-3. Students are formed into their groups (groups of 1 for individual assignments)
-4. For each student:
+1. Students are filtered down to only those that still need a grade for the assignment.
+1. Students are formed into their groups (groups of 1 for individual assignments)
+1. For each student:
 
    * Student code is retrieved (from Github or Learning suite zip file) and copied into a per-group working folder.
    * *Callbacks are made to your code*, where you can build and run the student's code.
@@ -21,8 +26,8 @@ When you configure the script correctly, the expected flow is:
 In the above process, *you will only need to write the callback code to build and run the student's code*.
 
 
-Major Features
-##############
+## Major Features
+
 * The package can work with student code submitted via zip files (ie using Learning Suite), *or* with student code on Github.  
 * Supports labs with multiple different grade columns in Learning Suite (referred to as *milestones* in this documentation).  This can allow you to run different tests each worth different number of points.
 * Supports team-based assignments (currently via Github submission only, but I could fairly easily extend this to Learning Suite submissions if there is demand).
@@ -30,8 +35,7 @@ Major Features
 * Can be run in analysis mode, where student code is fetched and callbacks are made, but no grades are entered.  This is useful for things like collecting stats, running plagarism checkers, etc. (To use this option, provide an empty list to 'grades_col_names')
 
 
-How to Use This
-###############
+## How to Use This
 
 The typical usage model is that you create your own grader repository for your class, and would add this repository as a submodule.  In your repository you would store your CSVs exported from Learning Suite, and student code submissions (if using Learning Suite submission and not Github).
 
@@ -109,7 +113,8 @@ A: My usual approach is to make this repo a submodule in your class-specific rep
 Class Documentation
 ###################
 
-
+```{eval-rst}
 .. automodule:: pygrader.grader
    :members:
+```
 

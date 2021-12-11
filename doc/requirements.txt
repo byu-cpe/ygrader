@@ -1,3 +1,2 @@
-sphinx-markdown-parser
-sphinx-markdown-builder
 pandas
+myst_parser

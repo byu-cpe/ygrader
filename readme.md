@@ -1,3 +1,5 @@
+> doc
+
 # Welcome to pygrader’s documentation!
 
 The package is designed to help you write grading scripts.  The main idea behind the package is that it removes all of the overhead that is common between grading different classes (extracing student code into their own folder, updating grade CSV files, etc), and allows you to focus on just writing scripts for running student code in your class’ environment.  This framework does not assume anything about the student’s code structure; it should be equally helpful for grading hardware or software labs.
@@ -138,112 +140,8 @@ A: My usual approach is to make this repo a submodule in your class-specific rep
 Used to indicate whether the student code is submitted via LearningSuite or Github
 
 
-### class pygrader.grader.Grader(name: str, lab_name: str, points: list, work_path: pathlib.Path, code_source: pygrader.grader.CodeSource, grades_csv_path: pathlib.Path, grades_col_names: list, run_on_milestone: Optional[Callable[[str, pathlib.Path], None]] = None, run_on_lab: Optional[Callable[[str, pathlib.Path], None]] = None, github_csv_path: Optional[pathlib.Path] = None, github_csv_col_name: Optional[str] = None, github_tag: Optional[str] = None, learning_suite_submissions_zip_path: Optional[pathlib.Path] = None, learning_suite_groups_csv_path: Optional[pathlib.Path] = None, learning_suite_groups_csv_col_name: Optional[str] = None, format_code: bool = False, build_only: bool = False, run_only: bool = False, allow_rebuild: bool = True, allow_rerun: bool = True, help_msg: Optional[str] = None)
+### class pygrader.grader.Grader(name: str, lab_name: str, grades_csv_path: pathlib.Path, grades_col_name: str, points: int, work_path: pathlib.Path = PosixPath('/home/jgoeders/ecen330/grader/third_party/pygrader/doc'))
 Grader class
-
-
-* **Parameters**
-
-    
-    * **name** (*str*) – Name of the grading process (ie. ‘passoff’ or ‘coding_standard’).  This is just used for folder naming.
-
-
-    * **lab_name** (*str*) – Name of the lab that you are grading (ie. ‘lab3’).  This is passed back to your run_on_\* functions.
-
-
-    * **work_path** (*pathlib.Path*) – Path to directory where student files will be placed.  For example, if you pass in ‘.’, then student code would be placed in ‘./lab3’
-
-
-    * **grades_csv_path** (*pathlib.Path*) – Path to CSV file with student grades exported from LearningSuite.  You need to export netid, first and last name, and any grade columns you want to populate.
-
-
-    * **grades_col_names** (*str** | **list of str*) – Names of student CSV columns for milestones that will be graded.
-
-
-    * **points** (*int** | **list of int*) – Number of points the graded milestone(s) are worth.
-
-
-    * **code_source** (*CodeSource*) – Type of source code location, ie. Learning Suite zip file or Github. If Github, then you need to provide the subsequent github_\* arguments.  If Learning Suite, then provide the learning_suite_\* arguments.
-
-
-    * **github_csv_path** (*Optional**[**pathlib.Path**]*) – Path to CSV file with Github URL for each student.  There must be a ‘Net ID’ column name.  One way to get this is to have a Learning Suite quiz where students enter their Github URL, and then export the results.
-
-
-    * **github_csv_col_name** (*Optional**[**str**]*) – Column name in the github_csv_path CSV file that should be used as the Github URL.  Note: This column name may be fixed for every lab, or it could vary, which allows you to handle Github groups, and even students changing groups between labs.
-
-
-    * **github_tag** (*Optional**[**str**]*) – Tag that holds this students submission for this lab.
-
-
-    * **learning_suite_submissions_zip_path** (*Optional**[**pathlib.Path**]*) – Path to zip file with all learning suite submissions.  This zip file should contain one zip file per student (if student has multiple submissions, only the most recent will be used).
-
-
-    * **learning_suite_groups_csv_path** (*Optional**[**pathlib.Path**]*) – If you have groups, this arguments points to a CSV file that contains group names.
-
-
-    * **learning_suite_groups_csv_col_name** (*Optional**[**str**]*) – If you have groups, this arguments provides the column name to use for the group.
-
-
-    * **run_on_milestone** (*Callable*) – This is the main callback function that you should provide to build, run and/or evaluate the student’s file.  You can do anything you like in this function (compile and run software, build bitstreams, program boards, etc).
-
-    > The callback will be called on each graded milestone.  Your callback function will be provided with several arguments (I suggest you make use of \*\*kwargs as I may need to pass more information back in the future):
-
-
-        * lab_name: (str) The lab_name provided earlier.
-
-
-        * milestone_name: (str) Grade CSV column name of milestone to run
-
-
-        * student_code_path (pathlib.Path)  The page to where the student files are stored.
-
-
-        * build: (bool) Whether files should be built/compiled.
-
-
-        * run: (bool) Whether milestone should be run.
-
-
-        * first_names: (list) List of first name of students in the group
-
-
-        * last_names: (list) List of last names of students in the group
-
-
-        * net_ids: (list) List of net_ids of students in the group.
-
-
-        * section: (str) Student section number, assuming ‘Section Number’ was contained in grades_csv exported from Learning Suite.
-
-
-        * homework_id: (str) Student homework ID, assuming ‘Course Homework ID’ was contained in grades_csv exported from Learning Suite.
-
-
-        * Return value: (int)
-    If you return nothing, the default script behavior is that the program will ask the user to input a grade.  If you already know the grade you want to assign, and don’t want to prompt the user, just return the grade from this callback.
-
-
-
-    * **run_on_lab** (*Optional**[**Callable**]*) – This is an additional callback function, but will only be called once, even if you are grading multiple milestones.  It will be called before any milestones are graded.  This is useful for doing one-off actions before running each milestone, or if you are not grading any milestones and only running in analysis mode. This function callback takes the same arguments as the one provided to ‘run_on_milestone’, except it does not have a ‘milestone_name’ argument, and you should not return any value.  If you only have single milestone to grade, you can use either callback method, although if you want to return a grade, you will need to use run_on_milestone.
-
-
-    * **format_code** (*Optional**[**bool**]*) – Whether you want the student code formatted using clang-format
-
-
-    * **build_only** (*Optional**[**bool**]*) – Whether you only want to build and not run/grade the students code.  This will be passed to your callback function, and is useful for labs that take a while to build.  You can build all the code in one pass, then return and grade the code later.
-
-
-    * **run_only** (*Optional**[**bool**]*) – Whether you only want to run/grade and not build the students code.  This will be passed to your callback function, and is useful for labs that take a while to build.  You can build all the code in one pass, then return and grade the code later.
-
-
-    * **allow_rebuild** (*Optional**[**bool**]*) – When asking for a grade, the program will normally allow the grader to request a “rebuild and run”.  If your grader doesn’t support this, then set this to False.
-
-
-    * **allow_rerun** (*Optional**[**bool**]*) – When asking for a grade, the program will normally allow the grader to request a “re-run only (no rebuld)”. If your grader doesn’t support this, then set this to False.  At least one of ‘allow_rebuild’ and ‘allow_rerun’ must be True.
-
-
-    * **help_msg** (*Optional**[**str**]*) – When the script asks the user for a grade, it will print this message first.  This can be a helpful reminder to the TAs of a grading rubric, things they should watch out for, etc. This can be provided as a single string or a list of strings if there is a different message for each milestone.
-
 
 
 #### run()
