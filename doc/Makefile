@@ -8,9 +8,6 @@ SPHINXPROJ    = pygrader
 SOURCEDIR     = .
 BUILDDIR      = _build
 
-update_markdown: markdown
-	cp $(BUILDDIR)/markdown/index.md ../readme.md
-
 # Put it first so that "make" without argument is like "make help".
 help:
 	@$(SPHINXBUILD) -M help "$(SOURCEDIR)" "$(BUILDDIR)" $(SPHINXOPTS) $(O)
