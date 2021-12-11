@@ -37,6 +37,23 @@ class Grader:
         points: int,
         work_path: pathlib.Path = pathlib.Path.cwd(),
     ):
+
+        """
+        Parameters
+        ----------
+        name: str
+            Name of the grading process (ie. 'passoff' or 'coding_standard').  This is just used for folder naming.
+        lab_name: str
+            Name of the lab that you are grading (ie. 'lab3').  This is passed back to your callback functions and used for logging messages.
+        grades_csv_path: pathlib.Path
+            Path to CSV file with student grades exported from LearningSuite.  You need to export netid, first and last name, and any grade columns you want to populate.
+        grades_col_names: str | list of str
+            Names of CSV column(s) that will be graded.
+        points: int | list of int
+            Number of max points for the graded column(s).
+        work_path: pathlib.Path
+            Path to directory where student files will be placed.  For example, if you pass in '.', then student code would be placed in './lab3'
+        """
         self.name = name
         self.lab_name = lab_name
 
@@ -91,6 +108,47 @@ class Grader:
         self.set_other_options()
 
     def set_callback_fcn(self, grading_fcn, prep_fcn=None):
+        """
+        This function registers a callback function to perform your grading.
+        You must call this function and register a callback before you run the grading process.
+
+        Since your callback functions will be provided with many arguments, it's best to use keyword arguments:
+
+        .. highlight:: python
+        .. code-block:: python
+
+            def my_callback(**kw):
+                lab_name = kw["lab_name"]
+                first_name = kw["first_names"][0]
+
+        Parameters
+        ----------
+        grading_fcn: Callable
+            The callback function that will perform all your grading work.
+
+            Your callback function will be provided with the following arguments:
+                * lab_name (*str*): This will pass back the lab name you passed to *__init__*. Useful if you use the same callback function to grade multiple different assignments.
+                * student_code_path (*pathlib.Path*): The location where the unzipped/cloned student files are stored.
+                * csv_col_name (*str*): The current CSV column being graded. Typically only needed if you are grading multiple different items.
+                * first_names: (*list(str)*) First name(s) of students in the group
+                * last_names: (*list(str)*) Last name(s) of students in the group
+                * net_ids: (*list(str)*) Net ID(s) of students in the group.
+                * build: (*bool*) Whether files should be built/compiled.
+                * run: (*bool*) Whether milestone should be run.
+
+            In addition, if your grades CSV exported from Learning Suite has the following information, it will also be provided to your callback function:
+                * section: (*str*) Student section number, assuming 'Section Number' was contained in grades_csv exported from Learning Suite.
+                * homework_id: (*str*) Student homework ID, assuming 'Course Homework ID' was contained in grades_csv exported from Learning Suite.
+
+            Your callback should return *None* or an *int*.  If you return *None*, the will will ask the user to input a grade.  If you already know the grade you want to assign, and don't want to prompt the user, return the grade value as an *int*.
+
+            If there's a problem with the student's submission and you want to skip them, then `raise CallbackFailed`.
+
+        prep_fcn: Callable
+            If you are grading multiple items (multiple columns from the grade CSV), then you can use this optional callback to do any one-time prep work.
+
+            This callback is provided the same arguments as the *grading_fcn* callback, except *csv_col_name*.  You should not return any value from this callback, but you can `raise CallbackFailed` to skip the student.
+        """
         self.run_on_milestone = grading_fcn
         self.run_on_lab = prep_fcn
 
@@ -102,6 +160,7 @@ class Grader:
             "first_names",
             "last_names",
             "net_ids",
+            "csv_col_name",
         ]
         callback_args_optional = [
             "modified_time",
@@ -151,6 +210,14 @@ class Grader:
                     )
 
     def set_submission_system_learning_suite(self, zip_path):
+        """
+        Call this function if you are using student submissions from Learning Suite.
+
+        Parameters
+        ----------
+        zip_path: pathlib.Path | str
+            Path to the zip file that was downloaded from Learning Suite using *Batch Download*.
+        """
         zip_path = pathlib.Path(zip_path)
 
         self.code_source = CodeSource.LEARNING_SUITE
@@ -160,6 +227,18 @@ class Grader:
             error("Provided zip_path", zip_path, "does not exist")
 
     def set_submission_system_github(self, tag, github_url_csv_path, repo_col_name="github_url"):
+        """
+        Call this function if you are using student submissions on Github.
+
+        Parameters
+        ----------
+        tag: str
+            The tag on the students github repository that is used for the submission.
+        github_url_csv_path: pathlib.Path | str
+            The path to a CSV file containing student Github repository URLs.  This CSV file must have a column called 'Net ID'.
+        repo_col_name: str
+            The column name in the CSV file that contains the Github URLs.
+        """
         self.code_source = CodeSource.GITHUB
         self.github_csv_path = github_url_csv_path
         self.github_csv_col_name = repo_col_name
@@ -182,6 +261,16 @@ class Grader:
             )
 
     def set_learning_suite_groups(self, csv_path, col_name="group"):
+        """
+        This function is used to provide treams to the grader when grading a team-based assignment from Learning Suite.  (If grading from Github, the Github URL will be used to determine teams)
+
+        Parameters
+        ----------
+        csv_path: str
+            The path to a CSV file containing group names. This CSV file must have a column called 'Net ID'.
+        col_name: str
+            The column name in the CSV file that indicates the group name.
+        """
         if self.code_source != CodeSource.LEARNING_SUITE:
             error(
                 "Please call set_submission_system_learning_suite() before calling set_learning_suite_groups()."
@@ -206,6 +295,24 @@ class Grader:
         allow_rerun=True,
         help_msg="",
     ):
+        """
+        This can be used to set other options for the grader.
+
+        Parameters
+        ----------
+        format_code: bool
+            Whether you want the student code automatically formatted using clang-format
+        build_only: bool
+            Whether you only want to build and not run/grade the students code.  This will be passed to your callback function, and is useful for labs that take a while to build.  You can build all the code in one pass, then return and grade the code later.
+        run_only: bool
+            Whether you only want to run/grade and not build the students code.  This will be passed to your callback function, and is useful for labs that take a while to build.  You can build all the code in one pass, then return and grade the code later.
+        allow_rebuild: bool
+            When asking for a grade, the program will normally allow the grader to request a "rebuild and run".  If your grader doesn't support this, then set this to False.
+        allow_rerun: bool
+            When asking for a grade, the program will normally allow the grader to request a "re-run only (no rebuld)". If your grader doesn't support this, then set this to False.  At least one of 'allow_rebuild' and 'allow_rerun' should be True.
+        help_msg: str
+            When the script asks the user for a grade, it will print this message first.  This can be a helpful reminder to the TAs of a grading rubric, things they should watch out for, etc. This can be provided as a single string or a list of strings if there is a different message for each milestone.
+        """
         self.format_code = format_code
         self.build_only = build_only
         self.run_only = run_only
@@ -232,97 +339,6 @@ class Grader:
             error(
                 "Before calling run(), you must set a submission source by either calling set_submission_system_learning_suite() or set_submission_system_github()."
             )
-
-    # def __init__(
-    #     self,
-    #     name: str,
-    #     lab_name: str,
-    #     points: list,
-    #     work_path: pathlib.Path,
-    #     code_source: CodeSource,
-    #     grades_csv_path: pathlib.Path,
-    #     grades_col_names: list,
-    #     run_on_milestone: Callable[[str, pathlib.Path], None] = None,
-    #     run_on_lab: Callable[[str, pathlib.Path], None] = None,
-    #     github_csv_path: pathlib.Path = None,
-    #     github_csv_col_name: str = None,
-    #     github_tag: str = None,
-    #     learning_suite_submissions_zip_path: pathlib.Path = None,
-    #     learning_suite_groups_csv_path: pathlib.Path = None,
-    #     learning_suite_groups_csv_col_name: str = None,
-    #     format_code: bool = False,
-    #     build_only: bool = False,
-    #     run_only: bool = False,
-    #     allow_rebuild: bool = True,
-    #     allow_rerun: bool = True,
-    #     help_msg: str = None,
-    # ):
-
-    #     """
-    #     Parameters
-    #     ----------
-    #     name: str
-    #         Name of the grading process (ie. 'passoff' or 'coding_standard').  This is just used for folder naming.
-    #     lab_name: str
-    #         Name of the lab that you are grading (ie. 'lab3').  This is passed back to your run_on_* functions.
-    #     work_path: pathlib.Path
-    #         Path to directory where student files will be placed.  For example, if you pass in '.', then student code would be placed in './lab3'
-    #     grades_csv_path: pathlib.Path
-    #         Path to CSV file with student grades exported from LearningSuite.  You need to export netid, first and last name, and any grade columns you want to populate.
-    #     grades_col_names: str | list of str
-    #         Names of student CSV columns for milestones that will be graded.
-    #     points: int | list of int
-    #         Number of points the graded milestone(s) are worth.
-    #     code_source: CodeSource
-    #         Type of source code location, ie. Learning Suite zip file or Github. If Github, then you need to provide the subsequent github_* arguments.  If Learning Suite, then provide the learning_suite_* arguments.
-    #     github_csv_path:  Optional[pathlib.Path]
-    #         Path to CSV file with Github URL for each student.  There must be a 'Net ID' column name.  One way to get this is to have a Learning Suite quiz where students enter their Github URL, and then export the results.
-    #     github_csv_col_name: Optional[str]
-    #         Column name in the github_csv_path CSV file that should be used as the Github URL.  Note: This column name may be fixed for every lab, or it could vary, which allows you to handle Github groups, and even students changing groups between labs.
-    #     github_tag: Optional[str]
-    #         Tag that holds this students submission for this lab.
-    #     learning_suite_submissions_zip_path: Optional[pathlib.Path]
-    #         Path to zip file with all learning suite submissions.  This zip file should contain one zip file per student (if student has multiple submissions, only the most recent will be used).
-    #     learning_suite_groups_csv_path: Optional[pathlib.Path]
-    #         If you have groups, this arguments points to a CSV file that contains group names.
-    #     learning_suite_groups_csv_col_name: Optional[str]
-    #         If you have groups, this arguments provides the column name to use for the group.
-    #     run_on_milestone: Callable
-    #         This is the main callback function that you should provide to build, run and/or evaluate the student's file.  You can do anything you like in this function (compile and run software, build bitstreams, program boards, etc).
-
-    #         The callback will be called on each graded milestone.  Your callback function will be provided with several arguments (I suggest you make use of \*\*kwargs as I may need to pass more information back in the future):
-
-    #       * lab_name: (str) The lab_name provided earlier.
-    #       * milestone_name: (str) Grade CSV column name of milestone to run
-    #       * student_code_path (pathlib.Path)  The page to where the student files are stored.
-    #       * build: (bool) Whether files should be built/compiled.
-    #       * run: (bool) Whether milestone should be run.
-    #       * first_names: (list) List of first name of students in the group
-    #       * last_names: (list) List of last names of students in the group
-    #       * net_ids: (list) List of net_ids of students in the group.
-    #       * section: (str) Student section number, assuming 'Section Number' was contained in grades_csv exported from Learning Suite.
-    #       * homework_id: (str) Student homework ID, assuming 'Course Homework ID' was contained in grades_csv exported from Learning Suite.
-    #       * Return value: (int)
-    #         If you return nothing, the default script behavior is that the program will ask the user to input a grade.  If you already know the grade you want to assign, and don't want to prompt the user, just return the grade from this callback.
-
-    #     run_on_lab: Optional[Callable]
-    #         This is an additional callback function, but will only be called once, even if you are grading multiple milestones.  It will be called before any milestones are graded.  This is useful for doing one-off actions before running each milestone, or if you are not grading any milestones and only running in analysis mode. This function callback takes the same arguments as the one provided to 'run_on_milestone', except it does not have a 'milestone_name' argument, and you should not return any value.  If you only have single milestone to grade, you can use either callback method, although if you want to return a grade, you will need to use run_on_milestone.
-
-    #     Other Parameters
-    #     ----------
-    #     format_code: Optional[bool]
-    #         Whether you want the student code formatted using clang-format
-    #     build_only: Optional[bool]
-    #         Whether you only want to build and not run/grade the students code.  This will be passed to your callback function, and is useful for labs that take a while to build.  You can build all the code in one pass, then return and grade the code later.
-    #     run_only: Optional[bool]
-    #         Whether you only want to run/grade and not build the students code.  This will be passed to your callback function, and is useful for labs that take a while to build.  You can build all the code in one pass, then return and grade the code later.
-    #     allow_rebuild: Optional[bool]
-    #         When asking for a grade, the program will normally allow the grader to request a "rebuild and run".  If your grader doesn't support this, then set this to False.
-    #     allow_rerun: Optional[bool]
-    #         When asking for a grade, the program will normally allow the grader to request a "re-run only (no rebuld)". If your grader doesn't support this, then set this to False.  At least one of 'allow_rebuild' and 'allow_rerun' must be True.
-    #     help_msg: Optional[str]
-    #         When the script asks the user for a grade, it will print this message first.  This can be a helpful reminder to the TAs of a grading rubric, things they should watch out for, etc. This can be provided as a single string or a list of strings if there is a different message for each milestone.
-    #     """
 
     def run(self):
         """Call this to start (or resume) the grading process"""
@@ -465,7 +481,7 @@ class Grader:
                         try:
                             score = self.run_on_milestone(
                                 **callback_args,
-                                milestone_name=grade_col_name,
+                                csv_col_name=grade_col_name,
                                 build=build and not self.run_only,
                             )
                         except CallbackFailed as e:
