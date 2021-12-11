@@ -81,6 +81,7 @@ class Grader:
         self.code_source = None
         self.run_on_lab = None
         self.run_on_milestone = None
+        self.groups_csv_path = None
         self.set_other_options()
 
     def set_callback_fcn(self, grading_fcn, prep_fcn=None):
@@ -91,8 +92,8 @@ class Grader:
         self.code_source = CodeSource.LEARNING_SUITE
         self.learning_suite_submissions_zip_path = zip_path
 
-        if not self.learning_suite_submissions_zip_path.is_file():
-            error("Provided zip_path", self.learning_suite_submissions_zip_path, "does not exist")
+        if not zip_path.is_file():
+            error("Provided zip_path", zip_path, "does not exist")
 
     def set_submission_system_github(self, tag, github_url_csv_path, col_name="github_url"):
         self.code_source = CodeSource.GITHUB
@@ -100,8 +101,19 @@ class Grader:
         self.github_csv_col_name = col_name
         self.github_tag = tag
 
-        if not self.github_csv_path.is_file():
-            error("Provided github_url_csv_path", self.github_csv_path, "does not exist")
+        if not github_url_csv_path.is_file():
+            error("Provided github_url_csv_path", github_url_csv_path, "does not exist")
+
+    def set_groups(self, csv_path, col_name="group"):
+        self.groups_csv_path = csv_path
+        self.groups_csv_col_name = col_name
+
+        if not csv_path.is_file():
+            error("Provided groups csv_path", csv_path, "does not exist")
+
+        df = pandas.read_csv(self.groups_csv_path)
+        if col_name not in df:
+            error("Provided groups col_name", col_name, "does not exist in", csv_path)
 
     def set_other_options(
         self,
@@ -118,6 +130,13 @@ class Grader:
         self.allow_rebuild = allow_rebuild
         self.allow_rerun = allow_rerun
         self.help_msg = help_msg
+
+        if not (self.allow_rebuild or self.allow_rerun):
+            error("At least one of allow_rebuild and allow_rerun needs to be True.")
+
+        # If help message is a single string, duplicate to each milestone
+        if isinstance(self.help_msg, str) or self.help_msg is None:
+            self.help_msg = [self.help_msg] * len(self.grades_col_names)
 
     def validate_config(self):
         pass
@@ -212,16 +231,6 @@ class Grader:
         help_msg: Optional[str]
             When the script asks the user for a grade, it will print this message first.  This can be a helpful reminder to the TAs of a grading rubric, things they should watch out for, etc. This can be provided as a single string or a list of strings if there is a different message for each milestone.
         """
-
-        self.learning_suite_groups_csv_path = learning_suite_groups_csv_path
-        self.learning_suite_groups_csv_col_name = learning_suite_groups_csv_col_name
-
-        if not (self.allow_rebuild or self.allow_rerun):
-            error("At least one of allow_rebuild and allow_rerun needs to be True.")
-
-        # If help message is a single string, duplicate to each milestone
-        if isinstance(self.help_msg, str) or self.help_msg is None:
-            self.help_msg = [self.help_msg] * len(self.grades_col_names)
 
     def run(self):
         """Call this to start (or resume) the grading process"""
