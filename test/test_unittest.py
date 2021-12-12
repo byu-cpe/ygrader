@@ -17,7 +17,14 @@ TEST_RESOURCES_PATH = TEST_PATH / "resources"
 
 class TestGithub(unittest.TestCase):
     def test_me(self):
-        grader = Grader("test_github", "lab1", TEST_RESOURCES_PATH / "grades1.csv", "lab1", 10)
+        grader = Grader(
+            "test_github",
+            "lab1",
+            TEST_RESOURCES_PATH / "grades1.csv",
+            "lab1",
+            10,
+            TEST_PATH / "temp",
+        )
         grader.set_callback_fcn(lambda **kw: 0)
         grader.set_submission_system_github("master", TEST_RESOURCES_PATH / "github.csv")
         grader.set_other_options(build_only=True)
