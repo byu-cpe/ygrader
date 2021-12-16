@@ -148,7 +148,7 @@ class Grader:
         prep_fcn: Callable
             If you are grading multiple items (multiple columns from the grade CSV), then you can use this optional callback to do any one-time prep work.
 
-            This callback is provided the same arguments as the *grading_fcn* callback, except *csv_col_name*.  You should not return any value from this callback, but you can `raise CallbackFailed` to skip the student.
+            This callback is provided the same arguments as the *grading_fcn* callback, except for *csv_col_name* and *csv_col_name*.  You should not return any value from this callback, but you can `raise CallbackFailed` to skip the student.
         """
         self.run_on_milestone = grading_fcn
         self.run_on_lab = prep_fcn
