@@ -67,6 +67,13 @@ def convert_github_url_format(url, to_https):
     >>> convert_github_url_format("https://github.com/byu-ecen123-classroom/123-labs-username01", False)
     'git@github.com:byu-ecen123-classroom/123-labs-username01.git'
 
+    It also works if the student provides the repo with ".git" extension
+
+    >>> convert_github_url_format("https://github.com/byu-ecen123-classroom/123-labs-username01.git", True)
+    'https://github.com/byu-ecen123-classroom/123-labs-username01'
+
+    Any invalid format is returned with modification:
+
     >>> convert_github_url_format("invalid format", True)
     'invalid format'
 
@@ -81,6 +88,10 @@ def convert_github_url_format(url, to_https):
     if m:
         org = m.group(1)
         repo = m.group(2)
+
+    # Remove .git
+    if repo is not None and repo.endswith(".git"):
+        repo = repo[:-4]
 
     if org is not None:
         if to_https:

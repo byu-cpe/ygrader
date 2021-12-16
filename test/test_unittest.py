@@ -23,19 +23,26 @@ def load_tests(loader, tests, ignore):
 
 class TestGithub(unittest.TestCase):
     def test_me(self):
+        grades_path = TEST_RESOURCES_PATH / "grades1.csv"
+        grades_path_golden = TEST_RESOURCES_PATH / "grades1_golden.csv"
+
         grader = Grader(
             "test_github",
             "lab1",
             TEST_RESOURCES_PATH / "grades1.csv",
-            "lab1",
-            10,
+            ("lab1", "lab1m2"),
+            (10, 20),
             TEST_PATH / "temp",
         )
-        grader.set_callback_fcn(lambda **kw: 0)
+        grader.set_callback_fcn(self.runner)
         grader.set_submission_system_github("master", TEST_RESOURCES_PATH / "github.csv")
-        grader.set_other_options(build_only=True)
 
         grader.run()
+
+        self.assertTrue(filecmp.cmp(grades_path, grades_path_golden))
+
+    def runner(self, **kw):
+        return kw["points"]
 
 
 class TestLearningSuite(unittest.TestCase):

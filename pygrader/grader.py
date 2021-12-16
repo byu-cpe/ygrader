@@ -130,6 +130,7 @@ class Grader:
                 * lab_name (*str*): This will pass back the lab name you passed to *__init__*. Useful if you use the same callback function to grade multiple different assignments.
                 * student_code_path (*pathlib.Path*): The location where the unzipped/cloned student files are stored.
                 * csv_col_name (*str*): The current CSV column being graded. Typically only needed if you are grading multiple different items.
+                * points (*int*): The maximum number of points possible for the item being graded.
                 * first_names: (*list(str)*) First name(s) of students in the group
                 * last_names: (*list(str)*) Last name(s) of students in the group
                 * net_ids: (*list(str)*) Net ID(s) of students in the group.
@@ -161,6 +162,7 @@ class Grader:
             "last_names",
             "net_ids",
             "csv_col_name",
+            "points",
         ]
         callback_args_optional = [
             "modified_time",
@@ -487,6 +489,7 @@ class Grader:
                             score = self.run_on_milestone(
                                 **callback_args,
                                 csv_col_name=grade_col_name,
+                                points=self.points[col_idx],
                                 build=build and not self.run_only,
                             )
                         except CallbackFailed as e:
