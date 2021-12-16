@@ -4,15 +4,21 @@ import unittest
 import pathlib
 import sys
 import filecmp
-
+import doctest
 
 ROOT_PATH = pathlib.Path(__file__).resolve().parent.parent
 sys.path.append(str(ROOT_PATH))
 
+import pygrader.student_repos
 from pygrader import Grader, CodeSource
 
 TEST_PATH = ROOT_PATH / "test"
 TEST_RESOURCES_PATH = TEST_PATH / "resources"
+
+
+def load_tests(loader, tests, ignore):
+    tests.addTests(doctest.DocTestSuite(pygrader.student_repos))
+    return tests
 
 
 class TestGithub(unittest.TestCase):

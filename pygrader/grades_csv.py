@@ -2,6 +2,7 @@ import pandas
 import re
 import numpy
 
+from .student_repos import convert_github_url_format
 from .utils import error
 
 
@@ -34,7 +35,7 @@ def filter_need_grade(df, expected_grade_col_names):
     return filtered_df
 
 
-def match_to_github_url(df_needs_grade, github_csv_path, github_csv_col_name):
+def match_to_github_url(df_needs_grade, github_csv_path, github_csv_col_name, use_https):
     try:
         df_github = pandas.read_csv(github_csv_path, index_col=False)
     except pandas.errors.EmptyDataError:
@@ -47,6 +48,11 @@ def match_to_github_url(df_needs_grade, github_csv_path, github_csv_col_name):
 
     # Rename appropriate column to github url
     df_github.rename(columns={github_csv_col_name: "github_url"}, inplace=True)
+
+    # Convert github URLs to https or SSH
+    df_github["github_url"] = df_github["github_url"].apply(
+        lambda url: convert_github_url_format(url, use_https)
+    )
 
     # Filter down to relevant columns
     df_github = df_github[["Net ID", "github_url"]]

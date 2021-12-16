@@ -226,7 +226,9 @@ class Grader:
         if not zip_path.is_file():
             error("Provided zip_path", zip_path, "does not exist")
 
-    def set_submission_system_github(self, tag, github_url_csv_path, repo_col_name="github_url"):
+    def set_submission_system_github(
+        self, tag, github_url_csv_path, repo_col_name="github_url", use_https=False
+    ):
         """
         Call this function if you are using student submissions on Github.
 
@@ -235,14 +237,17 @@ class Grader:
         tag: str
             The tag on the students github repository that is used for the submission.
         github_url_csv_path: pathlib.Path | str
-            The path to a CSV file containing student Github repository URLs.  This CSV file must have a column called 'Net ID'.
+            The path to a CSV file containing student Github repository URLs.  This CSV file must have a column called 'Net ID'. The repos can be listed as an http:// address or in SSH format (git@).  They will be coverted as needed depending on the *use_https* argument.
         repo_col_name: str
             The column name in the CSV file that contains the Github URLs.
+        use_https: bool
+            By default SSH will be used to clone the student repos.  If you want to use an access token or stored credentials over https, set this to True.
         """
         self.code_source = CodeSource.GITHUB
         self.github_csv_path = github_url_csv_path
         self.github_csv_col_name = repo_col_name
         self.github_tag = tag
+        self.github_https = use_https
 
         if not github_url_csv_path.is_file():
             error(
@@ -588,7 +593,9 @@ class Grader:
     def _group_students(self, df):
         if self.code_source == CodeSource.GITHUB:
             # For Github source, group name is simply github URL
-            df = grades_csv.match_to_github_url(df, self.github_csv_path, self.github_csv_col_name)
+            df = grades_csv.match_to_github_url(
+                df, self.github_csv_path, self.github_csv_col_name, self.github_https
+            )
 
             df_needs_grades = grades_csv.filter_need_grade(df, self.grades_col_names)
 
