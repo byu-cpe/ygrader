@@ -9,7 +9,7 @@ import time
 ROOT_PATH = pathlib.Path(__file__).resolve().parent.parent
 sys.path.append(str(ROOT_PATH))
 
-from pygrader import Grader, CodeSource
+from ygrader import Grader, CodeSource
 
 TEST_PATH = ROOT_PATH / "test"
 TEST_RESOURCES_PATH = TEST_PATH / "resources"

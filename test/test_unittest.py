@@ -9,15 +9,15 @@ import doctest
 ROOT_PATH = pathlib.Path(__file__).resolve().parent.parent
 sys.path.append(str(ROOT_PATH))
 
-import pygrader.student_repos
-from pygrader import Grader, CodeSource
+import ygrader.student_repos
+from ygrader import Grader, CodeSource
 
 TEST_PATH = ROOT_PATH / "test"
 TEST_RESOURCES_PATH = TEST_PATH / "resources"
 
 
 def load_tests(loader, tests, ignore):
-    tests.addTests(doctest.DocTestSuite(pygrader.student_repos))
+    tests.addTests(doctest.DocTestSuite(ygrader.student_repos))
     return tests
 
 
