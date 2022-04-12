@@ -5,7 +5,7 @@ import sys
 import re
 
 from .utils import print_color, TermColors
-from pygrader import utils
+from ygrader import utils
 
 
 def clone_repo(git_path, tag, student_repo_path):

@@ -8,7 +8,7 @@ sys.path.append(str(ROOT_PATH))
 
 import argparse
 
-from pygrader import UpstreamMerger
+from ygrader import UpstreamMerger
 
 
 def main():
