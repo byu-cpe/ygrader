@@ -704,14 +704,15 @@ class Grader:
             if txt in allowed_entrys:
                 return txt
             else:
-                if not txt.isdigit():
+                try:
+                    score = float(txt)
+                except ValueError:
                     print("Invalid input. Try again.")
                     continue
-                score = int(txt)
                 if 0 <= score <= max_score:
                     return score
                 else:
-                    print("  Invalid input. Try again.")
+                    print("Invalid input. Try again.")
 
     def _create_work_path(self):
         if self.code_source == CodeSource.LEARNING_SUITE:
