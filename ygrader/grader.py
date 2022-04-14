@@ -298,7 +298,7 @@ class Grader:
         format_code=False,
         build_only=False,
         run_only=False,
-        allow_rebuild=True,
+        allow_rebuild=False,
         allow_rerun=True,
         help_msg="",
     ):
@@ -314,9 +314,11 @@ class Grader:
         run_only: bool
             Whether you only want to run/grade and not build the students code.  This will be passed to your callback function, and is useful for labs that take a while to build.  You can build all the code in one pass, then return and grade the code later.
         allow_rebuild: bool
-            When asking for a grade, the program will normally allow the grader to request a "rebuild and run".  If your grader doesn't support this, then set this to False.
+            By default, the program will pass build=True and run=True to your callback on the first invocation, and then allow the grader the option to "re-run" the student's code, where build=False and run=True would be provided.  If you want to allow the grader to
+            specifically request a rebuild, set this to True (default False).
         allow_rerun: bool
-            When asking for a grade, the program will normally allow the grader to request a "re-run only (no rebuld)". If your grader doesn't support this, then set this to False.  At least one of 'allow_rebuild' and 'allow_rerun' should be True.
+            By default, the program will pass build=True and run=True to your callback on the first invocation, and then allow the grader the option to "re-run" the student's code, where build=False and run=True would be provided.  If your grader can't rerun without rebuilding, then set
+            this to False (default True).
         help_msg: str
             When the script asks the user for a grade, it will print this message first.  This can be a helpful reminder to the TAs of a grading rubric, things they should watch out for, etc. This can be provided as a single string or a list of strings if there is a different message for each milestone.
         """
@@ -439,7 +441,7 @@ class Grader:
                 utils.clang_format_code(student_work_path)
 
             # variable to flag if build needs to be performed
-            # initialize to False as the code must be built at least once
+            # initialize to True as the code must be built at least once
             # (will be false if TA chooses to just re-run and not re-build)
             build = True
 
@@ -693,7 +695,10 @@ class Grader:
             input_txt += "'b' to build and run again, "
             allowed_entrys.append("b")
         if allow_rerun:
-            input_txt += "'r' to re-run (w/o rebuild), "
+            input_txt += "'r' to re-run"
+            if allow_rebuild:
+                input_txt += " (w/o rebuild)"
+            input_txt += ", "
             allowed_entrys.append("r")
 
         # Remmove trailing ", " and terminate

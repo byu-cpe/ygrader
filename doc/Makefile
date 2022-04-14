@@ -20,5 +20,4 @@ help:
 	@$(SPHINXBUILD) -M $@ "$(SOURCEDIR)" "$(BUILDDIR)" $(SPHINXOPTS) $(O)
 
 install:
-	sudo apt-get install -y sphinx-common
-	sudo pip3 install sphinx-markdown-builder
+	sudo pip3 install sphinx sphinx_rtd_theme sphinx-markdown-builder myst-parser

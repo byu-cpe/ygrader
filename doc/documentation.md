@@ -1,6 +1,6 @@
 # Documentation
 
 ```{eval-rst}
-.. autoclass:: pygrader.grader.Grader
+.. autoclass:: ygrader.grader.Grader
     :members:
 ```
