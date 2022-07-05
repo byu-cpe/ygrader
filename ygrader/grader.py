@@ -47,7 +47,7 @@ class Grader:
             Name of the lab that you are grading (ie. 'lab3').  This is passed back to your callback functions and used for logging messages.
         grades_csv_path: pathlib.Path
             Path to CSV file with student grades exported from LearningSuite.  You need to export netid, first and last name, and any grade columns you want to populate.
-        grades_col_names: str | list of str
+        grades_col_name: str | list of str
             Names of CSV column(s) that will be graded.
         points: int | list of int
             Number of max points for the graded column(s).
@@ -129,7 +129,7 @@ class Grader:
             Your callback function will be provided with the following arguments:
                 * lab_name (*str*): This will pass back the lab name you passed to *__init__*. Useful if you use the same callback function to grade multiple different assignments.
                 * student_code_path (*pathlib.Path*): The location where the unzipped/cloned student files are stored.
-                * csv_col_name (*str*): The current CSV column being graded. Typically only needed if you are grading multiple different items.
+                * grades_col_name (*str*): The current CSV column being graded. Typically only needed if you are grading multiple different items.
                 * points (*int*): The maximum number of points possible for the item being graded.
                 * first_names: (*list(str)*) First name(s) of students in the group
                 * last_names: (*list(str)*) Last name(s) of students in the group
@@ -148,7 +148,7 @@ class Grader:
         prep_fcn: Callable
             If you are grading multiple items (multiple columns from the grade CSV), then you can use this optional callback to do any one-time prep work.
 
-            This callback is provided the same arguments as the *grading_fcn* callback, except for *csv_col_name* and *csv_col_name*.  You should not return any value from this callback, but you can `raise CallbackFailed` to skip the student.
+            This callback is provided the same arguments as the *grading_fcn* callback, except for *grades_col_name* and *grades_col_name*.  You should not return any value from this callback, but you can `raise CallbackFailed` to skip the student.
         """
         self.run_on_milestone = grading_fcn
         self.run_on_lab = prep_fcn
@@ -161,7 +161,7 @@ class Grader:
             "first_names",
             "last_names",
             "net_ids",
-            "csv_col_name",
+            "grades_col_name",
             "points",
         ]
         callback_args_optional = [
@@ -198,7 +198,8 @@ class Grader:
                         "(" + callback_fcn.__name__ + ")",
                         "takes a named argument",
                         "'" + named_arg + "'",
-                        "but this is not provided by the grader. Please remove this argument or the grader will not be able to call your callback function correctly.",
+                        "but this is not provided by the grader. Please remove this argument or the grader will not be able to call your callback function correctly. Available callback arguments:",
+                        str(callback_args),
                     )
                 elif named_arg not in callback_args:
                     warning(
@@ -490,7 +491,7 @@ class Grader:
                         try:
                             score = self.run_on_milestone(
                                 **callback_args,
-                                csv_col_name=grade_col_name,
+                                grades_col_name=grade_col_name,
                                 points=self.points[col_idx],
                                 build=build and not self.run_only,
                             )
