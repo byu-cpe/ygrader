@@ -198,7 +198,8 @@ class Grader:
                         "(" + callback_fcn.__name__ + ")",
                         "takes a named argument",
                         "'" + named_arg + "'",
-                        "but this is not provided by the grader. Please remove this argument or the grader will not be able to call your callback function correctly.",
+                        "but this is not provided by the grader. Please remove this argument or the grader will not be able to call your callback function correctly. Available callback arguments:",
+                        str(callback_args),
                     )
                 elif named_arg not in callback_args:
                     warning(
