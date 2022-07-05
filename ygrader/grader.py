@@ -130,7 +130,7 @@ class Grader:
                 * lab_name (*str*): This will pass back the lab name you passed to *__init__*. Useful if you use the same callback function to grade multiple different assignments.
                 * student_code_path (*pathlib.Path*): The location where the unzipped/cloned student files are stored.
                 * grades_col_name (*str*): The current CSV column being graded. Typically only needed if you are grading multiple different items.
-                * points (*int*): The maximum number of points possible for the item being graded.
+                * points (*int*): The maximum number of points possible for the item being graded, used for validating the grade when prompting the user to input a grade.  If your callback function automatically calcuates and returns a grade, this argument is ignored.
                 * first_names: (*list(str)*) First name(s) of students in the group
                 * last_names: (*list(str)*) Last name(s) of students in the group
                 * net_ids: (*list(str)*) Net ID(s) of students in the group.
