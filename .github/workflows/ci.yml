@@ -2,15 +2,22 @@ name: CI
 on: push
 
 jobs:
-  all:
+  docs:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+    - name: Install packages
+      run: 
+          sudo pip3 install pandas    
+    - name: Build docs
+      run: cd doc && make html && make pdf
+  
+  unittest:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v2
     - name: Install packages
       run: 
           sudo pip3 install pandas
-    #     sudo pip3 install cmake
-    #     sudo apt-get update
-    #     sudo apt-get install -y qt5-default gcc-arm-none-eabi libnewlib-arm-none-eabi libstdc++-arm-none-eabi-newlib clang-format-6.0    
     - name: Pytests
       run: cd test && python3 -m unittest
