@@ -57,7 +57,7 @@ class Grader:
         self.name = name
         self.lab_name = lab_name
 
-        self.grades_csv_path = pathlib.Path(grades_csv_path)
+        self.grades_csv_path = pathlib.Path(grades_csv_path).resolve()
 
         # Listify grade_col_name and points
         # (Grader can grade multiple columns at once)
