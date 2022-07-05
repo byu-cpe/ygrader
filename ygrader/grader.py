@@ -47,7 +47,7 @@ class Grader:
             Name of the lab that you are grading (ie. 'lab3').  This is passed back to your callback functions and used for logging messages.
         grades_csv_path: pathlib.Path
             Path to CSV file with student grades exported from LearningSuite.  You need to export netid, first and last name, and any grade columns you want to populate.
-        grades_col_names: str | list of str
+        grades_col_name: str | list of str
             Names of CSV column(s) that will be graded.
         points: int | list of int
             Number of max points for the graded column(s).
