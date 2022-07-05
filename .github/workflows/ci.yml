@@ -11,7 +11,7 @@ jobs:
           cd doc && pip3 install -r requirements.txt
 
     - name: Build docs
-      run: cd doc && make html && make pdf
+      run: cd doc && make html
   
   unittest:
     runs-on: ubuntu-latest
