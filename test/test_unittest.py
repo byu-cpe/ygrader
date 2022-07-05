@@ -36,7 +36,7 @@ class TestGithub(unittest.TestCase):
         )
         grader.set_callback_fcn(self.runner)
         grader.set_submission_system_github(
-            "master", TEST_RESOURCES_PATH / "github.csv", use_https=True
+            "main", TEST_RESOURCES_PATH / "github.csv", use_https=True
         )
 
         grader.run()
