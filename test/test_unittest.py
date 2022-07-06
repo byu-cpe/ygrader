@@ -32,7 +32,7 @@ class TestGithub(unittest.TestCase):
             TEST_RESOURCES_PATH / "grades1.csv",
             ("lab1", "lab1m2"),
             (10, 20),
-            TEST_PATH / "temp",
+            work_path=TEST_PATH / "temp",
         )
         grader.set_callback_fcn(self.runner)
         grader.set_submission_system_github(
@@ -54,7 +54,7 @@ class TestLearningSuite(unittest.TestCase):
         grades_path_golden = TEST_RESOURCES_PATH / "grades2_golden.csv"
 
         grader = Grader(
-            "test_learningsuite", "lab1", grades_path, "lab1", (10,), TEST_PATH / "temp"
+            "test_learningsuite", "lab1", grades_path, "lab1", (10,), work_path=TEST_PATH / "temp"
         )
         grader.set_callback_fcn(self.runner)
         grader.set_submission_system_learning_suite(TEST_RESOURCES_PATH / "submissions.zip")
