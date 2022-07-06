@@ -1,3 +1,4 @@
+import json
 import pathlib
 import enum
 import sys
@@ -9,7 +10,6 @@ import shutil
 import datetime
 from typing import Callable
 import inspect
-
 import pandas
 
 from . import grades_csv
@@ -35,6 +35,7 @@ class Grader:
         grades_csv_path: pathlib.Path,
         grades_col_name: str,
         points: int,
+        feedback_col_name: str = None,
         work_path: pathlib.Path = pathlib.Path.cwd(),
     ):
 
@@ -51,6 +52,8 @@ class Grader:
             Names of CSV column(s) that will be graded.
         points: int | list of int
             Number of max points for the graded column(s).
+        feedback_col_name: str
+            (Optional) Name of CSV column that will be used to store comments for student feedback.
         work_path: pathlib.Path
             Path to directory where student files will be placed.  For example, if you pass in '.', then student code would be placed in './lab3'
         """
@@ -81,6 +84,19 @@ class Grader:
         if not self.grades_csv_path.is_file():
             error("grades_csv_path", "(" + str(grades_csv_path) + ")", "does not exist")
 
+        # Create a working directory
+        self.work_path = pathlib.Path(work_path)
+        self.work_path = self.work_path / (lab_name + "_" + name)
+
+        # Feedback comments
+        self.feedback_col_name = feedback_col_name
+        self.feedback_list_path = self.work_path / "feedback.json"
+        self.feedback_list = []
+        if self.feedback_list_path.is_file():
+            with open(self.feedback_list_path) as f:
+                self.feedback_list = json.load(f)
+
+        # Read CSV and validate
         try:
             df = pandas.read_csv(self.grades_csv_path)
         except pandas.errors.EmptyDataError:
@@ -95,10 +111,15 @@ class Grader:
                     "Columns:",
                     list(df.columns),
                 )
-
-        # Create a working directory
-        self.work_path = pathlib.Path(work_path)
-        self.work_path = self.work_path / (lab_name + "_" + name)
+        if self.feedback_col_name and self.feedback_col_name not in df:
+            error(
+                "Provided feedback_col_name",
+                "(" + self.feedback_col_name + ")",
+                "does not exist in grades_csv_path",
+                "(" + str(self.grades_csv_path) + ").",
+                "Columns:",
+                list(df.columns),
+            )
 
         # Initialize other class members
         self.code_source = None
@@ -363,6 +384,12 @@ class Grader:
         # Read in CSV and validate.  Print # students who need a grade
         student_grades_df = grades_csv.parse_and_check(self.grades_csv_path, self.grades_col_names)
 
+        # Convert columns
+        if self.feedback_col_name:
+            student_grades_df[self.feedback_col_name] = student_grades_df[
+                self.feedback_col_name
+            ].fillna("")
+
         # Filter by students who need a grade
         if not analyze_only:
             grades_needed_df = grades_csv.filter_need_grade(
@@ -520,13 +547,10 @@ class Grader:
 
                     if score is None:
                         try:
-                            score = self._get_score(
-                                concated_names,
-                                self.lab_name + "-" + grade_col_name,
-                                self.points[col_idx],
-                                self.allow_rebuild,
-                                self.allow_rerun,
-                                self.help_msg[col_idx],
+                            score, feedback = self._get_score(
+                                names=concated_names,
+                                assignment_name=self.lab_name + "-" + grade_col_name,
+                                col_idx=col_idx,
                             )
                         except KeyboardInterrupt:
                             print_color(TermColors.RED, "\nExiting")
@@ -544,10 +568,20 @@ class Grader:
                     else:
                         # Record score
                         for net_id in net_ids:
-                            student_grades_df.at[
-                                grades_csv.find_idx_for_netid(student_grades_df, net_id),
-                                grade_col_name,
-                            ] = score
+                            row_idx = grades_csv.find_idx_for_netid(student_grades_df, net_id)
+                            student_grades_df.at[row_idx, grade_col_name] = score
+
+                            if self.feedback_col_name:
+                                existing_feedback = student_grades_df.at[
+                                    row_idx, self.feedback_col_name
+                                ].strip()
+                                if existing_feedback and (existing_feedback[-1] != "."):
+                                    existing_feedback += ". "
+
+                                # Append new feedback
+                                student_grades_df.at[row_idx, self.feedback_col_name] = (
+                                    existing_feedback + feedback
+                                )
 
                         student_grades_df.to_csv(
                             str(self.grades_csv_path),
@@ -669,56 +703,99 @@ class Grader:
                 return False
             return zip_path.stat().st_mtime
 
-    def _get_score(
-        self,
-        names,
-        assignment_name,
-        max_score,
-        allow_rebuild,
-        allow_rerun,
-        extra_message="",
-    ):
-        if extra_message:
-            print_color(TermColors.BOLD, extra_message)
-        input_txt = (
-            TermColors.BLUE
-            + "Enter score for "
-            + names
-            + ", "
-            + (assignment_name + ":")
-            + (" (0-" + str(max_score) + "), ")
-        )
-
-        input_txt += "'s' to skip, "
-        allowed_entrys = ["s"]
-
-        if allow_rebuild:
-            input_txt += "'b' to build and run again, "
-            allowed_entrys.append("b")
-        if allow_rerun:
-            input_txt += "'r' to re-run"
-            if allow_rebuild:
-                input_txt += " (w/o rebuild)"
-            input_txt += ", "
-            allowed_entrys.append("r")
-
-        # Remmove trailing ", " and terminate
-        input_txt = input_txt[:-2] + ":" + TermColors.END
+    def _get_score(self, names, assignment_name, col_idx):
+        fpad = " " * 8
+        fpad2 = " " * 4
+        pad = 10
+        feedback = ""
 
         while True:
+            if self.help_msg[col_idx]:
+                print_color(TermColors.BOLD, self.help_msg[col_idx])
+
+            ################### Build input menu #######################
+            input_txt = TermColors.BLUE + "\nGrading " + names + ", " + (assignment_name + ":\n")
+
+            # Add current feedback
+            if self.feedback_col_name:
+                input_txt += (
+                    fpad + "Pending feedback: " + TermColors.END + feedback + TermColors.BLUE + "\n"
+                )
+
+            # Add score input
+            input_txt += (
+                fpad2
+                + ("0-" + str(self.points[col_idx])).ljust(pad)
+                + "Enter a score to finish and save\n"
+            )
+
+            # Enter feedback
+            allowed_feedback = {}
+            if self.feedback_col_name:
+                input_txt += (
+                    fpad2
+                    + "str".ljust(pad)
+                    + "Enter a string with any new feedback, or select from prevous feedback:\n"
+                )
+                for i, f in enumerate(self.feedback_list):
+                    input_txt += fpad2 + ("f" + str(i)).ljust(pad + 2) + f + "\n"
+                    allowed_feedback["f" + str(i)] = f
+
+                input_txt += fpad2 + "'c'".ljust(pad) + "Clear entered feedback\n"
+                allowed_feedback["c"] = ""
+
+            input_txt += fpad2 + "'s'".ljust(pad) + "Skip to next student\n"
+            allowed_cmds = ["s"]
+
+            if self.allow_rebuild:
+                input_txt += fpad2 + "'b'".ljust(pad) + "Build and run again\n"
+                allowed_cmds.append("b")
+            if self.allow_rerun:
+                input_txt += fpad2 + "'r'".ljust(pad) + "Re-run"
+                if self.allow_rebuild:
+                    input_txt += " (w/o rebuild)"
+                input_txt += "\n"
+                allowed_cmds.append("r")
+
+            # Remmove trailing ", " and terminate
+            input_txt += ">>> " + TermColors.END
+
+            ################### Get and handle user input #######################
             txt = input(input_txt)
-            if txt in allowed_entrys:
-                return txt
-            else:
-                try:
-                    score = float(txt)
-                except ValueError:
-                    print("Invalid input. Try again.")
-                    continue
-                if 0 <= score <= max_score:
-                    return score
+
+            # Check for commands
+            if txt in allowed_cmds:
+                return (txt, feedback)
+
+            # Check for integer input
+            try:
+                score = float(txt)
+                if 0 <= score <= self.points[col_idx]:
+                    return (score, feedback)
                 else:
                     print("Invalid input. Try again.")
+            except ValueError:
+                pass
+
+            # Check for feedback input
+            if txt in allowed_feedback:
+                if txt == "c":
+                    feedback = ""
+                    continue
+                feedback_to_add = allowed_feedback[txt]
+
+            else:
+                txt = txt.capitalize()
+                if txt not in self.feedback_list:
+                    self.feedback_list.append(txt)
+                    with open(self.feedback_list_path, "w") as f:
+                        json.dump(self.feedback_list, f)
+                feedback_to_add = txt
+
+            # Assume input is feedback
+            if feedback and feedback[-1] != ".":
+                feedback += ". "
+            feedback += feedback_to_add
 
     def _create_work_path(self):
         if self.code_source == CodeSource.LEARNING_SUITE:
