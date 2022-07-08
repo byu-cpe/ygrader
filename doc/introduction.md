@@ -6,16 +6,11 @@ The package is designed to help you write grading scripts.  The main idea behind
 
 ## Example
 
-This example (available on [github](https://github.com/byu-cpe/pygrader-example)), demonstrates a very simple use of pygrader to grade lab reports.
-The [example.py](https://github.com/byu-cpe/pygrader-example/blob/main/example.py) file:
+This example (available on [github](https://github.com/byu-cpe/ygrader-example)), demonstrates a very simple use of ygrader to grade lab reports.
+The [example.py](https://github.com/byu-cpe/ygrader-example/blob/main/example.py) file:
 ```python
 import sys
-from pathlib import Path
-
-# Add the pygrader directory to the python search path
-sys.path.append(str(Path(__file__).resolve().parent / "pygrader_repo"))
-
-import pygrader
+import ygrader
 
 def my_callback(student_code_path, lab_name, **kw):
 
@@ -24,10 +19,10 @@ def my_callback(student_code_path, lab_name, **kw):
     if lab_report_path.is_file():
         print(open(lab_report_path).read())
     else:
-        raise pygrader.CallbackFailed("Missing lab_report.txt")
+        raise ygrader.CallbackFailed("Missing lab_report.txt")
 
 # Configure and run the grader
-grader = pygrader.Grader("example", "lab1", "learning_suite/grades.csv", "lab1_labreport", 10)
+grader = ygrader.Grader("lab1", "learning_suite/grades.csv", "lab1_labreport", 10)
 grader.set_callback_fcn(my_callback)
 grader.set_submission_system_learning_suite("learning_suite/lab1_submissions.zip")
 grader.run()

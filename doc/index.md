@@ -1,4 +1,4 @@
-# pygrader
+# ygrader
 
 Created for the Electrical and Computer Engineering Department at Brigham Young University.
 

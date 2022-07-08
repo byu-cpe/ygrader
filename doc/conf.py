@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# pygrader documentation build configuration file, created by
+# ygrader documentation build configuration file, created by
 # sphinx-quickstart on Thu Dec 10 17:27:51 2020.
 #
 # This file is execfile()d with the current directory set to its
@@ -52,7 +52,7 @@ source_suffix = [".rst", ".md"]
 master_doc = "index"
 
 # General information about the project.
-project = u"pygrader"
+project = u"ygrader"
 copyright = u"2020, Jeff Goeders"
 author = u"Jeff Goeders"
 
@@ -121,7 +121,7 @@ html_sidebars = {
 # -- Options for HTMLHelp output ------------------------------------------
 
 # Output file base name for HTML help builder.
-htmlhelp_basename = "pygraderdoc"
+htmlhelp_basename = "ygraderdoc"
 
 
 # -- Options for LaTeX output ---------------------------------------------
@@ -145,7 +145,7 @@ latex_elements = {
 # (source start file, target name, title,
 #  author, documentclass [howto, manual, or own class]).
 latex_documents = [
-    (master_doc, "pygrader.tex", u"pygrader Documentation", u"Jeff Goeders", "manual"),
+    (master_doc, "ygrader.tex", u"ygrader Documentation", u"Jeff Goeders", "manual"),
 ]
 
 
@@ -153,7 +153,7 @@ latex_documents = [
 
 # One entry per manual page. List of tuples
 # (source start file, name, description, authors, manual section).
-man_pages = [(master_doc, "pygrader", u"pygrader Documentation", [author], 1)]
+man_pages = [(master_doc, "ygrader", u"ygrader Documentation", [author], 1)]
 
 
 # -- Options for Texinfo output -------------------------------------------
@@ -164,10 +164,10 @@ man_pages = [(master_doc, "pygrader", u"pygrader Documentation", [author], 1)]
 texinfo_documents = [
     (
         master_doc,
-        "pygrader",
-        u"pygrader Documentation",
+        "ygrader",
+        u"ygrader Documentation",
         author,
-        "pygrader",
+        "ygrader",
         "One line description of project.",
         "Miscellaneous",
     ),

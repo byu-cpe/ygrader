@@ -18,7 +18,7 @@ In the above process, *you will only need to write the callback code to build an
 
 ## File Organization
 
-The typical usage model is that you create your own grader repository for your class, and would add this repository as a submodule. This is demonstrated in the [pygrader-example](https://github.com/byu-cpe/pygrader-example) repository, which you may fork as a good starting point.  
+The typical usage model is that you create your own grader repository for your class, and would add this repository as a submodule. This is demonstrated in the [ygrader-example](https://github.com/byu-cpe/ygrader-example) repository, which you may fork as a good starting point.  
 
 I typically give TAs access to this grading repo, and put them in charge of both exporting CSVs from Learning Suite, and importing them after grading.
 
@@ -26,7 +26,7 @@ I typically give TAs access to this grading repo, and put them in charge of both
 
 1. Start by creating a *Grader* object:
     ```python
-    grader = pygrader.Grader("example", "lab1", "learning_suite/grades.csv", "lab1_labreport", 10)
+    grader = ygrader.Grader("lab1", "learning_suite/grades.csv", "lab1_labreport", 10)
     ```
 
 1. Register your callback function (this is where you will run student's code, inspect their submitted files, etc).  

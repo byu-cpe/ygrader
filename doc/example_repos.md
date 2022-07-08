@@ -1,7 +1,7 @@
 # Example Repositories
 
 ## Simple Example
-* <https://github.com/byu-cpe/pygrader-example>
+* <https://github.com/byu-cpe/ygrader-example>
 
 ## Learning Suite Submission Style
 * ECEN 330 grader (Learning Suite submission style): <https://github.com/byu-cpe/ecen330_grader>
