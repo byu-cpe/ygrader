@@ -30,22 +30,19 @@ class Grader:
 
     def __init__(
         self,
-        name: str,
         lab_name: str,
         grades_csv_path: pathlib.Path,
         grades_col_name: str,
         points: int,
         feedback_col_name: str = None,
-        work_path: pathlib.Path = pathlib.Path.cwd(),
+        work_path: pathlib.Path = pathlib.Path.cwd() / "temp",
     ):
 
         """
         Parameters
         ----------
-        name: str
-            Name of the grading process (ie. 'passoff' or 'coding_standard').  This is just used for folder naming.
         lab_name: str
-            Name of the lab that you are grading (ie. 'lab3').  This is passed back to your callback functions and used for logging messages.
+            Name of the lab/assignment that you are grading (ie. 'lab3').  This is used for folder naming, logging mesasge, etc., and passed back to your callback functions.
         grades_csv_path: pathlib.Path
             Path to CSV file with student grades exported from LearningSuite.  You need to export netid, first and last name, and any grade columns you want to populate.
         grades_col_name: str | list of str
@@ -55,9 +52,8 @@ class Grader:
         feedback_col_name: str
             (Optional) Name of CSV column that will be used to store comments for student feedback.
         work_path: pathlib.Path
-            Path to directory where student files will be placed.  For example, if you pass in '.', then student code would be placed in './lab3'
+            Path to directory where student files will be placed.  For example, if you pass in '.', then student code would be placed in './lab3'.  By default the working path is a "temp" folder created in your working directory.
         """
-        self.name = name
         self.lab_name = lab_name
 
         self.grades_csv_path = pathlib.Path(grades_csv_path).resolve()
@@ -86,7 +82,7 @@ class Grader:
 
         # Create a working directory
         self.work_path = pathlib.Path(work_path)
-        self.work_path = self.work_path / (lab_name + "_" + name)
+        self.work_path = self.work_path / lab_name
 
         # Feedback comments
         self.feedback_col_name = feedback_col_name
@@ -379,7 +375,7 @@ class Grader:
         analyze_only = len(self.grades_col_names) == 0
 
         # Print starting message
-        print_color(TermColors.BLUE, "Running", self.name, "grader for lab", self.lab_name)
+        print_color(TermColors.BLUE, "Running grader for", self.lab_name)
 
         # Read in CSV and validate.  Print # students who need a grade
         student_grades_df = grades_csv.parse_and_check(self.grades_csv_path, self.grades_col_names)

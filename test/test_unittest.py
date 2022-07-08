@@ -27,11 +27,10 @@ class TestGithub(unittest.TestCase):
         grades_path_golden = TEST_RESOURCES_PATH / "grades1_golden.csv"
 
         grader = Grader(
-            "test_github",
-            "lab1",
-            TEST_RESOURCES_PATH / "grades1.csv",
-            ("lab1", "lab1m2"),
-            (10, 20),
+            lab_name="lab1",
+            grades_csv_path=TEST_RESOURCES_PATH / "grades1.csv",
+            grades_col_name=("lab1", "lab1m2"),
+            points=(10, 20),
             work_path=TEST_PATH / "temp",
         )
         grader.set_callback_fcn(self.runner)
@@ -54,23 +53,14 @@ class TestLearningSuite(unittest.TestCase):
         grades_path_golden = TEST_RESOURCES_PATH / "grades2_golden.csv"
 
         grader = Grader(
-            "test_learningsuite", "lab1", grades_path, "lab1", (10,), work_path=TEST_PATH / "temp"
+            lab_name="lab1",
+            grades_csv_path=grades_path,
+            grades_col_name="lab1",
+            points=(10,),
+            work_path=TEST_PATH / "temp",
         )
         grader.set_callback_fcn(self.runner)
         grader.set_submission_system_learning_suite(TEST_RESOURCES_PATH / "submissions.zip")
-
-        # grader = Grader(
-        #     name="test_learningsuite",
-        #     lab_name="lab1",
-        #     points=(10,),
-        #     work_path=TEST_PATH / "temp",
-        #     code_source=CodeSource.LEARNING_SUITE,
-        #     grades_csv_path=grades_path,
-        #     grades_col_names=("lab1",),
-        #     learning_suite_submissions_zip_path=TEST_RESOURCES_PATH / "submissions.zip",
-        #     run_on_milestone=self.runner,
-        # )
-
         grader.run()
 
         self.assertTrue(filecmp.cmp(grades_path, grades_path_golden))
