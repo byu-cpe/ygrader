@@ -21,4 +21,3 @@ help:
 
 install:
 	sudo pip3 install sphinx sphinx_rtd_theme sphinx-markdown-builder myst-parser
-	
