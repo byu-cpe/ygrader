@@ -7,6 +7,13 @@ from .utils import error
 
 
 def parse_and_check(grades_csv_path, grades_col_names):
+    # First check that file is not locked
+    try:
+        with open(grades_csv_path, 'a'):
+            pass
+    except PermissionError:
+        error("You do not have permissions to modify the grades_csv_path file", "(" + str(grades_csv_path) + ").", "Is this file open and locked?")
+
     try:
         grades_df = pandas.read_csv(grades_csv_path)
     except pandas.errors.EmptyDataError:
