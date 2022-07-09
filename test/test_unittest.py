@@ -29,15 +29,13 @@ class TestGithub(unittest.TestCase):
         grader = Grader(
             lab_name="lab1",
             grades_csv_path=TEST_RESOURCES_PATH / "grades1.csv",
-            grades_col_name=("lab1", "lab1m2"),
-            points=(10, 20),
             work_path=TEST_PATH / "temp",
         )
-        grader.set_callback_fcn(self.runner)
+        grader.add_item_to_grade("lab1", self.runner, 10)
+        grader.add_item_to_grade("lab1m2", self.runner, 20)
         grader.set_submission_system_github(
             "main", TEST_RESOURCES_PATH / "github.csv", use_https=True
         )
-
         grader.run()
 
         self.assertTrue(filecmp.cmp(grades_path, grades_path_golden))
@@ -55,11 +53,13 @@ class TestLearningSuite(unittest.TestCase):
         grader = Grader(
             lab_name="lab1",
             grades_csv_path=grades_path,
-            grades_col_name="lab1",
-            points=(10,),
             work_path=TEST_PATH / "temp",
         )
-        grader.set_callback_fcn(self.runner)
+        grader.add_item_to_grade(
+            csv_col_names="lab1",
+            grading_fcn=self.runner,
+            max_points=(10,),
+        )
         grader.set_submission_system_learning_suite(TEST_RESOURCES_PATH / "submissions.zip")
         grader.run()
 

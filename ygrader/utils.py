@@ -109,3 +109,13 @@ def verify_workflow_hash(workflow_file_path, hash_str):
     hash = hash_file(workflow_file_path)
     if hash != hash_str:
         raise WorkflowHashError
+
+
+def ensure_tuple(x):
+    """If x is not a list or tuple, convert to list"""
+    if isinstance(x, tuple):
+        return x
+    elif isinstance(x, list):
+        return tuple(x)
+    else:
+        return (x,)

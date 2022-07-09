@@ -4,23 +4,17 @@ import numpy
 
 from .student_repos import convert_github_url_format
 from .utils import error
+from . import utils
 
 
-def parse_and_check(grades_csv_path, grades_col_names):
-    # First check that file is not locked
-    try:
-        with open(grades_csv_path, 'a'):
-            pass
-    except PermissionError:
-        error("You do not have permissions to modify the grades_csv_path file", "(" + str(grades_csv_path) + ").", "Is this file open and locked?")
-
+def parse_and_check(grades_csv_path, csv_cols):
     try:
         grades_df = pandas.read_csv(grades_csv_path)
     except pandas.errors.EmptyDataError:
         error(
             "Exception: pandas.errors.EmptyDataError.  Is your", grades_csv_path.name, "file empty?"
         )
-    check_csv_column_names(grades_df, grades_col_names)
+    check_csv_column_names(grades_df, csv_cols)
     return grades_df
 
 
@@ -94,12 +88,16 @@ def find_idx_for_netid(df, netid):
     return matches[0]
 
 
-def num_grades_needed_per_milestone(row, grades_col_names):
-    ret = []
-    for grades_col_name in grades_col_names:
-        n = 0
-        for grade in row[grades_col_name]:
-            if numpy.isnan(grade):
-                n += 1
-        ret.append(n)
+def num_grades_needed_per_item(row, items):
+    """Returns a list of the number of students who need a grade for each of the given columns"""
+    ret = {}
+    for item in items:
+        empty_per_col = []
+        for col in item.csv_col_names:
+            n = 0
+            for grade in row[col]:
+                if numpy.isnan(grade):
+                    n += 1
+            empty_per_col.append(n)
+        ret[item] = empty_per_col
     return ret

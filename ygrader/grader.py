@@ -25,6 +25,25 @@ class CodeSource(enum.Enum):
     GITHUB = 2
 
 
+class GradeItem:
+    """Class to track each item that needs to be graded (ie, each item for which a grading callback function will be invoked.  This may be used to grade one or more columns from the CSV file."""
+
+    def __init__(self, grader, csv_col_names, fcn, max_points, feedback_col_name, help_msg) -> None:
+        self.grader = grader
+        self.csv_col_names = csv_col_names
+        self.fcn = fcn
+        self.max_points = max_points
+        self.feedback_col_name = feedback_col_name
+        self.help_msg = help_msg
+
+        # Feedback comments
+        self.feedback_list_path = self.grader.work_path / (str(csv_col_names) + ".json")
+        self.feedback_list = []
+        if self.feedback_list_path.is_file():
+            with open(self.feedback_list_path) as f:
+                self.feedback_list = json.load(f)
+
+
 class Grader:
     """Grader class"""
 
@@ -32,9 +51,6 @@ class Grader:
         self,
         lab_name: str,
         grades_csv_path: pathlib.Path,
-        grades_col_name: str,
-        points: int,
-        feedback_col_name: str = None,
         work_path: pathlib.Path = pathlib.Path.cwd() / "temp",
     ):
 
@@ -45,108 +61,58 @@ class Grader:
             Name of the lab/assignment that you are grading (ie. 'lab3').  This is used for folder naming, logging mesasge, etc., and passed back to your callback functions.
         grades_csv_path: pathlib.Path
             Path to CSV file with student grades exported from LearningSuite.  You need to export netid, first and last name, and any grade columns you want to populate.
-        grades_col_name: str | list of str
-            Names of CSV column(s) that will be graded.
-        points: int | list of int
-            Number of max points for the graded column(s).
-        feedback_col_name: str
-            (Optional) Name of CSV column that will be used to store comments for student feedback.
         work_path: pathlib.Path
             Path to directory where student files will be placed.  For example, if you pass in '.', then student code would be placed in './lab3'.  By default the working path is a "temp" folder created in your working directory.
         """
         self.lab_name = lab_name
-
         self.grades_csv_path = pathlib.Path(grades_csv_path).resolve()
 
-        # Listify grade_col_name and points
-        # (Grader can grade multiple columns at once)
-        if not isinstance(grades_col_name, (list, tuple)):
-            grades_col_name = [grades_col_name]
-        self.grades_col_names = grades_col_name
-        if not isinstance(points, (list, tuple)):
-            points = [points]
-        self.points = points
-
-        # Check that # of CSV columns to grade matches # of points list
-        if len(self.grades_col_names) != len(self.points):
-            error(
-                "List length of 'grades_col_name'",
-                "(" + str(len(self.grades_col_names)) + ")",
-                "does not match length of 'points'",
-                "(" + str(len(self.points)) + "). ",
-            )
-
-        # Make sure grades csv col names exist
+        # Make sure grades csv exists, and that file is writable
         if not self.grades_csv_path.is_file():
             error("grades_csv_path", "(" + str(grades_csv_path) + ")", "does not exist")
+        try:
+            with open(grades_csv_path, "a"):
+                pass
+        except PermissionError:
+            error(
+                "You do not have permissions to modify the grades_csv_path file",
+                "(" + str(grades_csv_path) + ").",
+                "Is this file open and locked?",
+            )
 
         # Create a working directory
         self.work_path = pathlib.Path(work_path)
         self.work_path = self.work_path / lab_name
 
-        # Feedback comments
-        self.feedback_col_name = feedback_col_name
-        self.feedback_list_path = self.work_path / "feedback.json"
-        self.feedback_list = []
-        if self.feedback_list_path.is_file():
-            with open(self.feedback_list_path) as f:
-                self.feedback_list = json.load(f)
-
-        # Read CSV and validate
+        # Read CSV and make sure it isn't empty
         try:
-            df = pandas.read_csv(self.grades_csv_path)
+            pandas.read_csv(self.grades_csv_path)
         except pandas.errors.EmptyDataError:
             error("Your grades csv", "(" + str(grades_csv_path) + ")", "appears to be empty")
-        for col_name in self.grades_col_names:
-            if col_name not in df:
-                error(
-                    "Provided grade column name",
-                    "(" + col_name + ")",
-                    "does not exist in grades_csv_path",
-                    "(" + str(self.grades_csv_path) + ").",
-                    "Columns:",
-                    list(df.columns),
-                )
-        if self.feedback_col_name and self.feedback_col_name not in df:
-            error(
-                "Provided feedback_col_name",
-                "(" + self.feedback_col_name + ")",
-                "does not exist in grades_csv_path",
-                "(" + str(self.grades_csv_path) + ").",
-                "Columns:",
-                list(df.columns),
-            )
 
         # Initialize other class members
+        self.items = []
         self.code_source = None
-        self.run_on_lab = None
-        self.run_on_milestone = None
+        self.prep_fcn = None
         self.groups_csv_path = None
         self.set_other_options()
 
-    def set_callback_fcn(self, grading_fcn, prep_fcn=None):
-        """
-        This function registers a callback function to perform your grading.
-        You must call this function and register a callback before you run the grading process.
-
-        Since your callback functions will be provided with many arguments, it's best to use keyword arguments:
-
-        .. highlight:: python
-        .. code-block:: python
-
-            def my_callback(**kw):
-                lab_name = kw["lab_name"]
-                first_name = kw["first_names"][0]
+    def add_item_to_grade(
+        self, csv_col_names, grading_fcn, max_points=None, feedback_col_name=None, help_msg=None
+    ):
+        """Add a new item you want to grade.
 
         Parameters
         ----------
+        csv_col_names: (str | list of str)
+            The column name(s) from your grading CSV file that you want to grade.
         grading_fcn: Callable
             The callback function that will perform all your grading work.
 
             Your callback function will be provided with the following arguments:
                 * lab_name (*str*): This will pass back the lab name you passed to *__init__*. Useful if you use the same callback function to grade multiple different assignments.
                 * student_code_path (*pathlib.Path*): The location where the unzipped/cloned student files are stored.
-                * grades_col_name (*str*): The current CSV column being graded. Typically only needed if you are grading multiple different items.
+                * cols_to_grade (*str*): The current CSV column being graded. Typically only needed if you are grading multiple different items.
                 * points (*int*): The maximum number of points possible for the item being graded, used for validating the grade when prompting the user to input a grade.  If your callback function automatically calcuates and returns a grade, this argument is ignored.
                 * first_names: (*list(str)*) First name(s) of students in the group
                 * last_names: (*list(str)*) Last name(s) of students in the group
@@ -158,18 +124,91 @@ class Grader:
                 * section: (*str*) Student section number, assuming 'Section Number' was contained in grades_csv exported from Learning Suite.
                 * homework_id: (*str*) Student homework ID, assuming 'Course Homework ID' was contained in grades_csv exported from Learning Suite.
 
-            Your callback should return *None* or an *int*.  If you return *None*, the will will ask the user to input a grade.  If you already know the grade you want to assign, and don't want to prompt the user, return the grade value as an *int*.
+            Your callback should return *None* an *int*/*float* (or a list of *int*/*float* if you are grading multiple columns in this item).  If you return *None*, then the user will be prompted input a grade.  If you already know the grade you want to assign, and don't want to prompt the user, return the grade value(s).
 
-            If there's a problem with the student's submission and you want to skip them, then `raise CallbackFailed`.
+            If there's a problem with the student's submission and you want to skip them, then `raise CallbackFailed`.  You can provide an argument to this exception with any error message you want printed.
 
-        prep_fcn: Callable
-            If you are grading multiple items (multiple columns from the grade CSV), then you can use this optional callback to do any one-time prep work.
+            Since your callback functions will be provided with many arguments, it's best to use keyword arguments:
 
-            This callback is provided the same arguments as the *grading_fcn* callback, except for *grades_col_name* and *grades_col_name*.  You should not return any value from this callback, but you can `raise CallbackFailed` to skip the student.
+            .. highlight:: python
+            .. code-block:: python
+
+                def my_callback(**kw):
+                    lab_name = kw["lab_name"]
+                    first_name = kw["first_names"][0]
+        max_points: int | list of int
+            (Optional) Number of max points for the graded column(s).
+        feedback_col_name: str
+            (Optional) Name of CSV column that will be used to store comments for student feedback.
+        help_msg: str | list of str
+            (Optional) When the script asks the user for a grade, it will print this message first.  This can be a helpful reminder to the TAs of a grading rubric, things they should watch out for, etc.  If you are grading multiple CSV columns, then you should provide a separate help message per column.
         """
-        self.run_on_milestone = grading_fcn
-        self.run_on_lab = prep_fcn
+        # Check data types
+        if not isinstance(grading_fcn, Callable):
+            error("'grading_fcn' must be a callable function")
 
+        # Make these into lists, even if there is only one item
+        csv_col_names = utils.ensure_tuple(csv_col_names)
+        if max_points:
+            max_points = utils.ensure_tuple(max_points)
+
+            # Check that # of CSV columns to grade matches # of points list
+            if len(csv_col_names) != len(max_points):
+                error(
+                    "'csv_col_names'",
+                    csv_col_names,
+                    "has list length =",
+                    len(csv_col_names),
+                    "but 'max_points'",
+                    max_points,
+                    "has list length =",
+                    str(len(max_points)) + ".",
+                    "They must be equal.",
+                )
+
+        if help_msg:
+            help_msg = utils.ensure_tuple(help_msg)
+
+            # Check that # of CSV columns to grade matches # of help_msg list
+            if len(csv_col_names) != len(help_msg):
+                error(
+                    "'csv_col_names'",
+                    csv_col_names,
+                    "has list length =",
+                    len(csv_col_names),
+                    "but 'help_msg'",
+                    help_msg,
+                    "has list length =",
+                    str(len(help_msg)) + ".",
+                    "They must be equal.",
+                )
+
+        df = pandas.read_csv(self.grades_csv_path)
+        for col_name in csv_col_names:
+            if col_name not in df:
+                error(
+                    "Provided grade column name",
+                    "(" + col_name + ")",
+                    "does not exist in grades_csv_path",
+                    "(" + str(self.grades_csv_path) + ").",
+                    "Columns:",
+                    list(df.columns),
+                )
+        if feedback_col_name and feedback_col_name not in df:
+            error(
+                "Provided feedback_col_name",
+                "(" + feedback_col_name + ")",
+                "does not exist in grades_csv_path",
+                "(" + str(self.grades_csv_path) + ").",
+                "Columns:",
+                list(df.columns),
+            )
+
+        item = GradeItem(self, csv_col_names, grading_fcn, max_points, feedback_col_name, help_msg)
+        self._verify_callback_fcn(grading_fcn, item)
+        self.items.append(item)
+
+    def _verify_callback_fcn(self, fcn, item):
         callback_args = [
             "lab_name",
             "student_code_path",
@@ -178,9 +217,15 @@ class Grader:
             "first_names",
             "last_names",
             "net_ids",
-            "grades_col_name",
-            "points",
         ]
+        if item:
+            if item.max_points:
+                callback_args.append("max_points")
+
+            # If this is a fcn for a graded item (not a prep-only function), then
+            # this argument is required.
+            callback_args.append("csv_col_names")
+
         callback_args_optional = [
             "modified_time",
             "section",
@@ -188,46 +233,41 @@ class Grader:
         ]
 
         # Check that callback function(s) are valid
-        callback_fcns = [grading_fcn]
-        if prep_fcn:
-            callback_fcns.append(prep_fcn)
+        argspec = inspect.getfullargspec(fcn)
 
-        for callback_fcn in callback_fcns:
-            argspec = inspect.getfullargspec(callback_fcn)
+        # Check that kwargs is enabled
+        if argspec.varkw is None:
+            error(
+                "Your callback function",
+                "(" + fcn.__name__ + ")",
+                "should accept keyward arguments (**kw). This is needed because the grader may provide different optional arguments to your callback depending on what data it has available",
+                "(" + ",".join(callback_args_optional) + ").",
+            )
 
-            # Check that kwargs is enabled
-            if argspec.varkw is None:
+        # Check that all named arguments are valid
+        for i, named_arg in enumerate(argspec.args):
+            # Skip special arguments
+            if named_arg in ("self", "cls") and i == 0:
+                continue
+            if (named_arg not in callback_args) and (named_arg not in callback_args_optional):
                 error(
                     "Your callback function",
-                    "(" + callback_fcn.__name__ + ")",
-                    "should accept keyward arguments (**kw). This is needed because the grader may provide different optional arguments to your callback depending on what data it has available",
-                    "(" + ",".join(callback_args_optional) + ").",
+                    "(" + fcn.__name__ + ")",
+                    "takes a named argument",
+                    "'" + named_arg + "'",
+                    "but this is not provided by the grader. Please remove this argument or the grader will not be able to call your callback function correctly. Available callback arguments:",
+                    str(callback_args),
                 )
-
-            # Check that all named arguments are valid
-            for i, named_arg in enumerate(argspec.args):
-                # Skip special arguments
-                if named_arg in ("self", "cls") and i == 0:
-                    continue
-                if (named_arg not in callback_args) and (named_arg not in callback_args_optional):
-                    error(
-                        "Your callback function",
-                        "(" + callback_fcn.__name__ + ")",
-                        "takes a named argument",
-                        "'" + named_arg + "'",
-                        "but this is not provided by the grader. Please remove this argument or the grader will not be able to call your callback function correctly. Available callback arguments:",
-                        str(callback_args),
-                    )
-                elif named_arg not in callback_args:
-                    warning(
-                        "Your callback function",
-                        "(" + callback_fcn.__name__ + ")",
-                        "takes a named argument",
-                        "'" + named_arg + "'",
-                        "but this argument is not always provided by the grader.",
-                        "If it is missing from your grades CSV file this will cause a runtime error.",
-                        "Please consider use keyword arguments (**kw) instead.",
-                    )
+            elif named_arg not in callback_args:
+                warning(
+                    "Your callback function",
+                    "(" + fcn.__name__ + ")",
+                    "takes a named argument",
+                    "'" + named_arg + "'",
+                    "but this argument is not always provided by the grader.",
+                    "If it is missing from your grades CSV file this will cause a runtime error.",
+                    "Please consider use keyword arguments (**kw) instead.",
+                )
 
     def set_submission_system_learning_suite(self, zip_path):
         """
@@ -319,6 +359,7 @@ class Grader:
         allow_rebuild=False,
         allow_rerun=True,
         help_msg="",
+        prep_fcn=None,
     ):
         """
         This can be used to set other options for the grader.
@@ -337,28 +378,30 @@ class Grader:
         allow_rerun: bool
             By default, the program will pass build=True and run=True to your callback on the first invocation, and then allow the grader the option to "re-run" the student's code, where build=False and run=True would be provided.  If your grader can't rerun without rebuilding, then set
             this to False (default True).
-        help_msg: str
-            When the script asks the user for a grade, it will print this message first.  This can be a helpful reminder to the TAs of a grading rubric, things they should watch out for, etc. This can be provided as a single string or a list of strings if there is a different message for each milestone.
+        prep_fcn: Callable
+            If you are grading multiple items, then you can use this optional callback to do any one-time prep work.
+
+            This callback is provided the same arguments as the grading callback function, except for *cols_to_grade* and *max_points*.  You should not return any value from this callback, but you can `raise CallbackFailed` to skip the student.
         """
         self.format_code = format_code
         self.build_only = build_only
         self.run_only = run_only
         self.allow_rebuild = allow_rebuild
         self.allow_rerun = allow_rerun
-        self.help_msg = help_msg
+        if prep_fcn and not isinstance(prep_fcn, Callable):
+            error("The 'prep_fcn' argument must provide a callable function pointer")
+        self.prep_fcn = prep_fcn
+        if prep_fcn:
+            self._verify_callback_fcn(prep_fcn, item=None)
 
         if not (self.allow_rebuild or self.allow_rerun):
             error("At least one of allow_rebuild and allow_rerun needs to be True.")
 
-        # If help message is a single string, duplicate to each milestone
-        if isinstance(self.help_msg, str) or self.help_msg is None:
-            self.help_msg = [self.help_msg] * len(self.grades_col_names)
-
     def validate_config(self):
         # Check that callback function has been set up
-        if self.run_on_milestone is None:
+        if not self.items:
             error(
-                "Before calling run(), you must call set_callback_fcn() and provide a callback function to use for grading."
+                "Before calling run(), you must call add_item_to_grade() to add an item to grade."
             )
 
         # Check that submission source is set
@@ -367,35 +410,42 @@ class Grader:
                 "Before calling run(), you must set a submission source by either calling set_submission_system_learning_suite() or set_submission_system_github()."
             )
 
+    def get_all_csv_cols_to_grade(self):
+        return [col for item in self.items for col in item.csv_col_names]
+
     def run(self):
         """Call this to start (or resume) the grading process"""
 
         self.validate_config()
 
-        analyze_only = len(self.grades_col_names) == 0
-
         # Print starting message
         print_color(TermColors.BLUE, "Running grader for", self.lab_name)
 
         # Read in CSV and validate.  Print # students who need a grade
-        student_grades_df = grades_csv.parse_and_check(self.grades_csv_path, self.grades_col_names)
+        student_grades_df = grades_csv.parse_and_check(
+            self.grades_csv_path, self.get_all_csv_cols_to_grade()
+        )
 
-        # Convert columns
-        if self.feedback_col_name:
-            student_grades_df[self.feedback_col_name] = student_grades_df[
-                self.feedback_col_name
-            ].fillna("")
+        # Convert columnsdg
+        for item in self.items:
+            if item.feedback_col_name:
+                student_grades_df[item.feedback_col_name] = student_grades_df[
+                    item.feedback_col_name
+                ].fillna("")
 
         # Filter by students who need a grade
-        if not analyze_only:
-            grades_needed_df = grades_csv.filter_need_grade(
-                student_grades_df, self.grades_col_names
-            )
-            print_color(
-                TermColors.BLUE,
-                str(grades_csv.filter_need_grade(grades_needed_df, self.grades_col_names).shape[0]),
-                "students need to be graded.",
-            )
+        grades_needed_df = grades_csv.filter_need_grade(
+            student_grades_df, self.get_all_csv_cols_to_grade()
+        )
+        print_color(
+            TermColors.BLUE,
+            str(
+                grades_csv.filter_need_grade(
+                    grades_needed_df, self.get_all_csv_cols_to_grade()
+                ).shape[0]
+            ),
+            "students need to be graded.",
+        )
 
         # Add column for group name to DataFrame.
         # For github, students are grouped by their Github repo URL.
@@ -410,9 +460,9 @@ class Grader:
             self._unzip_submissions()
             grouped_df = self._add_submitted_zip_path_column(grouped_df)
 
-        self._run_grading(student_grades_df, grouped_df, analyze_only)
+        self._run_grading(student_grades_df, grouped_df)
 
-    def _run_grading(self, student_grades_df, grouped_df, analyze_only):
+    def _run_grading(self, student_grades_df, grouped_df):
         # Loop through all of the students/groups and perform grading
         for index, row in grouped_df.iterrows():
             first_names = row["First Name"]
@@ -427,16 +477,12 @@ class Grader:
             num_group_members = len(net_ids)
 
             # Check if student/group needs grading
-            if not analyze_only:
-                num_group_members_need_grade_per_milestone = (
-                    grades_csv.num_grades_needed_per_milestone(row, self.grades_col_names)
-                )
-
-                if sum(num_group_members_need_grade_per_milestone) == 0:
-                    # This student/group is already fully graded
-                    continue
-            else:
-                num_group_members_need_grade_per_milestone = None
+            num_group_members_need_grade_per_item = grades_csv.num_grades_needed_per_item(
+                row, self.items
+            )
+            if sum([sum(s) for s in num_group_members_need_grade_per_item.values()]) == 0:
+                # This student/group is already fully graded
+                continue
 
             # Print name(s) of who we are grading
             student_work_path = self.work_path / utils.names_to_dir(
@@ -445,7 +491,7 @@ class Grader:
             student_work_path.mkdir(exist_ok=True)
             print_color(
                 TermColors.PURPLE,
-                "\nAnalyzing: " if analyze_only else "\nGrading: ",
+                "\nGrading: ",
                 concated_names,
                 "-",
                 student_work_path.relative_to(self.work_path.parent),
@@ -483,9 +529,9 @@ class Grader:
             if "Course Homework ID" in row:
                 callback_args["homework_id"] = row["Course Homework ID"]
 
-            if self.run_on_lab is not None:
+            if self.prep_fcn is not None:
                 try:
-                    self.run_on_lab(
+                    self.prep_fcn(
                         **callback_args,
                         build=build and not self.run_only,
                     )
@@ -495,68 +541,87 @@ class Grader:
                 except KeyboardInterrupt:
                     pass
 
-            for col_idx, grade_col_name in enumerate(self.grades_col_names):
-                if not analyze_only:
-                    if not num_group_members_need_grade_per_milestone[col_idx]:
-                        print_color(
-                            TermColors.BLUE,
-                            "Grade already exists for ",
-                            grade_col_name,
-                            "(skipping)",
-                        )
-                        continue
+            # Loop through all items that are to be graded
+            for item in self.items:
+                if sum(num_group_members_need_grade_per_item[item]):
+                    print_color(
+                        TermColors.BLUE,
+                        "Running callback function",
+                        "(" + str(item.fcn.__name__) + ")",
+                        "to grade",
+                        str(item.csv_col_names) + ":",
+                    )
+                else:
+                    # No one in the group needs grades for this
+                    print_color(
+                        TermColors.BLUE,
+                        "Grade already exists for ",
+                        item.csv_col_names,
+                        "(skipping)",
+                    )
+                    continue
 
                 while True:
-                    score = None
+                    scores = None
 
                     # Build it and run
-                    if self.run_on_milestone is not None:
-                        try:
-                            score = self.run_on_milestone(
-                                **callback_args,
-                                grades_col_name=grade_col_name,
-                                points=self.points[col_idx],
-                                build=build and not self.run_only,
-                            )
-                        except CallbackFailed as e:
-                            print_color(TermColors.RED, repr(e))
-                            break
-                        except KeyboardInterrupt:
-                            print("")
+                    try:
+                        scores = item.fcn(
+                            **callback_args,
+                            csv_col_names=item.csv_col_names,
+                            points=item.max_points,
+                            build=build and not self.run_only,
+                        )
+                        scores = utils.ensure_tuple(scores)
+                    except CallbackFailed as e:
+                        print_color(TermColors.RED, repr(e))
+                        break
+                    except KeyboardInterrupt:
+                        print("")
 
                     # reset the flag
                     build = True
 
+                    # If we are only buildiing the code in preparation of grading later, then exit now before asking for a grade
                     if self.build_only:
                         break
 
-                    # Enter score
-                    if num_group_members_need_grade_per_milestone[col_idx] < num_group_members:
-                        print_color(
-                            TermColors.YELLOW,
-                            "Warning:",
-                            num_group_members - num_group_members_need_grade_per_milestone[col_idx],
-                            "group member(s) already have a grade for",
-                            grade_col_name,
-                            "; this grade will be overwritten.",
-                        )
-
-                    if score is None:
-                        try:
-                            score, feedback = self._get_score(
-                                names=concated_names,
-                                assignment_name=self.lab_name + "-" + grade_col_name,
-                                col_idx=col_idx,
+                    for i, col in enumerate(item.csv_col_names):
+                        if num_group_members_need_grade_per_item[item][i] < num_group_members:
+                            print_color(
+                                TermColors.YELLOW,
+                                "Warning:",
+                                num_group_members - num_group_members_need_grade_per_item[item][i],
+                                "group member(s) already have a grade for",
+                                col,
+                                "; this grade will be overwritten.",
                             )
+
+                    if scores is None:
+                        # If no score was returned by the callback function, prompt the user for a score.
+                        try:
+                            scores, feedback = self._get_scores(concated_names, item)
                         except KeyboardInterrupt:
                             print_color(TermColors.RED, "\nExiting")
                             sys.exit(0)
+                    else:
+                        # If score(s) were returned, make sure the length matches the number of columns to be graded
+                        if len(item.csv_col_names) != len(scores):
+                            error(
+                                "The callback should be grading",
+                                len(item.csv_col_names),
+                                "column(s)",
+                                "(" + str(item.csv_col_names) + "),",
+                                "but",
+                                len(scores),
+                                "values were returned.",
+                            )
 
-                    if score == "s":
+                    if scores == "s":
                         break
-                    elif score == "b":
+                    elif scores == "b":
                         continue
-                    elif score == "r":
+                    elif scores == "r":
                         # run again, but don't build
                         build = False
                         continue
@@ -565,17 +630,19 @@ class Grader:
                         # Record score
                         for net_id in net_ids:
                             row_idx = grades_csv.find_idx_for_netid(student_grades_df, net_id)
-                            student_grades_df.at[row_idx, grade_col_name] = score
 
-                            if self.feedback_col_name:
+                            for (i, col) in enumerate(item.csv_col_names):
+                                student_grades_df.at[row_idx, col] = scores[i]
+
+                            if item.feedback_col_name:
                                 existing_feedback = student_grades_df.at[
-                                    row_idx, self.feedback_col_name
+                                    row_idx, item.feedback_col_name
                                 ].strip()
                                 if existing_feedback and (existing_feedback[-1] != "."):
                                     existing_feedback += ". "
 
                                 # Append new feedback
-                                student_grades_df.at[row_idx, self.feedback_col_name] = (
+                                student_grades_df.at[row_idx, item.feedback_col_name] = (
                                     existing_feedback + feedback
                                 )
 
@@ -633,7 +700,7 @@ class Grader:
                 df, self.github_csv_path, self.github_csv_col_name, self.github_https
             )
 
-            df_needs_grades = grades_csv.filter_need_grade(df, self.grades_col_names)
+            df_needs_grades = grades_csv.filter_need_grade(df, self.get_all_csv_cols_to_grade())
 
             print_color(
                 TermColors.BLUE,
@@ -656,7 +723,7 @@ class Grader:
             )
 
             # Check how many students remain
-            df_needs_grades = grades_csv.filter_need_grade(df, self.grades_col_names)
+            df_needs_grades = grades_csv.filter_need_grade(df, self.cols_to_grade)
             print_color(
                 TermColors.BLUE,
                 str(df_needs_grades.shape[0]),
@@ -699,99 +766,124 @@ class Grader:
                 return False
             return zip_path.stat().st_mtime
 
-    def _get_score(self, names, assignment_name, col_idx):
+    def _get_scores(self, names, item):
+        """Prompts the user for a score for the grade column(s) for the given item."""
         fpad = " " * 8
         fpad2 = " " * 4
         pad = 10
         feedback = ""
+        scores = []
 
-        while True:
-            if self.help_msg[col_idx]:
-                print_color(TermColors.BOLD, self.help_msg[col_idx])
+        for (i, grade_col) in enumerate(item.csv_col_names):
+            points = item.max_points[i] if item.max_points else None
+            while True:
+                print("")
+                if item.help_msg:
+                    print_color(TermColors.BOLD, item.help_msg[i])
 
-            ################### Build input menu #######################
-            input_txt = TermColors.BLUE + "\nGrading " + names + ", " + (assignment_name + ":\n")
-
-            # Add current feedback
-            if self.feedback_col_name:
-                input_txt += (
-                    fpad + "Pending feedback: " + TermColors.END + feedback + TermColors.BLUE + "\n"
+                ################### Build input menu #######################
+                input_txt = (
+                    TermColors.BLUE
+                    + "Enter a grade for "
+                    + names
+                    + ", "
+                    + (TermColors.UNDERLINE + grade_col + TermColors.END + TermColors.BLUE)
+                    + ":\n"
                 )
 
-            # Add score input
-            input_txt += (
-                fpad2
-                + ("0-" + str(self.points[col_idx])).ljust(pad)
-                + "Enter a score to finish and save\n"
-            )
+                # Add current feedback
+                if item.feedback_col_name:
+                    input_txt += (
+                        fpad
+                        + "Pending feedback: "
+                        + TermColors.END
+                        + feedback
+                        + TermColors.BLUE
+                        + "\n"
+                    )
 
-            # Enter feedback
-            allowed_feedback = {}
-            if self.feedback_col_name:
+                # Add score input
                 input_txt += (
                     fpad2
-                    + "str".ljust(pad)
-                    + "Enter a string with any new feedback, or select from prevous feedback:\n"
+                    + (("0-" + str(points)) if points else "#").ljust(pad)
+                    + "Enter a score to finish and save\n"
                 )
-                for i, f in enumerate(self.feedback_list):
-                    input_txt += fpad2 + ("f" + str(i)).ljust(pad + 2) + f + "\n"
-                    allowed_feedback["f" + str(i)] = f
 
-                input_txt += fpad2 + "'c'".ljust(pad) + "Clear entered feedback\n"
-                allowed_feedback["c"] = ""
+                # Enter feedback
+                allowed_feedback = {}
+                if item.feedback_col_name:
+                    input_txt += (
+                        fpad2
+                        + "str".ljust(pad)
+                        + "Enter a string with any new feedback, or select from prevous feedback:\n"
+                    )
+                    for i, f in enumerate(self.feedback_list):
+                        input_txt += fpad2 + ("f" + str(i)).ljust(pad + 2) + f + "\n"
+                        allowed_feedback["f" + str(i)] = f
 
-            input_txt += fpad2 + "'s'".ljust(pad) + "Skip to next student\n"
-            allowed_cmds = ["s"]
+                    input_txt += fpad2 + "'c'".ljust(pad) + "Clear entered feedback\n"
+                    allowed_feedback["c"] = ""
 
-            if self.allow_rebuild:
-                input_txt += fpad2 + "'b'".ljust(pad) + "Build and run again\n"
-                allowed_cmds.append("b")
-            if self.allow_rerun:
-                input_txt += fpad2 + "'r'".ljust(pad) + "Re-run"
+                input_txt += fpad2 + "'s'".ljust(pad) + "Skip to next student\n"
+                allowed_cmds = ["s"]
+
                 if self.allow_rebuild:
-                    input_txt += " (w/o rebuild)"
-                input_txt += "\n"
-                allowed_cmds.append("r")
+                    input_txt += fpad2 + "'b'".ljust(pad) + "Build and run again\n"
+                    allowed_cmds.append("b")
+                if self.allow_rerun:
+                    input_txt += fpad2 + "'r'".ljust(pad) + "Re-run"
+                    if self.allow_rebuild:
+                        input_txt += " (w/o rebuild)"
+                    input_txt += "\n"
+                    allowed_cmds.append("r")
 
-            # Remmove trailing ", " and terminate
-            input_txt += ">>> " + TermColors.END
+                # Remmove trailing ", " and terminate
+                input_txt += ">>> " + TermColors.END
 
-            ################### Get and handle user input #######################
-            txt = input(input_txt)
+                ################### Get and handle user input #######################
+                txt = input(input_txt)
 
-            # Check for commands
-            if txt in allowed_cmds:
-                return (txt, feedback)
+                # Check for commands
+                if txt in allowed_cmds:
+                    scores = txt
+                    break
 
-            # Check for integer input
-            try:
-                score = float(txt)
-                if 0 <= score <= self.points[col_idx]:
-                    return (score, feedback)
+                # Check for integer input
+                try:
+                    score = float(txt)
+                    if (points is None) or (0 <= score <= points):
+                        scores.append(score)
+                        break
+                    else:
+                        print("Invalid input. Try again.")
+                except ValueError:
+                    pass
+
+                # Check for feedback input
+                if txt in allowed_feedback:
+                    if txt == "c":
+                        feedback = ""
+                        continue
+                    feedback_to_add = allowed_feedback[txt]
+
                 else:
-                    print("Invalid input. Try again.")
-            except ValueError:
-                pass
+                    txt = txt.capitalize()
+                    if txt not in item.feedback_list:
+                        item.feedback_list.append(txt)
+                        with open(item.feedback_list_path, "w") as f:
+                            json.dump(item.feedback_list, f)
+                    feedback_to_add = txt
 
-            # Check for feedback input
-            if txt in allowed_feedback:
-                if txt == "c":
-                    feedback = ""
-                    continue
-                feedback_to_add = allowed_feedback[txt]
+                # Assume input is feedback
+                if feedback and feedback[-1] != ".":
+                    feedback += ". "
+                feedback += feedback_to_add
 
-            else:
-                txt = txt.capitalize()
-                if txt not in self.feedback_list:
-                    self.feedback_list.append(txt)
-                    with open(self.feedback_list_path, "w") as f:
-                        json.dump(self.feedback_list, f)
-                feedback_to_add = txt
+            # If non-integer returned, then user asked for something like re-run, so stop prompting for grades and exit this function
+            if isinstance(scores, str):
+                return (str, "")
 
-            # Assume input is feedback
-            if feedback and feedback[-1] != ".":
-                feedback += ". "
-            feedback += feedback_to_add
+        return (scores, feedback)
 
     def _create_work_path(self):
         if self.code_source == CodeSource.LEARNING_SUITE:
