@@ -71,3 +71,26 @@ class TestLearningSuite(unittest.TestCase):
         self.assertIn("section", kw)
         self.assertIn("homework_id", kw)
         return 3
+
+    def test_groups(self):
+        grader = Grader(
+            "group_test",
+            TEST_RESOURCES_PATH / "grades3.csv",
+            work_path=TEST_PATH / "temp",
+        )
+        grader.add_item_to_grade(
+            csv_col_names="l1",
+            grading_fcn=self.group_grader_1,
+        )
+        grader.add_item_to_grade(
+            ("l2", "l3"), self.group_grader_2, help_msg=("rubric message 1", "rubric message 2")
+        )
+        grader.set_submission_system_learning_suite(TEST_RESOURCES_PATH / "submissions2.zip")
+        grader.set_learning_suite_groups(TEST_RESOURCES_PATH / "groups3.csv")
+        grader.run()
+
+    def group_grader_1(self, **kw):
+        return 1.5
+
+    def group_grader_2(self, **kw):
+        return (2, 3.0)

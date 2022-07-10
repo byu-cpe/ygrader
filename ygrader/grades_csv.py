@@ -28,7 +28,11 @@ def check_csv_column_names(df, expected_grade_col_names):
 
     for required_column in required_columns:
         if required_column not in df.columns:
-            error("Grades CSV must contain column '" + required_column + "'")
+            error(
+                "Grades CSV must contain column '" + required_column + "'.",
+                "Current columns:",
+                list(df.columns),
+            )
 
 
 def filter_need_grade(df, expected_grade_col_names):
@@ -70,12 +74,20 @@ def add_group_column_from_csv(df, column_name, groups_csv_path, groups_csv_col_n
     """Read the group names from the group CSV and join them to the original grades CSV"""
     df_groups = pandas.read_csv(groups_csv_path)
 
-    assert column_name not in df.columns
+    if column_name in df.columns:
+        error(
+            "The",
+            "'" + column_name + "'",
+            "column is used for your groups, but this column already exists in your grade CSV file.",
+            "The same column name cannot exist in both places.",
+        )
 
     # Rename appropriate column to group
     df_groups.rename(columns={groups_csv_col_name: column_name}, inplace=True)
 
     # Filter down to relevant columns
+    if "Net ID" not in df_groups.columns:
+        error("Your group CSV", "(" + str(groups_csv_path) + ")", "is missing a 'Net ID' column.")
     df_groups = df_groups[["Net ID", column_name]]
 
     # Merge with student dataframe (inner merge will drop students not in group CSV)
