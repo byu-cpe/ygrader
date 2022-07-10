@@ -1,13 +1,14 @@
+""" Manage the grade CSV file"""
+
 import pandas
-import re
 import numpy
 
 from .student_repos import convert_github_url_format
 from .utils import error
-from . import utils
 
 
 def parse_and_check(grades_csv_path, csv_cols):
+    """Parse the grades CSV file and check that column names are valid"""
     try:
         grades_df = pandas.read_csv(grades_csv_path)
     except pandas.errors.EmptyDataError:
@@ -30,13 +31,14 @@ def check_csv_column_names(df, expected_grade_col_names):
             error("Grades CSV must contain column '" + required_column + "'")
 
 
-# Filter down to only those students that need a grade
 def filter_need_grade(df, expected_grade_col_names):
+    """Filter down to only those students that need a grade"""
     filtered_df = df[df[df.columns.intersection(expected_grade_col_names)].isnull().any(1)]
     return filtered_df
 
 
 def match_to_github_url(df_needs_grade, github_csv_path, github_csv_col_name, use_https):
+    """Match students to their github URL"""
     try:
         df_github = pandas.read_csv(github_csv_path, index_col=False)
     except pandas.errors.EmptyDataError:
@@ -65,6 +67,7 @@ def match_to_github_url(df_needs_grade, github_csv_path, github_csv_col_name, us
 
 
 def add_group_column_from_csv(df, column_name, groups_csv_path, groups_csv_col_name):
+    """Read the group names from the group CSV and join them to the original grades CSV"""
     df_groups = pandas.read_csv(groups_csv_path)
 
     assert column_name not in df.columns
@@ -82,6 +85,7 @@ def add_group_column_from_csv(df, column_name, groups_csv_path, groups_csv_col_n
 
 
 def find_idx_for_netid(df, netid):
+    """Find the row index for a given student netid"""
     matches = df.index[df["Net ID"] == netid].tolist()
     if len(matches) != 1:
         error("Could not find netid =", netid, "(find_idx_for_netid)")
@@ -94,10 +98,10 @@ def num_grades_needed_per_item(row, items):
     for item in items:
         empty_per_col = []
         for col in item.csv_col_names:
-            n = 0
+            empty_cnt = 0
             for grade in row[col]:
                 if numpy.isnan(grade):
-                    n += 1
-            empty_per_col.append(n)
+                    empty_cnt += 1
+            empty_per_col.append(empty_cnt)
         ret[item] = empty_per_col
     return ret

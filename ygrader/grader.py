@@ -1,3 +1,4 @@
+""" Main ygrader module"""
 import json
 import pathlib
 import enum
@@ -26,7 +27,8 @@ class CodeSource(enum.Enum):
 
 
 class GradeItem:
-    """Class to track each item that needs to be graded (ie, each item for which a grading callback function will be invoked.  This may be used to grade one or more columns from the CSV file."""
+    """Class to track each item that needs to be graded (ie, each item for which a grading callback
+    function will be invoked.  This may be used to grade one or more columns from the CSV file."""
 
     def __init__(self, grader, csv_col_names, fcn, max_points, feedback_col_name, help_msg) -> None:
         self.grader = grader
@@ -53,16 +55,18 @@ class Grader:
         grades_csv_path: pathlib.Path,
         work_path: pathlib.Path = pathlib.Path.cwd() / "temp",
     ):
-
         """
         Parameters
         ----------
         lab_name: str
-            Name of the lab/assignment that you are grading (ie. 'lab3').  This is used for folder naming, logging mesasge, etc., and passed back to your callback functions.
+            Name of the lab/assignment that you are grading (ie. 'lab3').
+            This is used for folder naming, logging mesasge, etc., and passed back to your callback functions.
         grades_csv_path: pathlib.Path
-            Path to CSV file with student grades exported from LearningSuite.  You need to export netid, first and last name, and any grade columns you want to populate.
+            Path to CSV file with student grades exported from LearningSuite.  You need to export netid, first
+            and last name, and any grade columns you want to populate.
         work_path: pathlib.Path
-            Path to directory where student files will be placed.  For example, if you pass in '.', then student code would be placed in './lab3'.  By default the working path is a "temp" folder created in your working directory.
+            Path to directory where student files will be placed.  For example, if you pass in '.', then student
+            code would be placed in './lab3'.  By default the working path is a "temp" folder created in your working directory.
         """
         self.lab_name = lab_name
         self.grades_csv_path = pathlib.Path(grades_csv_path).resolve()
@@ -94,7 +98,13 @@ class Grader:
         self.items = []
         self.code_source = None
         self.prep_fcn = None
+        self.learning_suite_submissions_zip_path = None
+        self.github_csv_path = None
+        self.github_csv_col_name = None
+        self.github_tag = None
+        self.github_https = None
         self.groups_csv_path = None
+        self.groups_csv_col_name = None
         self.set_other_options()
 
     def add_item_to_grade(
@@ -110,23 +120,33 @@ class Grader:
             The callback function that will perform all your grading work.
 
             Your callback function will be provided with the following arguments:
-                * lab_name (*str*): This will pass back the lab name you passed to *__init__*. Useful if you use the same callback function to grade multiple different assignments.
+                * lab_name (*str*): This will pass back the lab name you passed to *__init__*.
+                Useful if you use the same callback function to grade multiple different assignments.
                 * student_code_path (*pathlib.Path*): The location where the unzipped/cloned student files are stored.
-                * cols_to_grade (*str*): The current CSV column being graded. Typically only needed if you are grading multiple different items.
-                * points (*int*): The maximum number of points possible for the item being graded, used for validating the grade when prompting the user to input a grade.  If your callback function automatically calcuates and returns a grade, this argument is ignored.
+                * cols_to_grade (*str*): The current CSV column being graded. Typically only needed if you are grading
+                multiple different items.
+                * points (*int*): The maximum number of points possible for the item being graded, used for validating the
+                grade when prompting the user to input a grade.  If your callback function automatically calcuates and
+                returns a grade, this argument is ignored.
                 * first_names: (*list(str)*) First name(s) of students in the group
                 * last_names: (*list(str)*) Last name(s) of students in the group
                 * net_ids: (*list(str)*) Net ID(s) of students in the group.
                 * build: (*bool*) Whether files should be built/compiled.
                 * run: (*bool*) Whether milestone should be run.
 
-            In addition, if your grades CSV exported from Learning Suite has the following information, it will also be provided to your callback function:
-                * section: (*str*) Student section number, assuming 'Section Number' was contained in grades_csv exported from Learning Suite.
-                * homework_id: (*str*) Student homework ID, assuming 'Course Homework ID' was contained in grades_csv exported from Learning Suite.
+            In addition, if your grades CSV exported from Learning Suite has the following information, it will also be
+            provided to your callback function:
+                * section: (*str*) Student section number, assuming 'Section Number' was contained in grades_csv exported
+                from Learning Suite.
+                * homework_id: (*str*) Student homework ID, assuming 'Course Homework ID' was contained in grades_csv
+                exported from Learning Suite.
 
-            Your callback should return *None* an *int*/*float* (or a list of *int*/*float* if you are grading multiple columns in this item).  If you return *None*, then the user will be prompted input a grade.  If you already know the grade you want to assign, and don't want to prompt the user, return the grade value(s).
+            Your callback should return *None* an *int*/*float* (or a list of *int*/*float* if you are grading multiple
+            columns in this item).  If you return *None*, then the user will be prompted input a grade.  If you already
+            know the grade you want to assign, and don't want to prompt the user, return the grade value(s).
 
-            If there's a problem with the student's submission and you want to skip them, then `raise CallbackFailed`.  You can provide an argument to this exception with any error message you want printed.
+            If there's a problem with the student's submission and you want to skip them, then `raise CallbackFailed`.
+            You can provide an argument to this exception with any error message you want printed.
 
             Since your callback functions will be provided with many arguments, it's best to use keyword arguments:
 
@@ -141,7 +161,9 @@ class Grader:
         feedback_col_name: str
             (Optional) Name of CSV column that will be used to store comments for student feedback.
         help_msg: str | list of str
-            (Optional) When the script asks the user for a grade, it will print this message first.  This can be a helpful reminder to the TAs of a grading rubric, things they should watch out for, etc.  If you are grading multiple CSV columns, then you should provide a separate help message per column.
+            (Optional) When the script asks the user for a grade, it will print this message first.  This can be a helpful
+            reminder to the TAs of a grading rubric, things they should watch out for, etc.  If you are grading multiple
+            CSV columns, then you should provide a separate help message per column.
         """
         # Check data types
         if not isinstance(grading_fcn, Callable):
@@ -240,7 +262,8 @@ class Grader:
             error(
                 "Your callback function",
                 "(" + fcn.__name__ + ")",
-                "should accept keyward arguments (**kw). This is needed because the grader may provide different optional arguments to your callback depending on what data it has available",
+                "should accept keyward arguments (**kw). This is needed because the grader may provide "
+                + "different optional arguments to your callback depending on what data it has available",
                 "(" + ",".join(callback_args_optional) + ").",
             )
 
@@ -255,7 +278,8 @@ class Grader:
                     "(" + fcn.__name__ + ")",
                     "takes a named argument",
                     "'" + named_arg + "'",
-                    "but this is not provided by the grader. Please remove this argument or the grader will not be able to call your callback function correctly. Available callback arguments:",
+                    "but this is not provided by the grader. Please remove this argument or the grader "
+                    + "will not be able to call your callback function correctly. Available callback arguments:",
                     str(callback_args),
                 )
             elif named_arg not in callback_args:
@@ -297,11 +321,14 @@ class Grader:
         tag: str
             The tag on the students github repository that is used for the submission.
         github_url_csv_path: pathlib.Path | str
-            The path to a CSV file containing student Github repository URLs.  This CSV file must have a column called 'Net ID'. The repos can be listed as an http:// address or in SSH format (git@).  They will be coverted as needed depending on the *use_https* argument.
+            The path to a CSV file containing student Github repository URLs.  This CSV file must have a
+            column called 'Net ID'. The repos can be listed as an http:// address or in SSH format (git@).
+            They will be coverted as needed depending on the *use_https* argument.
         repo_col_name: str
             The column name in the CSV file that contains the Github URLs.
         use_https: bool
-            By default SSH will be used to clone the student repos.  If you want to use an access token or stored credentials over https, set this to True.
+            By default SSH will be used to clone the student repos.  If you want to use an access token or stored
+            credentials over https, set this to True.
         """
         self.code_source = CodeSource.GITHUB
         self.github_csv_path = github_url_csv_path
@@ -327,7 +354,8 @@ class Grader:
 
     def set_learning_suite_groups(self, csv_path, col_name="group"):
         """
-        This function is used to provide treams to the grader when grading a team-based assignment from Learning Suite.  (If grading from Github, the Github URL will be used to determine teams)
+        This function is used to provide treams to the grader when grading a team-based assignment from
+        Learning Suite.  (If grading from Github, the Github URL will be used to determine teams)
 
         Parameters
         ----------
@@ -358,7 +386,6 @@ class Grader:
         run_only=False,
         allow_rebuild=False,
         allow_rerun=True,
-        help_msg="",
         prep_fcn=None,
     ):
         """
@@ -369,19 +396,26 @@ class Grader:
         format_code: bool
             Whether you want the student code automatically formatted using clang-format
         build_only: bool
-            Whether you only want to build and not run/grade the students code.  This will be passed to your callback function, and is useful for labs that take a while to build.  You can build all the code in one pass, then return and grade the code later.
+            Whether you only want to build and not run/grade the students code.  This will be passed to your
+            callback function, and is useful for labs that take a while to build.  You can build all the code in
+            one pass, then return and grade the code later.
         run_only: bool
-            Whether you only want to run/grade and not build the students code.  This will be passed to your callback function, and is useful for labs that take a while to build.  You can build all the code in one pass, then return and grade the code later.
+            Whether you only want to run/grade and not build the students code.  This will be passed to your
+            callback function, and is useful for labs that take a while to build.  You can build all the code
+            in one pass, then return and grade the code later.
         allow_rebuild: bool
-            By default, the program will pass build=True and run=True to your callback on the first invocation, and then allow the grader the option to "re-run" the student's code, where build=False and run=True would be provided.  If you want to allow the grader to
+            By default, the program will pass build=True and run=True to your callback on the first invocation,
+            and then allow the grader the option to "re-run" the student's code, where build=False and run=True
+            would be provided.  If you want to allow the grader to
             specifically request a rebuild, set this to True (default False).
         allow_rerun: bool
-            By default, the program will pass build=True and run=True to your callback on the first invocation, and then allow the grader the option to "re-run" the student's code, where build=False and run=True would be provided.  If your grader can't rerun without rebuilding, then set
-            this to False (default True).
+            By default, the program will pass build=True and run=True to your callback on the first invocation,
+            and then allow the grader the option to "re-run" the student's code, where build=False and run=True
+            would be provided.  If your grader can't rerun without rebuilding, then set this to False (default True).
         prep_fcn: Callable
             If you are grading multiple items, then you can use this optional callback to do any one-time prep work.
-
-            This callback is provided the same arguments as the grading callback function, except for *cols_to_grade* and *max_points*.  You should not return any value from this callback, but you can `raise CallbackFailed` to skip the student.
+            This callback is provided the same arguments as the grading callback function, except for *cols_to_grade*
+            and *max_points*.  You should not return any value from this callback, but you can `raise CallbackFailed` to skip the student.
         """
         self.format_code = format_code
         self.build_only = build_only
@@ -398,6 +432,7 @@ class Grader:
             error("At least one of allow_rebuild and allow_rerun needs to be True.")
 
     def validate_config(self):
+        """Check that everything has been configured before running"""
         # Check that callback function has been set up
         if not self.items:
             error(
@@ -407,10 +442,12 @@ class Grader:
         # Check that submission source is set
         if self.code_source is None:
             error(
-                "Before calling run(), you must set a submission source by either calling set_submission_system_learning_suite() or set_submission_system_github()."
+                "Before calling run(), you must set a submission source by either calling "
+                + "set_submission_system_learning_suite() or set_submission_system_github()."
             )
 
     def get_all_csv_cols_to_grade(self):
+        """Collelct all columns that will be graded into a single list"""
         return [col for item in self.items for col in item.csv_col_names]
 
     def run(self):
@@ -464,7 +501,7 @@ class Grader:
 
     def _run_grading(self, student_grades_df, grouped_df):
         # Loop through all of the students/groups and perform grading
-        for index, row in grouped_df.iterrows():
+        for _, row in grouped_df.iterrows():
             first_names = row["First Name"]
             last_names = row["Last Name"]
             net_ids = row["Net ID"]
@@ -499,7 +536,7 @@ class Grader:
 
             # Get student code from zip or github.  If this fails it returns False.
             # Code from zip will return modified time (epoch, float). Code from github will return True.
-            timestamp = self._get_student_code(index, row, student_work_path)
+            timestamp = self._get_student_code(row, student_work_path)
             if timestamp is False:
                 continue
             modified_time = None
@@ -619,53 +656,52 @@ class Grader:
 
                     if scores == "s":
                         break
-                    elif scores == "b":
+                    if scores == "b":
                         continue
-                    elif scores == "r":
+                    if scores == "r":
                         # run again, but don't build
                         build = False
                         continue
 
-                    else:
-                        # Record score
-                        for net_id in net_ids:
-                            row_idx = grades_csv.find_idx_for_netid(student_grades_df, net_id)
+                    # Record score
+                    for net_id in net_ids:
+                        row_idx = grades_csv.find_idx_for_netid(student_grades_df, net_id)
 
-                            for (i, col) in enumerate(item.csv_col_names):
-                                student_grades_df.at[row_idx, col] = scores[i]
+                        for (i, col) in enumerate(item.csv_col_names):
+                            student_grades_df.at[row_idx, col] = scores[i]
 
-                            if item.feedback_col_name:
-                                existing_feedback = student_grades_df.at[
-                                    row_idx, item.feedback_col_name
-                                ].strip()
-                                if existing_feedback and (existing_feedback[-1] != "."):
-                                    existing_feedback += ". "
+                        if item.feedback_col_name:
+                            existing_feedback = student_grades_df.at[
+                                row_idx, item.feedback_col_name
+                            ].strip()
+                            if existing_feedback and (existing_feedback[-1] != "."):
+                                existing_feedback += ". "
 
-                                # Append new feedback
-                                student_grades_df.at[row_idx, item.feedback_col_name] = (
-                                    existing_feedback + feedback
-                                )
+                            # Append new feedback
+                            student_grades_df.at[row_idx, item.feedback_col_name] = (
+                                existing_feedback + feedback
+                            )
 
-                        student_grades_df.to_csv(
-                            str(self.grades_csv_path),
-                            index=False,
-                            quoting=csv.QUOTE_ALL,
-                        )
-                        break
+                    student_grades_df.to_csv(
+                        str(self.grades_csv_path),
+                        index=False,
+                        quoting=csv.QUOTE_ALL,
+                    )
+                    break
 
     def _unzip_submissions(self):
-        with zipfile.ZipFile(self.learning_suite_submissions_zip_path, "r") as zf:
-            for zi in zf.infolist():
+        with zipfile.ZipFile(self.learning_suite_submissions_zip_path, "r") as f:
+            for zip_info in f.infolist():
                 # Remove old zip file if it exists
-                unpack_path = self.work_path / zi.filename
+                unpack_path = self.work_path / zip_info.filename
                 if unpack_path.is_file():
                     unpack_path.unlink()
 
                 # Unzip
-                zf.extract(zi, self.work_path)
+                f.extract(zip_info, self.work_path)
 
                 # Fix timestamp
-                date_time = time.mktime(zi.date_time + (0, 0, -1))
+                date_time = time.mktime(zip_info.date_time + (0, 0, -1))
                 os.utime(unpack_path, (date_time, date_time))
 
     def _add_submitted_zip_path_column(self, df):
@@ -683,7 +719,7 @@ class Grader:
             if len(zip_matches) == 0:
                 # print("No zip files match", group_name)
                 continue
-            elif len(zip_matches) > 1:
+            if len(zip_matches) > 1:
                 # Multiple submissions -- get the latest one
                 zip_matches.sort(key=lambda x: x.stat().st_mtime, reverse=True)
 
@@ -723,7 +759,7 @@ class Grader:
             )
 
             # Check how many students remain
-            df_needs_grades = grades_csv.filter_need_grade(df, self.cols_to_grade)
+            df_needs_grades = grades_csv.filter_need_grade(df, self.get_all_csv_cols_to_grade())
             print_color(
                 TermColors.BLUE,
                 str(df_needs_grades.shape[0]),
@@ -731,9 +767,9 @@ class Grader:
             )
 
         # Group students into their groups
-        return df.groupby(groupby_column).agg(lambda x: list(x)).reset_index()
+        return df.groupby(groupby_column).agg(list).reset_index()
 
-    def _get_student_code(self, index, row, student_work_path):
+    def _get_student_code(self, row, student_work_path):
         if self.code_source == CodeSource.GITHUB:
             # Clone student repo
             print("Student repo url: " + row["github_url"])
@@ -741,30 +777,30 @@ class Grader:
                 return False
             return True
 
-        else:
-            zip_path = row["submitted_zip_path"]
+        # Otherwise, this is a learning suite submission
+        zip_path = row["submitted_zip_path"]
 
-            # Skip if student has no submission
-            if self.code_source == CodeSource.LEARNING_SUITE and zip_path == "":
-                print_color(TermColors.YELLOW, "No submission")
-                return False
+        # Skip if student has no submission
+        if self.code_source == CodeSource.LEARNING_SUITE and zip_path == "":
+            print_color(TermColors.YELLOW, "No submission")
+            return False
 
-            # Unzip student files (if student_dir doesn't already exist) and delete zip
-            try:
-                # Unzip if student work path is empty
-                if not list(student_work_path.iterdir()):
-                    print(
-                        "Unzipping",
-                        zip_path,
-                        "into",
-                        student_work_path.relative_to(self.work_path.parent),
-                    )
-                    with zipfile.ZipFile(zip_path, "r") as zf:
-                        zf.extractall(student_work_path)
-            except zipfile.BadZipFile:
-                print_color(TermColors.RED, "Bad zip file", zip_path)
-                return False
-            return zip_path.stat().st_mtime
+        # Unzip student files (if student_dir doesn't already exist) and delete zip
+        try:
+            # Unzip if student work path is empty
+            if not list(student_work_path.iterdir()):
+                print(
+                    "Unzipping",
+                    zip_path,
+                    "into",
+                    student_work_path.relative_to(self.work_path.parent),
+                )
+                with zipfile.ZipFile(zip_path, "r") as f:
+                    f.extractall(student_work_path)
+        except zipfile.BadZipFile:
+            print_color(TermColors.RED, "Bad zip file", zip_path)
+            return False
+        return zip_path.stat().st_mtime
 
     def _get_scores(self, names, item):
         """Prompts the user for a score for the grade column(s) for the given item."""
@@ -817,9 +853,9 @@ class Grader:
                         + "str".ljust(pad)
                         + "Enter a string with any new feedback, or select from prevous feedback:\n"
                     )
-                    for i, f in enumerate(self.feedback_list):
-                        input_txt += fpad2 + ("f" + str(i)).ljust(pad + 2) + f + "\n"
-                        allowed_feedback["f" + str(i)] = f
+                    for idx, f in enumerate(item.feedback_list):
+                        input_txt += fpad2 + ("f" + str(idx)).ljust(pad + 2) + f + "\n"
+                        allowed_feedback["f" + str(idx)] = f
 
                     input_txt += fpad2 + "'c'".ljust(pad) + "Clear entered feedback\n"
                     allowed_feedback["c"] = ""
@@ -854,8 +890,7 @@ class Grader:
                     if (points is None) or (0 <= score <= points):
                         scores.append(score)
                         break
-                    else:
-                        print("Invalid input. Try again.")
+                    print("Invalid input. Try again.")
                 except ValueError:
                     pass
 

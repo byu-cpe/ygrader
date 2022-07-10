@@ -1,7 +1,8 @@
+""" ygrader utility functions"""
 import sys
 import shutil
 import subprocess
-import traceback
+import hashlib
 
 
 class TermColors:
@@ -30,55 +31,62 @@ def error(*msg, returncode=-1):
 
 
 def warning(*msg):
+    """Print a warning message in yellow"""
     print_color(TermColors.YELLOW, "Warning:", *msg)
 
 
-def copy_all_files_in_dir(src_dir, dest, exts=None, exclude=[]):
-    for f in src_dir.rglob("*"):
-        if f.name in exclude:
+def copy_all_files_in_dir(src_dir, dest, exts=None, exclude=()):
+    """Copy all files from src_dir to dest"""
+    for path in src_dir.rglob("*"):
+        if path.name in exclude:
             continue
-        if exts is None or f.suffix in exts:
-            print("Copying", f, "to", dest)
-            shutil.copy(f, dest)
+        if exts is None or path.suffix in exts:
+            print("Copying", path, "to", dest)
+            shutil.copy(path, dest)
 
 
 def check_file_exists(path):
+    """Throw an error if a given file does not exist"""
     if not path.is_file():
         error(path, "does not exist")
 
 
 def clang_format_code(dir_path):
-    for f in dir_path.glob("*"):
-        if f.suffix in (".c", ".h"):
-            cmd = ["clang-format", "-i", f]
-            p = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
-
-            # Run clang-format twice (this shouldn't be necessary, but I've run into it with one students code -- it would be considered a bug in clang)
-            p = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
-            if p.returncode != 0:
-                print(p.stdout)
+    """Use clang to format all code in this path"""
+    for path in dir_path.glob("*"):
+        if path.suffix in (".c", ".h"):
+            cmd = ["clang-format", "-i", path]
+            try:
+                # Run clang-format twice (this shouldn't be necessary, but I've run into it with one students code -- it would be considered a bug in clang)
+                proc = subprocess.run(
+                    cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, check=False
+                )
+                proc = subprocess.run(
+                    cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, check=True
+                )
+            except subprocess.CalledProcessError:
+                print(proc.stdout)
                 error("Clang format errored", str())
 
 
 def names_to_dir(first_names, last_names, net_ids):
+    """Convert first and last names to a valid filesystem directory name"""
     return (
         first_names[0].replace(" ", "_") + "_" + last_names[0].replace(" ", "_") + "_" + net_ids[0]
     )
 
 
 def hash_file(file_path):
-    import sys
-    import hashlib
+    """Returns a hash of a file"""
 
-    # BUF_SIZE is totally arbitrary, change for your app!
-    BUF_SIZE = 65536  # lets read stuff in 64kb chunks!
+    buf_size = 65536  # lets read stuff in 64kb chunks!
 
     md5 = hashlib.md5()
     sha1 = hashlib.sha1()
 
     with open(file_path, "rb") as f:
         while True:
-            data = f.read(BUF_SIZE)
+            data = f.read(buf_size)
             if not data:
                 break
             md5.update(data)
@@ -90,32 +98,30 @@ def hash_file(file_path):
 class CallbackFailed(Exception):
     """Raise this exception (or subclass it and raise it) in your callback to indicate some failure, and skip to the next student."""
 
-    pass
-
 
 class WorkflowHashError(CallbackFailed):
-    pass
+    """Error raised if the workflow file does not match."""
 
 
 def verify_workflow_hash(workflow_file_path, hash_str):
+    """Checks that the github workflow is valid (has 1 file and matches given hash)"""
 
     if not workflow_file_path.is_file():
         error(workflow_file_path, "is missing")
 
     workflow_dir_path = workflow_file_path.parent
-    if not (len(list(workflow_dir_path.glob("**/*"))) == 1):
+    if len(list(workflow_dir_path.glob("**/*"))) != 1:
         error(workflow_dir_path, "has more than one file")
 
-    hash = hash_file(workflow_file_path)
-    if hash != hash_str:
+    hash_val = hash_file(workflow_file_path)
+    if hash_val != hash_str:
         raise WorkflowHashError
 
 
 def ensure_tuple(x):
-    """If x is not a list or tuple, convert to list"""
+    """If x is not a tuple, convert to tuple"""
     if isinstance(x, tuple):
         return x
-    elif isinstance(x, list):
+    if isinstance(x, list):
         return tuple(x)
-    else:
-        return (x,)
+    return (x,)
