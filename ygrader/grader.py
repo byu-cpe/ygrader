@@ -609,7 +609,6 @@ class Grader:
                             points=item.max_points,
                             build=build and not self.run_only,
                         )
-                        scores = utils.ensure_tuple(scores)
                     except CallbackFailed as e:
                         print_color(TermColors.RED, repr(e))
                         break
@@ -643,6 +642,7 @@ class Grader:
                             sys.exit(0)
                     else:
                         # If score(s) were returned, make sure the length matches the number of columns to be graded
+                        scores = utils.ensure_tuple(scores)
                         if len(item.csv_col_names) != len(scores):
                             error(
                                 "The callback should be grading",
@@ -916,7 +916,7 @@ class Grader:
 
             # If non-integer returned, then user asked for something like re-run, so stop prompting for grades and exit this function
             if isinstance(scores, str):
-                return (str, "")
+                return (scores, "")
 
         return (scores, feedback)
 
