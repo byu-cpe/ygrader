@@ -227,71 +227,8 @@ class Grader:
             )
 
         item = GradeItem(self, csv_col_names, grading_fcn, max_points, feedback_col_name, help_msg)
-        self._verify_callback_fcn(grading_fcn, item)
+        _verify_callback_fcn(grading_fcn, item)
         self.items.append(item)
-
-    def _verify_callback_fcn(self, fcn, item):
-        callback_args = [
-            "lab_name",
-            "student_code_path",
-            "run",
-            "build",
-            "first_names",
-            "last_names",
-            "net_ids",
-        ]
-        if item:
-            if item.max_points:
-                callback_args.append("max_points")
-
-            # If this is a fcn for a graded item (not a prep-only function), then
-            # this argument is required.
-            callback_args.append("csv_col_names")
-
-        callback_args_optional = [
-            "modified_time",
-            "section",
-            "homework_id",
-        ]
-
-        # Check that callback function(s) are valid
-        argspec = inspect.getfullargspec(fcn)
-
-        # Check that kwargs is enabled
-        if argspec.varkw is None:
-            error(
-                "Your callback function",
-                "(" + fcn.__name__ + ")",
-                "should accept keyward arguments (**kw). This is needed because the grader may provide "
-                + "different optional arguments to your callback depending on what data it has available",
-                "(" + ",".join(callback_args_optional) + ").",
-            )
-
-        # Check that all named arguments are valid
-        for i, named_arg in enumerate(argspec.args):
-            # Skip special arguments
-            if named_arg in ("self", "cls") and i == 0:
-                continue
-            if (named_arg not in callback_args) and (named_arg not in callback_args_optional):
-                error(
-                    "Your callback function",
-                    "(" + fcn.__name__ + ")",
-                    "takes a named argument",
-                    "'" + named_arg + "'",
-                    "but this is not provided by the grader. Please remove this argument or the grader "
-                    + "will not be able to call your callback function correctly. Available callback arguments:",
-                    str(callback_args),
-                )
-            elif named_arg not in callback_args:
-                warning(
-                    "Your callback function",
-                    "(" + fcn.__name__ + ")",
-                    "takes a named argument",
-                    "'" + named_arg + "'",
-                    "but this argument is not always provided by the grader.",
-                    "If it is missing from your grades CSV file this will cause a runtime error.",
-                    "Please consider use keyword arguments (**kw) instead.",
-                )
 
     def set_submission_system_learning_suite(self, zip_path):
         """
@@ -426,7 +363,7 @@ class Grader:
             error("The 'prep_fcn' argument must provide a callable function pointer")
         self.prep_fcn = prep_fcn
         if prep_fcn:
-            self._verify_callback_fcn(prep_fcn, item=None)
+            _verify_callback_fcn(prep_fcn, item=None)
 
         if not (self.allow_rebuild or self.allow_rerun):
             error("At least one of allow_rebuild and allow_rerun needs to be True.")
@@ -931,3 +868,67 @@ class Grader:
         if not self.work_path.is_dir():
             print_color(TermColors.BLUE, "Creating", self.work_path)
             self.work_path.mkdir(exist_ok=True, parents=True)
+
+
+def _verify_callback_fcn(fcn, item):
+    callback_args = [
+        "lab_name",
+        "student_code_path",
+        "run",
+        "build",
+        "first_names",
+        "last_names",
+        "net_ids",
+    ]
+    if item:
+        if item.max_points:
+            callback_args.append("max_points")
+
+        # If this is a fcn for a graded item (not a prep-only function), then
+        # this argument is required.
+        callback_args.append("csv_col_names")
+
+    callback_args_optional = [
+        "modified_time",
+        "section",
+        "homework_id",
+    ]
+
+    # Check that callback function(s) are valid
+    argspec = inspect.getfullargspec(fcn)
+
+    # Check that kwargs is enabled
+    if argspec.varkw is None:
+        error(
+            "Your callback function",
+            "(" + fcn.__name__ + ")",
+            "should accept keyward arguments (**kw). This is needed because the grader may provide "
+            + "different optional arguments to your callback depending on what data it has available",
+            "(" + ",".join(callback_args_optional) + ").",
+        )
+
+    # Check that all named arguments are valid
+    for i, named_arg in enumerate(argspec.args):
+        # Skip special arguments
+        if named_arg in ("self", "cls") and i == 0:
+            continue
+        if (named_arg not in callback_args) and (named_arg not in callback_args_optional):
+            error(
+                "Your callback function",
+                "(" + fcn.__name__ + ")",
+                "takes a named argument",
+                "'" + named_arg + "'",
+                "but this is not provided by the grader. Please remove this argument or the grader "
+                + "will not be able to call your callback function correctly. Available callback arguments:",
+                str(callback_args),
+            )
+        elif named_arg not in callback_args:
+            warning(
+                "Your callback function",
+                "(" + fcn.__name__ + ")",
+                "takes a named argument",
+                "'" + named_arg + "'",
+                "but this argument is not always provided by the grader.",
+                "If it is missing from your grades CSV file this will cause a runtime error.",
+                "Please consider use keyword arguments (**kw) instead.",
+            )
