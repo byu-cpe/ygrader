@@ -58,14 +58,10 @@ def clang_format_code(dir_path):
             cmd = ["clang-format", "-i", path]
             try:
                 # Run clang-format twice (this shouldn't be necessary, but I've run into it with one students code -- it would be considered a bug in clang)
-                proc = subprocess.run(
-                    cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, check=False
-                )
-                proc = subprocess.run(
-                    cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, check=True
-                )
-            except subprocess.CalledProcessError:
-                print(proc.stdout)
+                subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, check=True)
+                subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, check=True)
+            except subprocess.CalledProcessError as e:
+                print(e.output)
                 error("Clang format errored", str())
 
 

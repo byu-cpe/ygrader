@@ -42,7 +42,7 @@ class GradeItem:
         self.feedback_list_path = self.grader.work_path / (str(csv_col_names) + ".json")
         self.feedback_list = []
         if self.feedback_list_path.is_file():
-            with open(self.feedback_list_path) as f:
+            with open(self.feedback_list_path, encoding="utf-8") as f:
                 self.feedback_list = json.load(f)
 
 
@@ -75,7 +75,7 @@ class Grader:
         if not self.grades_csv_path.is_file():
             error("grades_csv_path", "(" + str(grades_csv_path) + ")", "does not exist")
         try:
-            with open(grades_csv_path, "a"):
+            with open(grades_csv_path, "a", encoding="utf-8"):
                 pass
         except PermissionError:
             error(
@@ -454,7 +454,7 @@ class Grader:
             num_group_members_need_grade_per_item = grades_csv.num_grades_needed_per_item(
                 row, self.items
             )
-            if sum([sum(s) for s in num_group_members_need_grade_per_item.values()]) == 0:
+            if sum(sum(s) for s in num_group_members_need_grade_per_item.values()) == 0:
                 # This student/group is already fully graded
                 continue
 
@@ -842,7 +842,7 @@ class Grader:
                     txt = txt.capitalize()
                     if txt not in item.feedback_list:
                         item.feedback_list.append(txt)
-                        with open(item.feedback_list_path, "w") as f:
+                        with open(item.feedback_list_path, "w", encoding="utf-8") as f:
                             json.dump(item.feedback_list, f)
                     feedback_to_add = txt
 
