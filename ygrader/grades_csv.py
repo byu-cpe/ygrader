@@ -1,7 +1,6 @@
 """ Manage the grade CSV file"""
 
 import pandas
-import numpy
 
 from .student_repos import convert_github_url_format
 from .utils import error
@@ -104,16 +103,28 @@ def find_idx_for_netid(df, netid):
     return matches[0]
 
 
-def num_grades_needed_per_item(row, items):
-    """Returns a list of the number of students who need a grade for each of the given columns"""
-    ret = {}
-    for item in items:
-        empty_per_col = []
-        for col in item.csv_col_names:
-            empty_cnt = 0
-            for grade in row[col]:
-                if numpy.isnan(grade):
-                    empty_cnt += 1
-            empty_per_col.append(empty_cnt)
-        ret[item] = empty_per_col
-    return ret
+def get_net_ids(row):
+    """Get net IDs from row in grade CSV"""
+    return row["Net ID"]
+
+
+def get_first_names(row):
+    """Return first names of group members in the row"""
+    return row["First Name"]
+
+
+def get_last_names(row):
+    """Return last names of group members in the row"""
+    return row["Last Name"]
+
+
+def get_concated_names(row):
+    """Return a concatenated list of group member names for the row"""
+    return ", ".join(
+        [
+            (first + " " + last + " (" + net_id + ")")
+            for (first, last, net_id) in zip(
+                get_first_names(row), get_last_names(row), get_net_ids(row)
+            )
+        ]
+    )

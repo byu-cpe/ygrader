@@ -7,15 +7,9 @@
 
 A: Up to you.  I typically use separate grading and solutions repos.  I do this because I give TAs access to the grading repos (they commit grades to CSV files), but I don't typically give TAs access to our solution repository.
 
-**Q: How do the TAs access the scripts to run? Do they just checkout your main library and then checkout the repository for the class specific scripts to run?**
-
-A: My usual approach is to make this repo a submodule in your class-specific repo, so TAs would clone your class grade repo.  To get submodule code you need to run `git submodule init` and `git submodule update`, but I usually wrap these into a `make install` Makefile that also installs necessary packages.  (See [427 Install Makefile](https://github.com/byu-cpe/ecen427_grader/blob/master/Makefile)).
-
-
 **Q: Should I export separate grades CSV files from Learning Suite for each lab, or one big CSV file?**
 
 A: Either works.  It's easier to edit grades in smaller files, but quicker to import everything at once if you use one file.
-
 
 
 ## Teams/Group Assignments
