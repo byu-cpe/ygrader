@@ -1,26 +1,20 @@
+""" Manage the grade CSV file"""
+
 import pandas
-import re
-import numpy
 
 from .student_repos import convert_github_url_format
 from .utils import error
 
 
-def parse_and_check(grades_csv_path, grades_col_names):
-    # First check that file is not locked
-    try:
-        with open(grades_csv_path, 'a'):
-            pass
-    except PermissionError:
-        error("You do not have permissions to modify the grades_csv_path file", "(" + str(grades_csv_path) + ").", "Is this file open and locked?")
-
+def parse_and_check(grades_csv_path, csv_cols):
+    """Parse the grades CSV file and check that column names are valid"""
     try:
         grades_df = pandas.read_csv(grades_csv_path)
     except pandas.errors.EmptyDataError:
         error(
             "Exception: pandas.errors.EmptyDataError.  Is your", grades_csv_path.name, "file empty?"
         )
-    check_csv_column_names(grades_df, grades_col_names)
+    check_csv_column_names(grades_df, csv_cols)
     return grades_df
 
 
@@ -33,16 +27,21 @@ def check_csv_column_names(df, expected_grade_col_names):
 
     for required_column in required_columns:
         if required_column not in df.columns:
-            error("Grades CSV must contain column '" + required_column + "'")
+            error(
+                "Grades CSV must contain column '" + required_column + "'.",
+                "Current columns:",
+                list(df.columns),
+            )
 
 
-# Filter down to only those students that need a grade
 def filter_need_grade(df, expected_grade_col_names):
+    """Filter down to only those students that need a grade"""
     filtered_df = df[df[df.columns.intersection(expected_grade_col_names)].isnull().any(1)]
     return filtered_df
 
 
 def match_to_github_url(df_needs_grade, github_csv_path, github_csv_col_name, use_https):
+    """Match students to their github URL"""
     try:
         df_github = pandas.read_csv(github_csv_path, index_col=False)
     except pandas.errors.EmptyDataError:
@@ -71,14 +70,23 @@ def match_to_github_url(df_needs_grade, github_csv_path, github_csv_col_name, us
 
 
 def add_group_column_from_csv(df, column_name, groups_csv_path, groups_csv_col_name):
+    """Read the group names from the group CSV and join them to the original grades CSV"""
     df_groups = pandas.read_csv(groups_csv_path)
 
-    assert column_name not in df.columns
+    if column_name in df.columns:
+        error(
+            "The",
+            "'" + column_name + "'",
+            "column is used for your groups, but this column already exists in your grade CSV file.",
+            "The same column name cannot exist in both places.",
+        )
 
     # Rename appropriate column to group
     df_groups.rename(columns={groups_csv_col_name: column_name}, inplace=True)
 
     # Filter down to relevant columns
+    if "Net ID" not in df_groups.columns:
+        error("Your group CSV", "(" + str(groups_csv_path) + ")", "is missing a 'Net ID' column.")
     df_groups = df_groups[["Net ID", column_name]]
 
     # Merge with student dataframe (inner merge will drop students not in group CSV)
@@ -88,18 +96,35 @@ def add_group_column_from_csv(df, column_name, groups_csv_path, groups_csv_col_n
 
 
 def find_idx_for_netid(df, netid):
+    """Find the row index for a given student netid"""
     matches = df.index[df["Net ID"] == netid].tolist()
     if len(matches) != 1:
         error("Could not find netid =", netid, "(find_idx_for_netid)")
     return matches[0]
 
 
-def num_grades_needed_per_milestone(row, grades_col_names):
-    ret = []
-    for grades_col_name in grades_col_names:
-        n = 0
-        for grade in row[grades_col_name]:
-            if numpy.isnan(grade):
-                n += 1
-        ret.append(n)
-    return ret
+def get_net_ids(row):
+    """Get net IDs from row in grade CSV"""
+    return row["Net ID"]
+
+
+def get_first_names(row):
+    """Return first names of group members in the row"""
+    return row["First Name"]
+
+
+def get_last_names(row):
+    """Return last names of group members in the row"""
+    return row["Last Name"]
+
+
+def get_concated_names(row):
+    """Return a concatenated list of group member names for the row"""
+    return ", ".join(
+        [
+            (first + " " + last + " (" + net_id + ")")
+            for (first, last, net_id) in zip(
+                get_first_names(row), get_last_names(row), get_net_ids(row)
+            )
+        ]
+    )

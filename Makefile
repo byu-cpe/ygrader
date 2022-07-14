@@ -8,4 +8,7 @@ test:
 doc:
 	cd doc && make html
 
+lint:
+	pylint ygrader
+
 .PHONY: test doc

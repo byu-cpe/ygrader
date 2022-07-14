@@ -1,6 +1,9 @@
+""" Separate script used to merge new changes to base repo into Githug classroom repos."""
+
 import pathlib
-import pandas
 import subprocess
+
+import pandas
 
 from . import utils, student_repos
 from .utils import TermColors, error, print_color
@@ -21,6 +24,7 @@ class UpstreamMerger:
         self.upstream_repo_url = upstream_repo_url
 
     def run(self):
+        """Run the merger process"""
         df = pandas.read_csv(self.github_csv_path)
 
         if self.github_csv_col_name not in df.columns:
@@ -34,7 +38,7 @@ class UpstreamMerger:
 
         tmp_path.mkdir(exist_ok=True, parents=True)
 
-        for index, row in df.iterrows():
+        for _, row in df.iterrows():
             netid = row["Net ID"]
             print_color(TermColors.PURPLE, netid)
 

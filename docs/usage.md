@@ -24,23 +24,23 @@ I typically give TAs access to this grading repo, and put them in charge of both
 
 ## Setup
 
-1. Start by creating a *Grader* object:
+1. Start by creating a *Grader* object where you assign a name to what you are grading and provide the path of a CSV file contains student grades (exported from LearningSuite).
     ```python
-    grader = ygrader.Grader("lab1", "learning_suite/grades.csv", "lab1_labreport", 10)
+    grader = ygrader.Grader(lab_name = "lab1", grades_csv_path = "learning_suite/grades.csv")
     ```
 
-1. Register your callback function (this is where you will run student's code, inspect their submitted files, etc).  
+1. Next, indicate what item(s) (i.e., columns from your CSV file) that you want to grade, and provide a callback function that you want to be run for each student's submission (this callback function is where you will run student's code, inspect their submitted files, etc).  You can optionally specify a maximum number of points that this item is out of.
     ```python
-    grader.set_callback_fcn(my_callback)
+    grader.add_item_to_grade("lab1_grade", my_callback, max_points = 10)
     ```
 1. Set the submission system to either:
 
-    a. Learning Suite:
+    a. Learning Suite: In this case you need to provide the zip file from the *Batch Download* of submissions on LearningSuite.
     ```python
     grader.set_submission_system_learning_suite("learning_suite/lab1_submissions.zip")
     ```
 
-    b. Github:
+    b. Github: In this case you need to provide a git tag/branch name that contains the student's submissions, as well as a CSV file that contains a list of student Net IDs and their github URL.
     ```python
     grader.set_submission_system_github("lab1_submission", "github_urls.csv")
     ```

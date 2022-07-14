@@ -1,14 +1,15 @@
-import pandas
+""" Manages student repositories when using Github sumission system """
 import shutil
 import subprocess
 import sys
 import re
 
 from .utils import print_color, TermColors
-from ygrader import utils
 
 
 def clone_repo(git_path, tag, student_repo_path):
+    """Clone the student repository"""
+
     if student_repo_path.is_dir() and list(student_repo_path.iterdir()):
         print_color(
             TermColors.BLUE,
@@ -19,8 +20,9 @@ def clone_repo(git_path, tag, student_repo_path):
 
         # Fetch
         cmd = ["git", "fetch", "--tags", "-f"]
-        p = subprocess.run(cmd, cwd=student_repo_path)
-        if p.returncode:
+        try:
+            subprocess.run(cmd, cwd=student_repo_path, check=True)
+        except subprocess.CalledProcessError:
             print_color(TermColors.RED, "git fetch failed")
             return False
 
@@ -28,8 +30,9 @@ def clone_repo(git_path, tag, student_repo_path):
         if tag not in ("master", "main"):
             tag = "tags/" + tag
         cmd = ["git", "checkout", tag, "-f"]
-        p = subprocess.run(cmd, cwd=student_repo_path)
-        if p.returncode:
+        try:
+            subprocess.run(cmd, cwd=student_repo_path, check=True)
+        except subprocess.CalledProcessError:
             print_color(TermColors.RED, "git checkout of tag failed")
             return False
         return True
@@ -44,11 +47,11 @@ def clone_repo(git_path, tag, student_repo_path):
         str(student_repo_path.absolute()),
     ]
     try:
-        p = subprocess.run(cmd)
+        subprocess.run(cmd, check=True)
     except KeyboardInterrupt:
         shutil.rmtree(str(student_repo_path))
         sys.exit(-1)
-    if p.returncode:
+    except subprocess.CalledProcessError:
         print_color(TermColors.RED, "Clone failed")
         return False
     return True
@@ -80,14 +83,14 @@ def convert_github_url_format(url, to_https):
     """
     org = repo = None
 
-    m = re.search("git@github\.com:(.*?)/(.*?).git", url)
-    if m:
-        org = m.group(1)
-        repo = m.group(2)
-    m = re.search("github\.com/(.*?)/(.*)", url)
-    if m:
-        org = m.group(1)
-        repo = m.group(2)
+    match = re.search(r"git@github\.com:(.*?)/(.*?).git", url)
+    if match:
+        org = match.group(1)
+        repo = match.group(2)
+    match = re.search(r"github\.com/(.*?)/(.*)", url)
+    if match:
+        org = match.group(1)
+        repo = match.group(2)
 
     # Remove .git
     if repo is not None and repo.endswith(".git"):
@@ -96,13 +99,12 @@ def convert_github_url_format(url, to_https):
     if org is not None:
         if to_https:
             return "https://github.com/" + org + "/" + repo
-        else:
-            return "git@github.com:" + org + "/" + repo + ".git"
-    else:
-        return url
+        return "git@github.com:" + org + "/" + repo + ".git"
+    return url
 
 
 def print_date(student_repo_path):
+    """Print the last commit date to the repo"""
     print("Last commit: ")
     cmd = ["git", "log", "-1", r"--format=%cd"]
-    proc = subprocess.run(cmd, cwd=str(student_repo_path))
+    subprocess.run(cmd, cwd=str(student_repo_path), check=False)

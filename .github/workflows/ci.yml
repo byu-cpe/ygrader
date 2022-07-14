@@ -22,3 +22,14 @@ jobs:
           sudo pip3 install pandas
     - name: Pytests
       run: cd test && python3 -m unittest
+
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+    - name: Install dependencies
+      run: |
+          sudo pip3 install pylint
+          sudo pip3 install -r requirements.txt
+    - name: Lint
+      run: make lint
