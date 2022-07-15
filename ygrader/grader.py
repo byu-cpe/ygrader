@@ -1,11 +1,12 @@
 """ Main ygrader module"""
+from collections import defaultdict
 import pathlib
 import enum
+import re
 import zipfile
 import time
 import os
 import shutil
-import datetime
 from typing import Callable
 import inspect
 import pandas
@@ -379,7 +380,7 @@ class Grader:
             self.grades_csv_path, self._get_all_csv_cols_to_grade()
         )
 
-        # Convert columnsdg
+        # Convert columns
         for item in self.items:
             if item.feedback_col_name:
                 student_grades_df[item.feedback_col_name] = student_grades_df[
@@ -410,8 +411,10 @@ class Grader:
 
         # For learning suite, unzip their submission and add a column that points to it
         if self.code_source == CodeSource.LEARNING_SUITE:
-            self._unzip_submissions()
-            grouped_df = self._add_submitted_zip_path_column(grouped_df)
+            pass
+            # self._unzip_submissions()
+            # sys.exit(0)
+            # grouped_df = self._add_submitted_zip_path_column(grouped_df)
 
         self._run_grading(student_grades_df, grouped_df)
 
@@ -436,7 +439,6 @@ class Grader:
             student_work_path = self.work_path / utils.names_to_dir(
                 first_names, last_names, net_ids
             )
-            student_work_path.mkdir(exist_ok=True)
             print_color(
                 TermColors.PURPLE,
                 "\nGrading: ",
@@ -447,12 +449,10 @@ class Grader:
 
             # Get student code from zip or github.  If this fails it returns False.
             # Code from zip will return modified time (epoch, float). Code from github will return True.
-            timestamp = self._get_student_code(row, student_work_path)
-            if timestamp is False:
+            success = self._get_student_code(row, student_work_path)
+            if not success:
                 continue
-            modified_time = None
-            if isinstance(timestamp, float):
-                modified_time = datetime.datetime.fromtimestamp(timestamp)
+
             # Format student code
             if self.format_code:
                 print_color(TermColors.BLUE, "Formatting code")
@@ -465,8 +465,6 @@ class Grader:
             callback_args["first_names"] = first_names
             callback_args["last_names"] = last_names
             callback_args["net_ids"] = net_ids
-            if modified_time is not None:
-                callback_args["modified_time"] = modified_time
             if "Section Number" in row:
                 callback_args["section"] = row["Section Number"]
             if "Course Homework ID" in row:
@@ -508,8 +506,7 @@ class Grader:
         df_idx_to_zip_path = {}
 
         for index, row in df.iterrows():
-            # group_name = row["group_id"]
-            net_ids = row["Net ID"]
+            net_ids = grades_csv.get_net_ids(row)
 
             # Find all submissions that belong to the group
             zip_matches = []
@@ -570,36 +567,112 @@ class Grader:
 
     def _get_student_code(self, row, student_work_path):
         if self.code_source == CodeSource.GITHUB:
-            # Clone student repo
-            print("Student repo url: " + row["github_url"])
-            if not student_repos.clone_repo(row["github_url"], self.github_tag, student_work_path):
-                return False
+            return self._get_student_code_github(row, student_work_path)
+
+        # else:
+        return self._get_student_code_learning_suite(row, student_work_path)
+
+    def _get_student_code_github(self, row, student_work_path):
+        student_work_path.mkdir(parents=True, exist_ok=True)
+
+        # Clone student repo
+        print("Student repo url: " + row["github_url"])
+        if not student_repos.clone_repo(row["github_url"], self.github_tag, student_work_path):
+            return False
+        return True
+
+    def _get_student_code_learning_suite(self, row, student_work_path):
+        print("Extracting submitted files for", grades_csv.get_concated_names(row), "...")
+        if student_work_path.is_dir():
+            # Code already extracted from Zip, return
+            print("  Files already extracted previously.")
             return True
 
-        # Otherwise, this is a learning suite submission
-        zip_path = row["submitted_zip_path"]
+        student_work_path.mkdir(parents=True)
 
-        # Skip if student has no submission
-        if self.code_source == CodeSource.LEARNING_SUITE and zip_path == "":
+        # Keep track of last file extracted by name
+        extracted_by_name = {}
+
+        # Track how many files of each name are extracted so we can warn about duplicate submissions
+        count_by_filename = defaultdict(int)
+
+        with zipfile.ZipFile(self.learning_suite_submissions_zip_path, "r") as top_zip:
+
+            # Loop through all files in top-level zip file
+            for file in top_zip.infolist():
+
+                if file.is_dir():
+                    continue
+
+                # Loop through everyone in the group
+                for netid in grades_csv.get_net_ids(row):
+
+                    # Check if file belongs to student
+                    match = re.match("^.*?_" + netid + "_(.*)$", file.filename)
+                    if not match:
+                        continue
+
+                    # Handle regular files (not zip files)
+                    if not file.filename.lower().endswith(".zip"):
+                        extract_to_name = match.group(1)
+
+                        count_by_filename[extract_to_name] += 1
+
+                        # If we've already extracted a file of this name, don't overwrite if older
+                        if extract_to_name in extracted_by_name:
+                            if file.date_time <= extracted_by_name[extract_to_name].date_time:
+                                continue
+                        top_zip.extract(file, student_work_path)
+                        extracted_by_name[extract_to_name] = file
+
+                        # Rename to remove student name/netid from file
+                        unpack_old_path = student_work_path / file.filename
+                        unpack_new_path = student_work_path / extract_to_name
+                        unpack_old_path.rename(unpack_new_path)
+
+                        # Restore timestamp
+                        date_time = time.mktime(file.date_time + (0, 0, -1))
+                        os.utime(unpack_new_path, (date_time, date_time))
+                        continue
+
+                    # Otherwise this is a zip within zip. Open it up and collect contained files
+                    with zipfile.ZipFile(top_zip.open(file)) as inner_zip:
+                        for file2 in inner_zip.infolist():
+                            if file2.is_dir():
+                                continue
+                            count_by_filename[file2.filename] += 1
+
+                            # If we've already extracted a file of this name, don't overwrite if older
+                            if file2.filename in extracted_by_name:
+                                if file2.date_time <= extracted_by_name[file2.filename].date_time:
+                                    continue
+
+                            inner_zip.extract(file2, student_work_path)
+                            extracted_by_name[file2.filename] = file2
+
+                            # Restore timestamp
+                            unpack_path = student_work_path / file2.filename
+                            date_time = time.mktime(file2.date_time + (0, 0, -1))
+                            os.utime(unpack_path, (date_time, date_time))
+
+        # Print what was extracted
+        for k in sorted(extracted_by_name.keys()):
+            print("  ", k, end=" ")
+            if count_by_filename[k] > 1:
+                print_color(
+                    TermColors.YELLOW,
+                    "(" + str(count_by_filename[k]),
+                    "versions submitted, using last modified.)",
+                )
+            else:
+                print()
+
+        # Return success if at least one file is obtained
+        if len(extracted_by_name) == 0:
             print_color(TermColors.YELLOW, "No submission")
             return False
 
-        # Unzip student files (if student_dir doesn't already exist) and delete zip
-        try:
-            # Unzip if student work path is empty
-            if not list(student_work_path.iterdir()):
-                print(
-                    "Unzipping",
-                    zip_path,
-                    "into",
-                    student_work_path.relative_to(self.work_path.parent),
-                )
-                with zipfile.ZipFile(zip_path, "r") as f:
-                    f.extractall(student_work_path)
-        except zipfile.BadZipFile:
-            print_color(TermColors.RED, "Bad zip file", zip_path)
-            return False
-        return zip_path.stat().st_mtime
+        return True
 
     def _create_work_path(self):
         if self.code_source == CodeSource.LEARNING_SUITE:
@@ -633,7 +706,6 @@ def _verify_callback_fcn(fcn, item):
         callback_args.append("csv_col_names")
 
     callback_args_optional = [
-        "modified_time",
         "section",
         "homework_id",
     ]

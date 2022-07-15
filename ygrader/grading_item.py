@@ -42,15 +42,7 @@ class GradeItem:
         # (will be false if user chooses to just re-run and not re-build)
         build = True
 
-        if sum(self.num_grades_needed(row)):
-            print_color(
-                TermColors.BLUE,
-                "Running callback function",
-                "(" + str(self.fcn.__name__) + ")",
-                "to grade",
-                str(self.csv_col_names) + ":",
-            )
-        else:
+        if sum(self.num_grades_needed(row)) == 0:
             # No one in the group needs grades for this
             print_color(
                 TermColors.BLUE,
@@ -61,6 +53,14 @@ class GradeItem:
             return
 
         while True:
+            print_color(
+                TermColors.BLUE,
+                "Running callback function",
+                "(" + str(self.fcn.__name__) + ")",
+                "to grade",
+                str(self.csv_col_names) + ":",
+            )
+
             scores = None
 
             # Build it and run
@@ -76,6 +76,8 @@ class GradeItem:
                 break
             except KeyboardInterrupt:
                 print("")
+            else:
+                print_color(TermColors.BLUE, "Callback returned:", scores)
 
             # reset the flag
             build = True

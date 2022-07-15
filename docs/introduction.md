@@ -28,7 +28,7 @@ grader.set_submission_system_learning_suite("learning_suite/lab1_submissions.zip
 grader.run()
 ```
 
-In this example, the *lab1_submissions.zip* would have been batch downloaded from Learning Suite, and contains zip files of student submissions.  In this example, the student *Mike Smith* has submitted a lab report, while *Steve Jones'* submission is missing the *lab_report.txt* file, and *Anna Wilkinson* didn't submit anything.  
+In this example, the *lab1_submissions.zip* would have been batch downloaded from Learning Suite, and contains student submissions.  In this example, the student *Mike Smith* has submitted a lab report, while *Steve Jones'* submission is missing the *lab_report.txt* file, and *Anna Wilkinson* didn't submit anything.  
 
 When you run the example you should see the following interactive output:
 
@@ -38,13 +38,10 @@ This is an example of a very simple callback routine that just prints out a text
 
 ## Major Features
 
-* The package can work with student code submitted via zip files (ie using Learning Suite), *or* with student code on Github.  
+* The package can work with student files submitted using Learning Suite, *or* with student code on Github.  
 * Grade multiple items at once (multiple columns in Learning Suite). This can allow you to run different tests each worth different number of points.
 * Team-based assignments.
 * Grades are updated in the CSV files as soon as you enter them, meaning you can Ctrl+C and kill the grading at any point, and re-run to continue where you left off.
-* Can be run in analysis mode, where student code is fetched and callbacks are made, but no grades are entered.  This is useful for things like collecting stats, running plagarism checkers, etc. 
-
-
 
 ## How to Use This
 See [](usage.md)

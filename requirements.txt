@@ -1,2 +1,3 @@
 pandas
 numpy
+pylint==2.14.4

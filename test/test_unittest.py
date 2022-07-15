@@ -27,7 +27,7 @@ class TestGithub(unittest.TestCase):
         grades_path_golden = TEST_RESOURCES_PATH / "grades1_golden.csv"
 
         grader = Grader(
-            lab_name="lab1",
+            lab_name="github_test",
             grades_csv_path=TEST_RESOURCES_PATH / "grades1.csv",
             work_path=TEST_PATH / "temp",
         )
@@ -51,7 +51,7 @@ class TestLearningSuite(unittest.TestCase):
         grades_path_golden = TEST_RESOURCES_PATH / "grades2_golden.csv"
 
         grader = Grader(
-            lab_name="lab1",
+            lab_name="learningsuite_test",
             grades_csv_path=grades_path,
             work_path=TEST_PATH / "temp",
         )
@@ -65,16 +65,19 @@ class TestLearningSuite(unittest.TestCase):
 
         self.assertTrue(filecmp.cmp(grades_path, grades_path_golden))
 
-    def runner(self, **kw):
-        print("Modified time:", kw["modified_time"])
-
+    def runner(self, student_code_path, **kw):
         self.assertIn("section", kw)
         self.assertIn("homework_id", kw)
-        return 3
+        if (student_code_path / "file_1.txt").is_file() and (
+            student_code_path / "file_2.txt"
+        ).is_file():
+            return 3
+        else:
+            return 0
 
     def test_groups(self):
         grader = Grader(
-            "group_test",
+            "groups_test",
             TEST_RESOURCES_PATH / "grades3.csv",
             work_path=TEST_PATH / "temp",
         )
