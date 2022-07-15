@@ -68,8 +68,8 @@ class TestLearningSuite(unittest.TestCase):
     def runner(self, student_code_path, **kw):
         self.assertIn("section", kw)
         self.assertIn("homework_id", kw)
-        if (student_code_path / "file1.txt").is_file() and (
-            student_code_path / "file2.txt"
+        if (student_code_path / "file_1.txt").is_file() and (
+            student_code_path / "file_2.txt"
         ).is_file():
             return 3
         else:

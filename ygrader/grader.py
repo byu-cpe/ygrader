@@ -573,7 +573,7 @@ class Grader:
         return self._get_student_code_learning_suite(row, student_work_path)
 
     def _get_student_code_github(self, row, student_work_path):
-        student_work_path.mkdir(parents=True)
+        student_work_path.mkdir(parents=True, exist_ok=True)
 
         # Clone student repo
         print("Student repo url: " + row["github_url"])
@@ -595,6 +595,7 @@ class Grader:
 
         # Track how many files of each name are extracted so we can warn about duplicate submissions
         count_by_filename = defaultdict(int)
+
         with zipfile.ZipFile(self.learning_suite_submissions_zip_path, "r") as top_zip:
 
             # Loop through all files in top-level zip file
@@ -613,19 +614,25 @@ class Grader:
 
                     # Handle regular files (not zip files)
                     if not file.filename.lower().endswith(".zip"):
-                        count_by_filename[file.filename] += 1
+                        extract_to_name = match.group(1)
+
+                        count_by_filename[extract_to_name] += 1
 
                         # If we've already extracted a file of this name, don't overwrite if older
-                        if file.filename in extracted_by_name:
-                            if file.date_time <= extracted_by_name[file.filename].date_time:
+                        if extract_to_name in extracted_by_name:
+                            if file.date_time <= extracted_by_name[extract_to_name].date_time:
                                 continue
                         top_zip.extract(file, student_work_path)
-                        extracted_by_name[file.filename] = file
+                        extracted_by_name[extract_to_name] = file
+
+                        # Rename to remove student name/netid from file
+                        unpack_old_path = student_work_path / file.filename
+                        unpack_new_path = student_work_path / extract_to_name
+                        unpack_old_path.rename(unpack_new_path)
 
                         # Restore timestamp
-                        unpack_path = student_work_path / file.filename
                         date_time = time.mktime(file.date_time + (0, 0, -1))
-                        os.utime(unpack_path, (date_time, date_time))
+                        os.utime(unpack_new_path, (date_time, date_time))
                         continue
 
                     # Otherwise this is a zip within zip. Open it up and collect contained files
