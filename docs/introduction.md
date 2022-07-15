@@ -6,24 +6,38 @@ The package is designed to help you write grading scripts.  The main idea behind
 
 ## Example
 
-This example (available on [github](https://github.com/byu-cpe/ygrader-example)), demonstrates a very simple use of ygrader to grade lab reports.
-The [example.py](https://github.com/byu-cpe/ygrader-example/blob/main/example.py) file:
+First install ygrader:
+
+```bash
+pip3 install ygrader
+```
+
+Then clone the example repository, available on [github](https://github.com/byu-cpe/ygrader-example), or download the [zip](https://github.com/byu-cpe/ygrader-example/archive/refs/heads/main.zip) and extract.
+
+```
+git clone https://github.com/byu-cpe/ygrader-example.git
+```
+
+An [example.py](https://github.com/byu-cpe/ygrader-example/blob/main/example.py) file is provided that shows how to run *ygrader*:
+
 ```python
-import sys
 import ygrader
 
 def my_callback(student_code_path, lab_name, **kw):
+    print("*** Grading", lab_name, "***\n")
 
-    # Print the student's lab report
     lab_report_path = student_code_path / "lab_report.txt"
     if lab_report_path.is_file():
         print(open(lab_report_path).read())
     else:
         raise ygrader.CallbackFailed("Missing lab_report.txt")
 
-# Configure and run the grader
-grader = ygrader.Grader("lab1", "learning_suite/grades.csv", "lab1_labreport", 10)
-grader.set_callback_fcn(my_callback)
+
+grader = ygrader.Grader(
+    lab_name="lab1",
+    grades_csv_path="learning_suite/grades.csv",
+)
+grader.add_item_to_grade("lab1_labreport", my_callback, max_points = 10)
 grader.set_submission_system_learning_suite("learning_suite/lab1_submissions.zip")
 grader.run()
 ```
