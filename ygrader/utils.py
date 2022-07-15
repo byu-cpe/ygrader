@@ -1,4 +1,5 @@
 """ ygrader utility functions"""
+import pathlib
 import sys
 import shutil
 import subprocess
@@ -121,3 +122,7 @@ def ensure_tuple(x):
     if isinstance(x, list):
         return tuple(x)
     return (x,)
+
+
+def directory_is_empty(directory: pathlib.Path) -> bool:
+    return not any(directory.iterdir())

@@ -15,7 +15,7 @@ import pandas
 from . import grades_csv
 from . import utils, student_repos
 from .grading_item import GradeItem
-from .utils import CallbackFailed, print_color, TermColors, error, warning
+from .utils import CallbackFailed, directory_is_empty, print_color, TermColors, error, warning
 
 
 class CodeSource(enum.Enum):
@@ -584,9 +584,13 @@ class Grader:
     def _get_student_code_learning_suite(self, row, student_work_path):
         print("Extracting submitted files for", grades_csv.get_concated_names(row), "...")
         if student_work_path.is_dir():
-            # Code already extracted from Zip, return
-            print("  Files already extracted previously.")
-            return True
+            if directory_is_empty(student_work_path):
+                print_color(TermColors.YELLOW, "No submission")
+                return False
+            else:
+                # Code already extracted from Zip, return
+                print("  Files already extracted previously.")
+                return True
 
         student_work_path.mkdir(parents=True)
 
