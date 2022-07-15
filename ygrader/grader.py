@@ -587,10 +587,10 @@ class Grader:
             if directory_is_empty(student_work_path):
                 print_color(TermColors.YELLOW, "No submission")
                 return False
-            else:
-                # Code already extracted from Zip, return
-                print("  Files already extracted previously.")
-                return True
+
+            # Code already extracted from Zip, return
+            print("  Files already extracted previously.")
+            return True
 
         student_work_path.mkdir(parents=True)
 

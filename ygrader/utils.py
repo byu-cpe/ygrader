@@ -125,4 +125,5 @@ def ensure_tuple(x):
 
 
 def directory_is_empty(directory: pathlib.Path) -> bool:
+    """Returns whether the given directory is empty"""
     return not any(directory.iterdir())
