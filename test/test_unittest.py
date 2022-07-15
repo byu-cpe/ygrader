@@ -27,7 +27,7 @@ class TestGithub(unittest.TestCase):
         grades_path_golden = TEST_RESOURCES_PATH / "grades1_golden.csv"
 
         grader = Grader(
-            lab_name="lab1",
+            lab_name="github_test",
             grades_csv_path=TEST_RESOURCES_PATH / "grades1.csv",
             work_path=TEST_PATH / "temp",
         )
@@ -51,7 +51,7 @@ class TestLearningSuite(unittest.TestCase):
         grades_path_golden = TEST_RESOURCES_PATH / "grades2_golden.csv"
 
         grader = Grader(
-            lab_name="lab1",
+            lab_name="learningsuite_test",
             grades_csv_path=grades_path,
             work_path=TEST_PATH / "temp",
         )
@@ -79,7 +79,7 @@ class TestLearningSuite(unittest.TestCase):
 
     def test_groups(self):
         grader = Grader(
-            "group_test",
+            "groups_test",
             TEST_RESOURCES_PATH / "grades3.csv",
             work_path=TEST_PATH / "temp",
         )

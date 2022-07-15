@@ -1,6 +1,10 @@
 """ Main ygrader module"""
+from itertools import groupby
 import pathlib
 import enum
+import re
+import sys
+import tempfile
 import zipfile
 import time
 import os
@@ -379,7 +383,7 @@ class Grader:
             self.grades_csv_path, self._get_all_csv_cols_to_grade()
         )
 
-        # Convert columnsdg
+        # Convert columns
         for item in self.items:
             if item.feedback_col_name:
                 student_grades_df[item.feedback_col_name] = student_grades_df[
@@ -410,8 +414,10 @@ class Grader:
 
         # For learning suite, unzip their submission and add a column that points to it
         if self.code_source == CodeSource.LEARNING_SUITE:
-            self._unzip_submissions()
-            grouped_df = self._add_submitted_zip_path_column(grouped_df)
+            pass
+            # self._unzip_submissions()
+            # sys.exit(0)
+            # grouped_df = self._add_submitted_zip_path_column(grouped_df)
 
         self._run_grading(student_grades_df, grouped_df)
 
@@ -569,11 +575,128 @@ class Grader:
 
     def _get_student_code(self, row, student_work_path):
         if self.code_source == CodeSource.GITHUB:
-            # Clone student repo
-            print("Student repo url: " + row["github_url"])
-            if not student_repos.clone_repo(row["github_url"], self.github_tag, student_work_path):
-                return False
-            return True
+            self._get_student_code_github(row, student_work_path)
+        else:
+            self._get_student_code_learning_suite(row, student_work_path)
+
+    def _get_student_code_github(self, row, student_work_path):
+        # Clone student repo
+        print("Student repo url: " + row["github_url"])
+        if not student_repos.clone_repo(row["github_url"], self.github_tag, student_work_path):
+            return False
+        return True
+
+    def _get_student_code_learning_suite(self, row, student_work_path):
+        zipped_files_for_group = []
+
+        extracted_by_filename = {}
+
+        print("Finding submitted files for:", grades_csv.get_net_ids(row))
+        with zipfile.ZipFile(self.learning_suite_submissions_zip_path, "r") as f:
+
+            # Loop through all files in top-level zip file
+            for zip_info_file in f.infolist():
+
+                if zip_info_file.is_dir():
+                    continue
+
+                # Check if file belongs to student in group
+                for netid in grades_csv.get_net_ids(row):
+
+                    match = re.match("^.*?_" + netid + "_(.*)$", zip_info_file.filename)
+                    if match:
+                        if zip_info_file.filename.lower().endswith(".zip"):
+                            # Zip within zip. Open it up and collect contained files
+                            with zipfile.ZipFile(f.open(zip_info_file)) as f2:
+                                for zip_info_file_2 in f2.infolist():
+                                    if zip_info_file_2.is_dir():
+                                        continue
+
+                                    if zip_info_file_2.filename in extracted_by_filename:
+                                        if (
+                                            zip_info_file_2.date_time
+                                            > extracted_by_filename[
+                                                zip_info_file_2.filename
+                                            ].date_time
+                                        ):
+                                            warning("Overwriting", zip_info_file_2.filename)
+                                        else:
+                                            continue
+
+                                    f2.extract(zip_info_file_2, student_work_path)
+                                    extracted_by_filename[
+                                        zip_info_file_2.filename
+                                    ] = zip_info_file_2
+                        else:
+                            if zip_info_file.filename in extracted_by_filename:
+                                if (
+                                    zip_info_file.date_time
+                                    > extracted_by_filename[zip_info_file.filename].date_time
+                                ):
+                                    warning("Overwriting", zip_info_file.filename)
+                                else:
+                                    continue
+                            f.extract(zip_info_file, student_work_path)
+                            extracted_by_filename[zip_info_file.filename] = zip_info_file
+
+            return
+
+            # Print all the files found
+            print("Found:")
+            print(zipped_files_for_group)
+
+            # Group by filename
+            zipped_files_for_group.sort(key=lambda x: x.filename)
+            print(zipped_files_for_group)
+
+            # zipped_files_by_filename =
+            zipped_files_newest = []
+            print("Grouped:")
+            for filename, zipinfo_iter in groupby(zipped_files_for_group, lambda x: x.filename):
+                zip_info_list = list(zipinfo_iter)
+                zip_info_list.sort(key=lambda x: x.date_time, reverse=True)
+                if len(zip_info_list) > 1:
+                    warning(
+                        "There are",
+                        len(zip_info_list),
+                        "submitted copies of",
+                        filename + ".",
+                        "Only the newest modified file will be used.",
+                    )
+                zipped_files_newest.append(zip_info_list[0])
+
+            print(zipped_files_newest)
+
+            for zipped_file_to_extract in zipped_files_newest:
+                print("Extracting", zipped_file_to_extract.filename)
+                f.extract(zipped_file_to_extract, student_work_path)
+            # # Unzip these to a temporary directory
+            # tmpdir = tempfile.TemporaryDirectory()
+            # print(tmpdir)
+
+            # for zf in zipped_files_for_group:
+            #     f.extract(zipfile.ZipInfo(zf), tmpdir)
+
+        return
+
+        # Now check if these are zip files and need to be further unzipped
+        print("Zipped files for group:", zipped_files_for_group)
+        zipped_zip_files_for_group = []
+        for zf in zipped_files_for_group:
+            print("name:", zf.name)
+            if zf.name.lower().endswith(".zip"):
+                zipped_zip_files_for_group.append(zf)
+        print("Zipped zip files for group:", zipped_zip_files_for_group)
+
+        for zzf in zipped_zip_files_for_group:
+            with zipfile.ZipFile(zzf, "r") as f:
+                for filename in zipfile.Path(f).iterdir():
+                    # Check if file belongs to student in group
+                    for netid in grades_csv.get_net_ids(row):
+                        match = re.match("^.*?_" + netid + "_(.*)$", filename.name)
+                        if match:
+                            zipped_files_for_group.append(filename)
+                            break
 
         # Otherwise, this is a learning suite submission
         zip_path = row["submitted_zip_path"]
