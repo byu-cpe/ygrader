@@ -65,12 +65,17 @@ class TestLearningSuite(unittest.TestCase):
 
         self.assertTrue(filecmp.cmp(grades_path, grades_path_golden))
 
-    def runner(self, **kw):
+    def runner(self, student_code_path, **kw):
         print("Modified time:", kw["modified_time"])
 
         self.assertIn("section", kw)
         self.assertIn("homework_id", kw)
-        return 3
+        if (student_code_path / "file1.txt").is_file() and (
+            student_code_path / "file2.txt"
+        ).is_file():
+            return 3
+        else:
+            return 0
 
     def test_groups(self):
         grader = Grader(

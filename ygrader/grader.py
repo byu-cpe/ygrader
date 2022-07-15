@@ -508,8 +508,7 @@ class Grader:
         df_idx_to_zip_path = {}
 
         for index, row in df.iterrows():
-            # group_name = row["group_id"]
-            net_ids = row["Net ID"]
+            net_ids = grades_csv.get_net_ids(row)
 
             # Find all submissions that belong to the group
             zip_matches = []
