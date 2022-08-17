@@ -64,7 +64,7 @@ class Grader:
             )
 
         # Create a working directory
-        self.work_path = pathlib.Path(work_path)
+        self.work_path = pathlib.Path(work_path).resolve()
         self.work_path = self.work_path / lab_name
 
         # Read CSV and make sure it isn't empty
@@ -219,7 +219,7 @@ class Grader:
         zip_path: pathlib.Path | str
             Path to the zip file that was downloaded from Learning Suite using *Batch Download*.
         """
-        zip_path = pathlib.Path(zip_path)
+        zip_path = pathlib.Path(zip_path).resolve()
 
         self.code_source = CodeSource.LEARNING_SUITE
         self.learning_suite_submissions_zip_path = zip_path
@@ -248,7 +248,7 @@ class Grader:
             credentials over https, set this to True.
         """
         self.code_source = CodeSource.GITHUB
-        self.github_csv_path = github_url_csv_path
+        self.github_csv_path = pathlib.Path(github_url_csv_path).resolve()
         self.github_csv_col_name = repo_col_name
         self.github_tag = tag
         self.github_https = use_https
@@ -286,7 +286,7 @@ class Grader:
                 "Please call set_submission_system_learning_suite() before calling set_learning_suite_groups()."
             )
 
-        self.groups_csv_path = csv_path
+        self.groups_csv_path = pathlib.Path(csv_path).resolve()
         self.groups_csv_col_name = col_name
 
         if not csv_path.is_file():
