@@ -3,7 +3,7 @@ from setuptools import setup
 setup(
     name="ygrader",
     packages=["ygrader"],
-    version="1.1.4",
+    version="1.1.5",
     description="Grading scripts used in BYU's Electrical and Computer Engineering Department",
     author="Jeff Goeders",
     author_email="jeff.goeders@gmail.com",
