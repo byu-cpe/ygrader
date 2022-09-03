@@ -15,12 +15,16 @@ class GradeItem:
     """Class to track each item that needs to be graded (ie, each item for which a grading callback
     function will be invoked.  This may be used to grade one or more columns from the CSV file."""
 
-    def __init__(self, grader, csv_col_names, fcn, max_points, feedback_col_name, help_msg) -> None:
+    def __init__(
+        self, grader, csv_col_names, fcn, max_points, feedback_filename, feedback_col_name, help_msg
+    ) -> None:
         self.grader = grader
         self.csv_col_names = csv_col_names
         self.fcn = fcn
         self.max_points = max_points
+        self.feedback_filename = feedback_filename
         self.feedback_col_name = feedback_col_name
+        self.feedback_enabled = self.feedback_filename or self.feedback_col_name
         self.help_msg = help_msg
 
         # Feedback comments
@@ -101,7 +105,7 @@ class GradeItem:
             if scores is None:
                 # If no score was returned by the callback function, prompt the user for a score.
                 try:
-                    scores, feedback = self._get_scores(concated_names, self)
+                    scores, feedback = self._get_scores(concated_names)
                 except KeyboardInterrupt:
                     print_color(TermColors.RED, "\nExiting")
                     sys.exit(0)
@@ -147,6 +151,10 @@ class GradeItem:
                         existing_feedback + feedback
                     )
 
+                # Save feedback to a file
+                if self.feedback_filename:
+                    feedback
+
             student_grades_df.to_csv(
                 str(self.grader.grades_csv_path),
                 index=False,
@@ -166,20 +174,20 @@ class GradeItem:
             empty_per_col.append(empty_cnt)
         return empty_per_col
 
-    def _get_scores(self, names, item):
-        """Prompts the user for a score for the grade column(s) for the given item."""
+    def _get_scores(self, names):
+        """Prompts the user for a score for the grade column(s)."""
         fpad = " " * 8
         fpad2 = " " * 4
         pad = 10
         feedback = ""
         scores = []
 
-        for (i, grade_col) in enumerate(item.csv_col_names):
-            points = item.max_points[i] if item.max_points else None
+        for (i, grade_col) in enumerate(self.csv_col_names):
+            points = self.max_points[i] if self.max_points else None
             while True:
                 print("")
-                if item.help_msg:
-                    print_color(TermColors.BOLD, item.help_msg[i])
+                if self.help_msg:
+                    print_color(TermColors.BOLD, self.help_msg[i])
 
                 ################### Build input menu #######################
                 input_txt = (
@@ -192,7 +200,7 @@ class GradeItem:
                 )
 
                 # Add current feedback
-                if item.feedback_col_name:
+                if self.feedback_enabled:
                     input_txt += (
                         fpad
                         + "Pending feedback: "
@@ -211,13 +219,13 @@ class GradeItem:
 
                 # Enter feedback
                 allowed_feedback = {}
-                if item.feedback_col_name:
+                if self.feedback_enabled:
                     input_txt += (
                         fpad2
                         + "str".ljust(pad)
                         + "Enter a string with any new feedback, or select from previous feedback:\n"
                     )
-                    for idx, f in enumerate(item.feedback_list):
+                    for idx, f in enumerate(self.feedback_list):
                         input_txt += fpad2 + ("f" + str(idx)).ljust(pad + 2) + f + "\n"
                         allowed_feedback["f" + str(idx)] = f
 
@@ -267,10 +275,10 @@ class GradeItem:
 
                 else:
                     txt = txt.capitalize()
-                    if txt not in item.feedback_list:
-                        item.feedback_list.append(txt)
-                        with open(item.feedback_list_path, "w", encoding="utf-8") as f:
-                            json.dump(item.feedback_list, f)
+                    if txt not in self.feedback_list:
+                        self.feedback_list.append(txt)
+                        with open(self.feedback_list_path, "w", encoding="utf-8") as f:
+                            json.dump(self.feedback_list, f)
                     feedback_to_add = txt
 
                 # Assume input is feedback

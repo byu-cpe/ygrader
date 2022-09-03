@@ -87,7 +87,13 @@ class Grader:
         self.set_other_options()
 
     def add_item_to_grade(
-        self, csv_col_names, grading_fcn, max_points=None, feedback_col_name=None, help_msg=None
+        self,
+        csv_col_names,
+        grading_fcn,
+        max_points=None,
+        feedback_filename=None,
+        feedback_col_name=None,
+        help_msg=None,
     ):
         """Add a new item you want to grade.
 
@@ -138,8 +144,10 @@ class Grader:
                     first_name = kw["first_names"][0]
         max_points: int | list of int
             (Optional) Number of max points for the graded column(s).
+        feedback_filename: str
+            (Optional) Filename for feedback saved to files that will be zipped and can be uploaded to LearningSuite.
         feedback_col_name: str
-            (Optional) Name of CSV column that will be used to store comments for student feedback.
+            (Optional) Alterantively, feedback can be saved to a column in the grade CSV file.  To do this, provide the name of CSV column.
         help_msg: str | list of str
             (Optional) When the script asks the user for a grade, it will print this message first.  This can be a helpful
             reminder to the TAs of a grading rubric, things they should watch out for, etc.  If you are grading multiple
@@ -196,6 +204,9 @@ class Grader:
                     "Columns:",
                     list(df.columns),
                 )
+
+        if feedback_filename is not None and feedback_col_name is not None:
+            error("Provide only one of feedback_filename or feedback_col_name")
         if feedback_col_name and feedback_col_name not in df:
             error(
                 "Provided feedback_col_name",
@@ -206,7 +217,15 @@ class Grader:
                 list(df.columns),
             )
 
-        item = GradeItem(self, csv_col_names, grading_fcn, max_points, feedback_col_name, help_msg)
+        item = GradeItem(
+            self,
+            csv_col_names,
+            grading_fcn,
+            max_points,
+            feedback_filename,
+            feedback_col_name,
+            help_msg,
+        )
         _verify_callback_fcn(grading_fcn, item)
         self.items.append(item)
 
