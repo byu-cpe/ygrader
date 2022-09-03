@@ -3,6 +3,7 @@
 
 import csv
 import json
+import shutil
 import sys
 
 import numpy
@@ -34,9 +35,19 @@ class GradeItem:
             with open(self.feedback_list_path, encoding="utf-8") as f:
                 self.feedback_list = json.load(f)
 
+        # Feeback file directory
+        if self.feedback_filename:
+            self.feedback_dir_path = grader.grades_csv_path.parent / "feedback" / grader.lab_name
+            self.feedback_zip_path = (
+                grader.grades_csv_path.parent / "feedback" / (grader.lab_name + ".zip")
+            )
+            self.feedback_dir_path.mkdir(exist_ok=True, parents=True)
+
     def run_grading(self, student_grades_df, row, callback_args):
         """Run the grading process for this item"""
         net_ids = grades_csv.get_net_ids(row)
+        first_names = grades_csv.get_first_names(row)
+        last_names = grades_csv.get_last_names(row)
         num_group_members = len(net_ids)
         concated_names = grades_csv.get_concated_names(row)
         num_group_members_need_grade_per_col = self.num_grades_needed(row)
@@ -133,7 +144,7 @@ class GradeItem:
                 continue
 
             # Record score
-            for net_id in net_ids:
+            for (first_name, last_name, net_id) in zip(first_names, last_names, net_ids):
                 row_idx = grades_csv.find_idx_for_netid(student_grades_df, net_id)
 
                 for (i, col) in enumerate(self.csv_col_names):
@@ -153,7 +164,25 @@ class GradeItem:
 
                 # Save feedback to a file
                 if self.feedback_filename:
-                    feedback
+                    feedback_file_path = self.feedback_dir_path / (
+                        first_name
+                        + "_"
+                        + last_name
+                        + "_"
+                        + net_id
+                        + "_feedback-"
+                        + self.feedback_filename
+                        + ".txt"
+                    )
+                    with open(feedback_file_path, "a") as fp:
+                        fp.write(feedback + "\n")
+
+                    # Create zip archive
+                    if self.feedback_zip_path.is_file():
+                        self.feedback_zip_path.unlink()
+                    shutil.make_archive(
+                        self.feedback_zip_path.with_suffix(""), "zip", self.feedback_dir_path
+                    )
 
             student_grades_df.to_csv(
                 str(self.grader.grades_csv_path),
