@@ -37,9 +37,11 @@ class GradeItem:
 
         # Feeback file directory
         if self.feedback_filename:
-            self.feedback_dir_path = grader.grades_csv_path.parent / "feedback" / grader.lab_name
+            self.feedback_dir_path = (
+                grader.grades_csv_path.parent / "feedback" / self.feedback_filename
+            )
             self.feedback_zip_path = (
-                grader.grades_csv_path.parent / "feedback" / (grader.lab_name + ".zip")
+                grader.grades_csv_path.parent / "feedback" / (self.feedback_filename + ".zip")
             )
             self.feedback_dir_path.mkdir(exist_ok=True, parents=True)
 
@@ -123,7 +125,10 @@ class GradeItem:
             else:
                 # If score(s) were returned, make sure the length matches the number of columns to be graded
                 scores = utils.ensure_tuple(scores)
-                if len(self.csv_col_names) != len(scores):
+                expected_lenth = len(self.csv_col_names)
+                if self.feedback_enabled:
+                    expected_lenth += 1
+                if len(scores) != expected_lenth:
                     error(
                         "The callback should be grading",
                         len(self.csv_col_names),
@@ -132,7 +137,13 @@ class GradeItem:
                         "but",
                         len(scores),
                         "values were returned.",
+                        "Since feedback is enabled, you should return one extra item that is the feedback, which can be an empty string for no feedback."
+                        if self.feedback_enabed
+                        else "",
                     )
+                if self.feedback_enabled:
+                    feedback = scores[-1]
+                    scores = scores[:-1]
 
             if scores == "s":
                 break
