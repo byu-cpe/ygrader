@@ -145,7 +145,8 @@ class Grader:
         max_points: int | list of int
             (Optional) Number of max points for the graded column(s).
         feedback_filename: str
-            (Optional) Filename for feedback that will be zipped and can be uploaded to LearningSuite.  This feedback zip file will be stored in a 'feedback' directory, located with your grades CSV.
+            (Optional) Filename for feedback that will be zipped and can be uploaded to LearningSuite.
+            This feedback zip file will be stored in a 'feedback' directory, located with your grades CSV.
         feedback_col_name: str
             (Optional) Alterantively, feedback can be saved to a column in the grade CSV file.  To do this, provide the name of CSV column.
         help_msg: str | list of str

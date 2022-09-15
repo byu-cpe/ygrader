@@ -174,8 +174,8 @@ class GradeItem:
                         + self.feedback_filename
                         + ".txt"
                     )
-                    with open(feedback_file_path, "a") as fp:
-                        fp.write(feedback + "\n")
+                    with open(feedback_file_path, "a", encoding="utf-8") as f:
+                        f.write(feedback + "\n")
 
                     # Create zip archive
                     if self.feedback_zip_path.is_file():
