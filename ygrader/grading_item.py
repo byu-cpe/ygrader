@@ -138,7 +138,7 @@ class GradeItem:
                         len(scores),
                         "values were returned.",
                         "Since feedback is enabled, you should return one extra item that is the feedback, which can be an empty string for no feedback."
-                        if self.feedback_enabed
+                        if self.feedback_enabled
                         else "",
                     )
                 if self.feedback_enabled:
