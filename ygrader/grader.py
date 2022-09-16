@@ -603,10 +603,7 @@ class Grader:
 
     def _get_student_code_learning_suite(self, row, student_work_path):
         print("Extracting submitted files for", grades_csv.get_concated_names(row), "...")
-        if student_work_path.is_dir():
-            if directory_is_empty(student_work_path):
-                print_color(TermColors.YELLOW, "No submission")
-                return False
+        if student_work_path.is_dir() and not directory_is_empty(student_work_path):
 
             # Code already extracted from Zip, return
             print("  Files already extracted previously.")
