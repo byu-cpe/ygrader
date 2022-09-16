@@ -609,7 +609,7 @@ class Grader:
             print("  Files already extracted previously.")
             return True
 
-        student_work_path.mkdir(parents=True)
+        student_work_path.mkdir(parents=True, exist_ok=True)
 
         # Keep track of last file extracted by name
         extracted_by_name = {}
