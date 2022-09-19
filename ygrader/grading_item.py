@@ -6,7 +6,7 @@ import json
 import shutil
 import sys
 
-import numpy
+import pandas
 
 from .utils import CallbackFailed, TermColors, print_color, error
 from . import grades_csv, utils
@@ -209,7 +209,7 @@ class GradeItem:
         for col in self.csv_col_names:
             empty_cnt = 0
             for grade in row[col]:
-                if numpy.isnan(grade):
+                if pandas.isnull(grade):
                     empty_cnt += 1
             empty_per_col.append(empty_cnt)
         return empty_per_col
