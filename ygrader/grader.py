@@ -631,6 +631,8 @@ class Grader:
                     # Check if file belongs to student
                     match = re.match("^.*?_" + netid + "_(.*)$", file.filename)
                     if not match:
+                        match = re.match("^.*? " + netid + "-(.*)$", file.filename)
+                    if not match:
                         continue
 
                     # Handle regular files (not zip files)
