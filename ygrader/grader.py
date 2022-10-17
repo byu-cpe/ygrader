@@ -324,6 +324,8 @@ class Grader:
         allow_rebuild=False,
         allow_rerun=True,
         prep_fcn=None,
+        dry_run_first=False,
+        dry_run_all=False,
     ):
         """
         This can be used to set other options for the grader.
@@ -353,6 +355,12 @@ class Grader:
             If you are grading multiple items, then you can use this optional callback to do any one-time prep work.
             This callback is provided the same arguments as the grading callback function, except for *cols_to_grade*
             and *max_points*.  You should not return any value from this callback, but you can `raise CallbackFailed` to skip the student.
+        dry_run_first: bool
+            Perform a dry run, calling your callback function to perform grading, but not updating the grades CSV file.
+            The callback is only run for the first student.
+        dry_run_all: bool
+            Perform a dry run, calling your callback function to perform grading, but not updating the grades CSV file.
+            The callback is run for each student.
         """
         self.format_code = format_code
         self.build_only = build_only
@@ -367,6 +375,11 @@ class Grader:
 
         if not (self.allow_rebuild or self.allow_rerun):
             error("At least one of allow_rebuild and allow_rerun needs to be True.")
+
+        if dry_run_first and dry_run_all:
+            error("Select only one of 'dry_run_first' and 'dry_run_all'")
+        self.dry_run_first = dry_run_first
+        self.dry_run_all = dry_run_all
 
     def _validate_config(self):
         """Check that everything has been configured before running"""
@@ -505,6 +518,12 @@ class Grader:
             # Loop through all items that are to be graded
             for item in self.items:
                 item.run_grading(student_grades_df, row, callback_args)
+
+            if self.dry_run_first:
+                print_color(
+                    TermColors.YELLOW, "'dry_run_first' is set, so exiting after first student."
+                )
+                break
 
     def _unzip_submissions(self):
         with zipfile.ZipFile(self.learning_suite_submissions_zip_path, "r") as f:

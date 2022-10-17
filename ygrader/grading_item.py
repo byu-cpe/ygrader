@@ -100,8 +100,12 @@ class GradeItem:
             build = True
 
             # If we are only building the code in preparation of grading later,
+            # or are performing a dry run,
             # then exit now before asking for a grade
             if self.grader.build_only:
+                break
+            if self.grader.dry_run_first or self.grader.dry_run_all:
+                print_color(TermColors.YELLOW, "'dry_run_*' is set, so no grade will be saved.")
                 break
 
             for i, col in enumerate(self.csv_col_names):
