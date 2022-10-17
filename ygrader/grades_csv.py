@@ -3,7 +3,7 @@
 import pandas
 
 from .student_repos import convert_github_url_format
-from .utils import error
+from .utils import TermColors, error, print_color, warning
 
 
 def parse_and_check(grades_csv_path, csv_cols):
@@ -36,7 +36,7 @@ def check_csv_column_names(df, expected_grade_col_names):
 
 def filter_need_grade(df, expected_grade_col_names):
     """Filter down to only those students that need a grade"""
-    filtered_df = df[df[df.columns.intersection(expected_grade_col_names)].isnull().any(1)]
+    filtered_df = df[df[df.columns.intersection(expected_grade_col_names)].isnull().any(axis=1)]
     return filtered_df
 
 
@@ -54,6 +54,14 @@ def match_to_github_url(df_needs_grade, github_csv_path, github_csv_col_name, us
 
     # Rename appropriate column to github url
     df_github.rename(columns={github_csv_col_name: "github_url"}, inplace=True)
+
+    # Missing github URL
+    missing_df = df_github[df_github.isnull().any(axis=1)]
+    if len(missing_df.index):
+        warning(len(missing_df.index), "student(s) Net ID are missing a github URL:")
+        for _, row in missing_df.iterrows():
+            print_color(TermColors.YELLOW, row["Net ID"])
+    df_github = df_github.dropna()
 
     # Convert github URLs to https or SSH
     df_github["github_url"] = df_github["github_url"].apply(

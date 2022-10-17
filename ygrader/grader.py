@@ -572,12 +572,6 @@ class Grader:
             )
 
             df_needs_grades = grades_csv.filter_need_grade(df, self._get_all_csv_cols_to_grade())
-
-            print_color(
-                TermColors.BLUE,
-                str(df_needs_grades.shape[0]),
-                "of these students have a github URL.",
-            )
             groupby_column = "github_url"
 
         elif self.groups_csv_path is None:
