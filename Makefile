@@ -1,7 +1,7 @@
 IN_ENV = if [ -e .venv/bin/activate ]; then . .venv/bin/activate; fi;
 
 package:
-	python setup.py sdist
+	$(IN_ENV) python setup.py sdist
 	twine upload dist/*
 
 test: 

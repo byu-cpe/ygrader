@@ -112,7 +112,9 @@ def verify_workflow_hash(workflow_file_path, hash_str):
 
     hash_val = hash_file(workflow_file_path)
     if hash_val != hash_str:
-        raise WorkflowHashError
+        raise WorkflowHashError(
+            f"Hash value {hash_val} does not match expected value of {hash_str}"
+        )
 
 
 def ensure_tuple(x):
