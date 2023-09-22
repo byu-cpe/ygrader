@@ -1,0 +1,26 @@
+name: Publish
+
+on: 
+  push:
+    branches:
+      - main
+
+jobs:
+  package:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Environment
+      run: make env
+
+    - name: Pypi credentials
+      run: |  
+        echo "[pypi]" > ~/.pypirc
+        echo "username = __token__" >> ~/.pypirc
+        echo "password = ${{ secrets.PYPI_TOKEN }}" >> ~/.pypirc
+
+    - name: Package
+      run: make package
+    

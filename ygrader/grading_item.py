@@ -28,6 +28,13 @@ class GradeItem:
         self.feedback_enabled = self.feedback_filename or self.feedback_col_name
         self.help_msg = help_msg
 
+        # If any csv_col_names is None, then analysis only
+        if None in csv_col_names:
+            self.analysis_only = True
+            assert len(csv_col_names) == 1
+        else:
+            self.analysis_only = False
+
         # Feedback comments
         self.feedback_list_path = self.grader.work_path / (str(csv_col_names) + ".json")
         self.feedback_list = []
@@ -52,14 +59,18 @@ class GradeItem:
         last_names = grades_csv.get_last_names(row)
         num_group_members = len(net_ids)
         concated_names = grades_csv.get_concated_names(row)
-        num_group_members_need_grade_per_col = self.num_grades_needed(row)
+
+        if self.analysis_only:
+            num_group_members_need_grade_per_col = (num_group_members,)
+        else:
+            num_group_members_need_grade_per_col = self.num_grades_needed(row)
 
         # variable to flag if build needs to be performed
         # initialize to True as the code must be built at least once
         # (will be false if user chooses to just re-run and not re-build)
         build = True
 
-        if sum(self.num_grades_needed(row)) == 0:
+        if not self.analysis_only and sum(self.num_grades_needed(row)) == 0:
             # No one in the group needs grades for this
             print_color(
                 TermColors.BLUE,
@@ -120,14 +131,20 @@ class GradeItem:
                     )
 
             if scores is None:
-                # If no score was returned by the callback function, prompt the user for a score.
-                try:
-                    scores, feedback = self._get_scores(concated_names)
-                except KeyboardInterrupt:
-                    print_color(TermColors.RED, "\nExiting")
-                    sys.exit(0)
+                if not self.analysis_only:
+                    # If no score was returned by the callback function, prompt the user for a score.
+                    try:
+                        scores, feedback = self._get_scores(concated_names)
+                    except KeyboardInterrupt:
+                        print_color(TermColors.RED, "\nExiting")
+                        sys.exit(0)
             else:
                 # If score(s) were returned, make sure the length matches the number of columns to be graded
+                if self.analysis_only:
+                    error(
+                        "The grading item was set up as 'analysis only', but the callback returned a score."
+                    )
+
                 scores = utils.ensure_tuple(scores)
                 expected_lenth = len(self.csv_col_names)
                 if self.feedback_enabled:
@@ -149,6 +166,9 @@ class GradeItem:
                     feedback = scores[-1]
                     scores = scores[:-1]
 
+            if self.analysis_only:
+                break
+
             if scores == "s":
                 break
             if scores == "b":
@@ -159,10 +179,10 @@ class GradeItem:
                 continue
 
             # Record score
-            for (first_name, last_name, net_id) in zip(first_names, last_names, net_ids):
+            for first_name, last_name, net_id in zip(first_names, last_names, net_ids):
                 row_idx = grades_csv.find_idx_for_netid(student_grades_df, net_id)
 
-                for (i, col) in enumerate(self.csv_col_names):
+                for i, col in enumerate(self.csv_col_names):
                     student_grades_df.at[row_idx, col] = scores[i]
 
                 if self.feedback_col_name:
@@ -226,7 +246,7 @@ class GradeItem:
         feedback = ""
         scores = []
 
-        for (i, grade_col) in enumerate(self.csv_col_names):
+        for i, grade_col in enumerate(self.csv_col_names):
             points = self.max_points[i] if self.max_points else None
             while True:
                 print("")

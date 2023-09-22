@@ -196,7 +196,7 @@ class Grader:
 
         df = pandas.read_csv(self.grades_csv_path)
         for col_name in csv_col_names:
-            if col_name not in df:
+            if col_name is not None and col_name not in df:
                 error(
                     "Provided grade column name",
                     "(" + col_name + ")",
@@ -229,6 +229,22 @@ class Grader:
         )
         _verify_callback_fcn(grading_fcn, item)
         self.items.append(item)
+
+    def add_analysis_item(
+        self,
+        analysis_fcn,
+    ):
+        """Run an analysis function on the student code, without performing any grading.
+
+        Parameters
+        ----------
+        analysis_fcn: Callable
+            The callback function that will perform the analysis.
+            The callback will be provided with the same arguments as when you register a grading function.
+
+        """
+
+        self.add_item_to_grade(None, analysis_fcn)
 
     def set_submission_system_learning_suite(self, zip_path):
         """
@@ -460,13 +476,14 @@ class Grader:
             concated_names = grades_csv.get_concated_names(row)
 
             # Check if student/group needs grading
-            num_group_members_need_grade_per_item = [
-                item.num_grades_needed(row) for item in self.items
-            ]
+            if not any(item.analysis_only for item in self.items):
+                num_group_members_need_grade_per_item = [
+                    item.num_grades_needed(row) for item in self.items
+                ]
 
-            if sum(sum(s) for s in num_group_members_need_grade_per_item) == 0:
-                # This student/group is already fully graded
-                continue
+                if sum(sum(s) for s in num_group_members_need_grade_per_item) == 0:
+                    # This student/group is already fully graded
+                    continue
 
             # Print name(s) of who we are grading
             student_work_path = self.work_path / utils.names_to_dir(
@@ -617,7 +634,6 @@ class Grader:
     def _get_student_code_learning_suite(self, row, student_work_path):
         print("Extracting submitted files for", grades_csv.get_concated_names(row), "...")
         if student_work_path.is_dir() and not directory_is_empty(student_work_path):
-
             # Code already extracted from Zip, return
             print("  Files already extracted previously.")
             return True
@@ -631,16 +647,13 @@ class Grader:
         count_by_filename = defaultdict(int)
 
         with zipfile.ZipFile(self.learning_suite_submissions_zip_path, "r") as top_zip:
-
             # Loop through all files in top-level zip file
             for file in top_zip.infolist():
-
                 if file.is_dir():
                     continue
 
                 # Loop through everyone in the group
                 for netid in grades_csv.get_net_ids(row):
-
                     # Check if file belongs to student
                     match = re.match("^.*?_" + netid + "_(.*)$", file.filename)
                     if not match:

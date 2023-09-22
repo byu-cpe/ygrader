@@ -1,0 +1,19 @@
+name: Versioning Check
+
+on: 
+  pull_request:
+
+
+jobs:
+  version_check:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Environment
+      run: cd .github && make env
+
+    - name: Check version increase
+      run: cd .github && make check_version_increase
+    
