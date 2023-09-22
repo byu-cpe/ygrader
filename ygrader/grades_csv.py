@@ -26,7 +26,7 @@ def check_csv_column_names(df, expected_grade_col_names):
     required_columns += expected_grade_col_names
 
     for required_column in required_columns:
-        if required_column not in df.columns:
+        if required_column is not None and required_column not in df.columns:
             error(
                 "Grades CSV must contain column '" + required_column + "'.",
                 "Current columns:",

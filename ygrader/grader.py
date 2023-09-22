@@ -86,6 +86,12 @@ class Grader:
         self.groups_csv_col_name = None
         self.set_other_options()
 
+    def add_analysis_item(
+        self,
+        analysis_fcn,
+    ):
+        self.add_item_to_grade(None, analysis_fcn)
+
     def add_item_to_grade(
         self,
         csv_col_names,
@@ -196,7 +202,7 @@ class Grader:
 
         df = pandas.read_csv(self.grades_csv_path)
         for col_name in csv_col_names:
-            if col_name not in df:
+            if col_name is not None and col_name not in df:
                 error(
                     "Provided grade column name",
                     "(" + col_name + ")",
@@ -460,13 +466,14 @@ class Grader:
             concated_names = grades_csv.get_concated_names(row)
 
             # Check if student/group needs grading
-            num_group_members_need_grade_per_item = [
-                item.num_grades_needed(row) for item in self.items
-            ]
+            if not any(item.analysis_only for item in self.items):
+                num_group_members_need_grade_per_item = [
+                    item.num_grades_needed(row) for item in self.items
+                ]
 
-            if sum(sum(s) for s in num_group_members_need_grade_per_item) == 0:
-                # This student/group is already fully graded
-                continue
+                if sum(sum(s) for s in num_group_members_need_grade_per_item) == 0:
+                    # This student/group is already fully graded
+                    continue
 
             # Print name(s) of who we are grading
             student_work_path = self.work_path / utils.names_to_dir(
