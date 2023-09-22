@@ -52,6 +52,12 @@ def match_to_github_url(df_needs_grade, github_csv_path, github_csv_col_name, us
     # Strip whitespace from CSV header names
     df_github.rename(columns=lambda x: x.strip(), inplace=True)
 
+    if "Net ID" not in df_github.columns:
+        error(f"Your github CSV ({github_csv_path}) is missing a 'Net ID' column.")
+
+    # Drop all but Net ID and github URL columns
+    df_github = df_github[["Net ID", github_csv_col_name]]
+
     # Rename appropriate column to github url
     df_github.rename(columns={github_csv_col_name: "github_url"}, inplace=True)
 
