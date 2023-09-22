@@ -2,7 +2,7 @@ IN_ENV := . .venv/bin/activate;
 
 env:
 	python3 -m venv .venv
-	pip3 install packaging
+	$(IN_ENV) pip3 install packaging
 
 check_version_increase:
 	$(IN_ENV) pip uninstall -y ygrader
