@@ -28,11 +28,10 @@ class GradeItem:
         self.feedback_enabled = self.feedback_filename or self.feedback_col_name
         self.help_msg = help_msg
 
-
         # If any csv_col_names is None, then analysis only
         if None in csv_col_names:
             self.analysis_only = True
-            assert len(csv_col_names) == 1 
+            assert len(csv_col_names) == 1
         else:
             self.analysis_only = False
 
@@ -142,7 +141,9 @@ class GradeItem:
             else:
                 # If score(s) were returned, make sure the length matches the number of columns to be graded
                 if self.analysis_only:
-                    error("The grading item was set up as 'analysis only', but the callback returned a score.")
+                    error(
+                        "The grading item was set up as 'analysis only', but the callback returned a score."
+                    )
 
                 scores = utils.ensure_tuple(scores)
                 expected_lenth = len(self.csv_col_names)
@@ -178,10 +179,10 @@ class GradeItem:
                 continue
 
             # Record score
-            for (first_name, last_name, net_id) in zip(first_names, last_names, net_ids):
+            for first_name, last_name, net_id in zip(first_names, last_names, net_ids):
                 row_idx = grades_csv.find_idx_for_netid(student_grades_df, net_id)
 
-                for (i, col) in enumerate(self.csv_col_names):
+                for i, col in enumerate(self.csv_col_names):
                     student_grades_df.at[row_idx, col] = scores[i]
 
                 if self.feedback_col_name:
@@ -245,7 +246,7 @@ class GradeItem:
         feedback = ""
         scores = []
 
-        for (i, grade_col) in enumerate(self.csv_col_names):
+        for i, grade_col in enumerate(self.csv_col_names):
             points = self.max_points[i] if self.max_points else None
             while True:
                 print("")

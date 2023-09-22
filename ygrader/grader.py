@@ -86,12 +86,6 @@ class Grader:
         self.groups_csv_col_name = None
         self.set_other_options()
 
-    def add_analysis_item(
-        self,
-        analysis_fcn,
-    ):
-        self.add_item_to_grade(None, analysis_fcn)
-
     def add_item_to_grade(
         self,
         csv_col_names,
@@ -235,6 +229,22 @@ class Grader:
         )
         _verify_callback_fcn(grading_fcn, item)
         self.items.append(item)
+
+    def add_analysis_item(
+        self,
+        analysis_fcn,
+    ):
+        """Run an analysis function on the student code, without performing any grading.
+
+        Parameters
+        ----------
+        analysis_fcn: Callable
+            The callback function that will perform the analysis.
+            The callback will be provided with the same arguments as when you register a grading function.
+
+        """
+
+        self.add_item_to_grade(None, analysis_fcn)
 
     def set_submission_system_learning_suite(self, zip_path):
         """
@@ -624,7 +634,6 @@ class Grader:
     def _get_student_code_learning_suite(self, row, student_work_path):
         print("Extracting submitted files for", grades_csv.get_concated_names(row), "...")
         if student_work_path.is_dir() and not directory_is_empty(student_work_path):
-
             # Code already extracted from Zip, return
             print("  Files already extracted previously.")
             return True
@@ -638,16 +647,13 @@ class Grader:
         count_by_filename = defaultdict(int)
 
         with zipfile.ZipFile(self.learning_suite_submissions_zip_path, "r") as top_zip:
-
             # Loop through all files in top-level zip file
             for file in top_zip.infolist():
-
                 if file.is_dir():
                     continue
 
                 # Loop through everyone in the group
                 for netid in grades_csv.get_net_ids(row):
-
                     # Check if file belongs to student
                     match = re.match("^.*?_" + netid + "_(.*)$", file.filename)
                     if not match:
