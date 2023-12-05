@@ -18,25 +18,35 @@ def clone_repo(git_path, tag, student_repo_path):
             "already cloned. Re-fetching tag",
         )
 
-        if tag:
-            # Fetch
-            cmd = ["git", "fetch", "--tags", "-f"]
-            try:
-                subprocess.run(cmd, cwd=student_repo_path, check=True)
-            except subprocess.CalledProcessError:
-                print_color(TermColors.RED, "git fetch failed")
-                return False
+        # Fetch
+        cmd = ["git", "fetch", "--tags", "-f"]
+        try:
+            subprocess.run(cmd, cwd=student_repo_path, check=True)
+        except subprocess.CalledProcessError:
+            print_color(TermColors.RED, "git fetch failed")
+            return False
 
-            # Checkout tag
-            if tag not in ("master", "main"):
-                tag = "tags/" + tag
-            cmd = ["git", "checkout", tag, "-f"]
-            try:
-                subprocess.run(cmd, cwd=student_repo_path, check=True)
-            except subprocess.CalledProcessError:
-                print_color(TermColors.RED, "git checkout of tag failed")
-                return False
-            return True
+        # Checkout tag
+        if tag is None:
+            # Get the default branch
+            stdout = subprocess.run(
+                ["git", "symbolic-ref", "refs/remotes/origin/HEAD", "--short"],
+                cwd=student_repo_path,
+                check=True,
+                capture_output=True,
+                universal_newlines=True,
+            ).stdout
+            tag = stdout.split("/")[1].strip()
+
+        if tag not in ("master", "main"):
+            tag = "tags/" + tag
+        cmd = ["git", "checkout", tag, "-f"]
+        try:
+            subprocess.run(cmd, cwd=student_repo_path, check=True)
+        except subprocess.CalledProcessError:
+            print_color(TermColors.RED, "git checkout of tag failed")
+            return False
+        return True
 
     print_color(TermColors.BLUE, "Cloning repo, tag =", tag)
     if tag:
