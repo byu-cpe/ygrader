@@ -18,34 +18,38 @@ def clone_repo(git_path, tag, student_repo_path):
             "already cloned. Re-fetching tag",
         )
 
-        # Fetch
-        cmd = ["git", "fetch", "--tags", "-f"]
-        try:
-            subprocess.run(cmd, cwd=student_repo_path, check=True)
-        except subprocess.CalledProcessError:
-            print_color(TermColors.RED, "git fetch failed")
-            return False
+        if tag:
+            # Fetch
+            cmd = ["git", "fetch", "--tags", "-f"]
+            try:
+                subprocess.run(cmd, cwd=student_repo_path, check=True)
+            except subprocess.CalledProcessError:
+                print_color(TermColors.RED, "git fetch failed")
+                return False
 
-        # Checkout tag
-        if tag not in ("master", "main"):
-            tag = "tags/" + tag
-        cmd = ["git", "checkout", tag, "-f"]
-        try:
-            subprocess.run(cmd, cwd=student_repo_path, check=True)
-        except subprocess.CalledProcessError:
-            print_color(TermColors.RED, "git checkout of tag failed")
-            return False
-        return True
+            # Checkout tag
+            if tag not in ("master", "main"):
+                tag = "tags/" + tag
+            cmd = ["git", "checkout", tag, "-f"]
+            try:
+                subprocess.run(cmd, cwd=student_repo_path, check=True)
+            except subprocess.CalledProcessError:
+                print_color(TermColors.RED, "git checkout of tag failed")
+                return False
+            return True
 
     print_color(TermColors.BLUE, "Cloning repo, tag =", tag)
-    cmd = [
-        "git",
-        "clone",
-        "--branch",
-        tag,
-        git_path,
-        str(student_repo_path.absolute()),
-    ]
+    if tag:
+        cmd = [
+            "git",
+            "clone",
+            "--branch",
+            tag,
+            git_path,
+            str(student_repo_path.absolute()),
+        ]
+    else:
+        cmd = ["git", "clone", git_path, str(student_repo_path.absolute())]
     try:
         subprocess.run(cmd, check=True)
     except KeyboardInterrupt:
