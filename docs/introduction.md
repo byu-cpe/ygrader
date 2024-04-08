@@ -2,7 +2,7 @@
 
 
 
-The package is designed to help you write grading scripts.  The main idea behind the package is that it removes all of the overhead that is common between grading different classes (extracing student code into their own folder, updating grade CSV files, etc), and allows you to focus on just writing scripts for running student code in your class' environment.  This framework does not assume anything about the student's code structure; it should be equally helpful for grading hardware or software labs.
+The package is designed to help you write grading scripts.  The main idea behind the package is that it removes all of the overhead that is common between grading different classes (extracting student code into their own folder, updating grade CSV files, etc.), and allows you to focus on just writing scripts for running student code in your class' environment.  This framework does not assume anything about the student's code structure; it should be equally helpful for grading hardware or software labs.
 
 ## Example
 
@@ -42,9 +42,9 @@ grader.set_submission_system_learning_suite("learning_suite/lab1_submissions.zip
 grader.run()
 ```
 
-In this example, the *lab1_submissions.zip* would have been batch downloaded from Learning Suite, and contains student submissions.  In this example, the student *Mike Smith* has submitted a lab report, while *Steve Jones'* submission is missing the *lab_report.txt* file, and *Anna Wilkinson* didn't submit anything.  
+In this example, the *lab1_submissions.zip* would have been batch downloaded from Learning Suite, and contains student submissions.  In this example, the student _Mike Smith_ submitted a lab report, while _Steve _Jones's submission was missing the _lab_report.txt_ file, and _Anna Wilkinson_ didn't submit anything.  
 
-When you run the example you should see the following interactive output:
+When you run the example, you should see the following interactive output:
 
 ![test](example_screenshot.png)
 
@@ -53,7 +53,7 @@ This is an example of a very simple callback routine that just prints out a text
 ## Major Features
 
 * The package can work with student files submitted using Learning Suite, *or* with student code on Github.  
-* Grade multiple items at once (multiple columns in Learning Suite). This can allow you to run different tests each worth different number of points.
+* Grade multiple items at once (multiple columns in Learning Suite). This can allow you to run different tests, each worth a different number of points.
 * Team-based assignments.
 * Grades are updated in the CSV files as soon as you enter them, meaning you can Ctrl+C and kill the grading at any point, and re-run to continue where you left off.
 
