@@ -61,12 +61,23 @@ def match_to_github_url(df_needs_grade, github_csv_path, github_csv_col_name, us
     # Rename appropriate column to github url
     df_github.rename(columns={github_csv_col_name: "github_url"}, inplace=True)
 
-    # Missing github URL
+    print(df_needs_grade)
+    print(df_github)
+
+    # Missing from github CSV - Find Net IDs in df_needs_grade that are not in df_github
+    missing_netids = df_needs_grade[~df_needs_grade["Net ID"].isin(df_github["Net ID"])]
+    
+    # Empty github URL
     missing_df = df_github[df_github.isnull().any(axis=1)]
-    if len(missing_df.index):
-        warning(len(missing_df.index), "student(s) Net ID are missing a github URL:")
-        for _, row in missing_df.iterrows():
-            print_color(TermColors.YELLOW, row["Net ID"])
+
+    if len(missing_netids) or len(missing_df.index):
+        warning(len(missing_netids.index) + len(missing_df.index), "student(s) Net ID are missing a github URL:")
+
+    for _, row in missing_netids.iterrows():
+        print_color(" ", TermColors.YELLOW, row["Net ID"])
+    for _, row in missing_df.iterrows():
+        print_color(" ", TermColors.YELLOW, row["Net ID"])
+
     df_github = df_github.dropna()
 
     # Convert github URLs to https or SSH
