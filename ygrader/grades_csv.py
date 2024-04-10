@@ -12,7 +12,9 @@ def parse_and_check(grades_csv_path, csv_cols):
         grades_df = pandas.read_csv(grades_csv_path)
     except pandas.errors.EmptyDataError:
         error(
-            "Exception: pandas.errors.EmptyDataError.  Is your", grades_csv_path.name, "file empty?"
+            "Exception: pandas.errors.EmptyDataError.  Is your",
+            grades_csv_path.name,
+            "file empty?",
         )
     check_csv_column_names(grades_df, csv_cols)
     return grades_df
@@ -36,17 +38,23 @@ def check_csv_column_names(df, expected_grade_col_names):
 
 def filter_need_grade(df, expected_grade_col_names):
     """Filter down to only those students that need a grade"""
-    filtered_df = df[df[df.columns.intersection(expected_grade_col_names)].isnull().any(axis=1)]
+    filtered_df = df[
+        df[df.columns.intersection(expected_grade_col_names)].isnull().any(axis=1)
+    ]
     return filtered_df
 
 
-def match_to_github_url(df_needs_grade, github_csv_path, github_csv_col_name, use_https):
+def match_to_github_url(
+    df_needs_grade, github_csv_path, github_csv_col_name, use_https
+):
     """Match students to their github URL"""
     try:
         df_github = pandas.read_csv(github_csv_path, index_col=False)
     except pandas.errors.EmptyDataError:
         error(
-            "Exception pandas.errors.EmptyDataError. Is your", github_csv_path.name, "file empty?"
+            "Exception pandas.errors.EmptyDataError. Is your",
+            github_csv_path.name,
+            "file empty?",
         )
 
     # Strip whitespace from CSV header names
@@ -66,12 +74,15 @@ def match_to_github_url(df_needs_grade, github_csv_path, github_csv_col_name, us
 
     # Missing from github CSV - Find Net IDs in df_needs_grade that are not in df_github
     missing_netids = df_needs_grade[~df_needs_grade["Net ID"].isin(df_github["Net ID"])]
-    
+
     # Empty github URL
     missing_df = df_github[df_github.isnull().any(axis=1)]
 
     if len(missing_netids) or len(missing_df.index):
-        warning(len(missing_netids.index) + len(missing_df.index), "student(s) Net ID are missing a github URL:")
+        warning(
+            len(missing_netids.index) + len(missing_df.index),
+            "student(s) Net ID are missing a github URL:",
+        )
 
     for _, row in missing_netids.iterrows():
         print_color(" ", TermColors.YELLOW, row["Net ID"])
@@ -111,7 +122,11 @@ def add_group_column_from_csv(df, column_name, groups_csv_path, groups_csv_col_n
 
     # Filter down to relevant columns
     if "Net ID" not in df_groups.columns:
-        error("Your group CSV", "(" + str(groups_csv_path) + ")", "is missing a 'Net ID' column.")
+        error(
+            "Your group CSV",
+            "(" + str(groups_csv_path) + ")",
+            "is missing a 'Net ID' column.",
+        )
     df_groups = df_groups[["Net ID", column_name]]
 
     # Merge with student dataframe (inner merge will drop students not in group CSV)
