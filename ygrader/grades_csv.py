@@ -69,9 +69,6 @@ def match_to_github_url(
     # Rename appropriate column to github url
     df_github.rename(columns={github_csv_col_name: "github_url"}, inplace=True)
 
-    print(df_needs_grade)
-    print(df_github)
-
     # Missing from github CSV - Find Net IDs in df_needs_grade that are not in df_github
     missing_netids = df_needs_grade[~df_needs_grade["Net ID"].isin(df_github["Net ID"])]
 
