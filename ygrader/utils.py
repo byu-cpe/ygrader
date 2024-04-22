@@ -1,4 +1,5 @@
 """ ygrader utility functions"""
+
 import pathlib
 import sys
 import shutil
@@ -59,8 +60,12 @@ def clang_format_code(dir_path):
             cmd = ["clang-format", "-i", path]
             try:
                 # Run clang-format twice (this shouldn't be necessary, but I've run into it with one students code -- it would be considered a bug in clang)
-                subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, check=True)
-                subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, check=True)
+                subprocess.run(
+                    cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, check=True
+                )
+                subprocess.run(
+                    cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, check=True
+                )
             except subprocess.CalledProcessError as e:
                 print(e.output)
                 error("Clang format errored", str())
@@ -69,7 +74,11 @@ def clang_format_code(dir_path):
 def names_to_dir(first_names, last_names, net_ids):
     """Convert first and last names to a valid filesystem directory name"""
     return (
-        first_names[0].replace(" ", "_") + "_" + last_names[0].replace(" ", "_") + "_" + net_ids[0]
+        first_names[0].replace(" ", "_")
+        + "_"
+        + last_names[0].replace(" ", "_")
+        + "_"
+        + net_ids[0]
     )
 
 
@@ -104,11 +113,11 @@ def verify_workflow_hash(workflow_file_path, hash_str):
     """Checks that the github workflow is valid (has 1 file and matches given hash)"""
 
     if not workflow_file_path.is_file():
-        error(workflow_file_path, "is missing")
+        raise WorkflowHashError(f"{workflow_file_path} is missing")
 
     workflow_dir_path = workflow_file_path.parent
     if len(list(workflow_dir_path.glob("**/*"))) != 1:
-        error(workflow_dir_path, "has more than one file")
+        raise WorkflowHashError(f"{workflow_dir_path} has more than one file")
 
     hash_val = hash_file(workflow_file_path)
     if hash_val != hash_str:
