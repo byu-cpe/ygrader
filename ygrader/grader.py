@@ -1,4 +1,5 @@
-""" Main ygrader module"""
+"""Main ygrader module"""
+
 from collections import defaultdict
 import pathlib
 import enum
@@ -15,7 +16,14 @@ import pandas
 from . import grades_csv
 from . import utils, student_repos
 from .grading_item import GradeItem
-from .utils import CallbackFailed, directory_is_empty, print_color, TermColors, error, warning
+from .utils import (
+    CallbackFailed,
+    directory_is_empty,
+    print_color,
+    TermColors,
+    error,
+    warning,
+)
 
 
 class CodeSource(enum.Enum):
@@ -66,12 +74,17 @@ class Grader:
         # Create a working directory
         self.work_path = pathlib.Path(work_path).resolve()
         self.work_path = self.work_path / lab_name
+        self.work_path.mkdir(parents=True, exist_ok=True)
 
         # Read CSV and make sure it isn't empty
         try:
             pandas.read_csv(self.grades_csv_path)
         except pandas.errors.EmptyDataError:
-            error("Your grades csv", "(" + str(grades_csv_path) + ")", "appears to be empty")
+            error(
+                "Your grades csv",
+                "(" + str(grades_csv_path) + ")",
+                "appears to be empty",
+            )
 
         # Initialize other class members
         self.items = []
@@ -264,7 +277,12 @@ class Grader:
             error("Provided zip_path", zip_path, "does not exist")
 
     def set_submission_system_github(
-        self, tag, github_url_csv_path, repo_col_name="github_url", use_https=False
+        self,
+        tag,
+        github_url_csv_path,
+        repo_col_name="github_url",
+        use_https=False,
+        build_from_classroster=None,
     ):
         """
         Call this function if you are using student submissions on Github.
@@ -282,6 +300,9 @@ class Grader:
         use_https: bool
             By default SSH will be used to clone the student repos.  If you want to use an access token or stored
             credentials over https, set this to True.
+        build_from_classroster: (str, str)
+            If the CSV file does not contain the github URLs, but instead contains a class roster from Git Classroom,
+            then this should provide the organization and classroom prefix name to build the github URLs.
         """
         self.code_source = CodeSource.GITHUB
         self.github_csv_path = pathlib.Path(github_url_csv_path).resolve()
@@ -295,8 +316,26 @@ class Grader:
                 "(" + str(github_url_csv_path) + ")",
                 "does not exist",
             )
+        if build_from_classroster is not None and repo_col_name != "github_url":
+            error(
+                "When using build_from_classroster, don't override repo_col_name.",
+            )
 
         df = pandas.read_csv(github_url_csv_path)
+
+        # If building from class roster, build github URLs
+        if build_from_classroster is not None:
+            org, prefix = build_from_classroster
+            # Build SSH URLs: git@github.com:<org>/<prefix>-<github_username>.git
+            df[self.github_csv_col_name] = df.apply(
+                lambda row: f"git@github.com:{org}/{prefix}-{row['github_username']}.git",
+                axis=1,
+            )
+            # Write the updated dataframe back to the CSV
+            self.github_csv_path = self.work_path / "temp_github_urls.csv"
+            df.to_csv(self.github_csv_path, index=False)
+
+        # Make sure repo_col_name exists
         if repo_col_name not in df:
             error(
                 "Provided repo_col_name",
@@ -538,7 +577,8 @@ class Grader:
 
             if self.dry_run_first:
                 print_color(
-                    TermColors.YELLOW, "'dry_run_first' is set, so exiting after first student."
+                    TermColors.YELLOW,
+                    "'dry_run_first' is set, so exiting after first student.",
                 )
                 break
 
@@ -588,7 +628,9 @@ class Grader:
                 df, self.github_csv_path, self.github_csv_col_name, self.github_https
             )
 
-            df_needs_grades = grades_csv.filter_need_grade(df, self._get_all_csv_cols_to_grade())
+            df_needs_grades = grades_csv.filter_need_grade(
+                df, self._get_all_csv_cols_to_grade()
+            )
             groupby_column = "github_url"
 
         elif self.groups_csv_path is None:
@@ -605,7 +647,9 @@ class Grader:
             )
 
             # Check how many students remain
-            df_needs_grades = grades_csv.filter_need_grade(df, self._get_all_csv_cols_to_grade())
+            df_needs_grades = grades_csv.filter_need_grade(
+                df, self._get_all_csv_cols_to_grade()
+            )
             print_color(
                 TermColors.BLUE,
                 str(df_needs_grades.shape[0]),
@@ -627,12 +671,16 @@ class Grader:
 
         # Clone student repo
         print("Student repo url: " + row["github_url"])
-        if not student_repos.clone_repo(row["github_url"], self.github_tag, student_work_path):
+        if not student_repos.clone_repo(
+            row["github_url"], self.github_tag, student_work_path
+        ):
             return False
         return True
 
     def _get_student_code_learning_suite(self, row, student_work_path):
-        print("Extracting submitted files for", grades_csv.get_concated_names(row), "...")
+        print(
+            "Extracting submitted files for", grades_csv.get_concated_names(row), "..."
+        )
         if student_work_path.is_dir() and not directory_is_empty(student_work_path):
             # Code already extracted from Zip, return
             print("  Files already extracted previously.")
@@ -669,7 +717,10 @@ class Grader:
 
                         # If we've already extracted a file of this name, don't overwrite if older
                         if extract_to_name in extracted_by_name:
-                            if file.date_time <= extracted_by_name[extract_to_name].date_time:
+                            if (
+                                file.date_time
+                                <= extracted_by_name[extract_to_name].date_time
+                            ):
                                 continue
                         top_zip.extract(file, student_work_path)
                         extracted_by_name[extract_to_name] = file
@@ -693,7 +744,10 @@ class Grader:
 
                             # If we've already extracted a file of this name, don't overwrite if older
                             if file2.filename in extracted_by_name:
-                                if file2.date_time <= extracted_by_name[file2.filename].date_time:
+                                if (
+                                    file2.date_time
+                                    <= extracted_by_name[file2.filename].date_time
+                                ):
                                     continue
 
                             inner_zip.extract(file2, student_work_path)
@@ -777,7 +831,9 @@ def _verify_callback_fcn(fcn, item):
         # Skip special arguments
         if named_arg in ("self", "cls") and i == 0:
             continue
-        if (named_arg not in callback_args) and (named_arg not in callback_args_optional):
+        if (named_arg not in callback_args) and (
+            named_arg not in callback_args_optional
+        ):
             error(
                 "Your callback function",
                 "(" + fcn.__name__ + ")",
