@@ -1,5 +1,4 @@
-""" Module to manage each item that is to be graded"""
-
+"""Module to manage each item that is to be graded"""
 
 import csv
 import json
@@ -14,10 +13,19 @@ from . import grades_csv, utils
 
 class GradeItem:
     """Class to track each item that needs to be graded (ie, each item for which a grading callback
-    function will be invoked.  This may be used to grade one or more columns from the CSV file."""
+    function will be invoked.  This may be used to grade one or more columns from the CSV file.
+    """
 
     def __init__(
-        self, grader, csv_col_names, fcn, max_points, feedback_filename, feedback_col_name, help_msg
+        self,
+        grader,
+        csv_col_names,
+        fcn,
+        max_points,
+        feedback_filename,
+        feedback_col_name,
+        help_msg,
+        fcn_args_dict={},
     ) -> None:
         self.grader = grader
         self.csv_col_names = csv_col_names
@@ -27,6 +35,7 @@ class GradeItem:
         self.feedback_col_name = feedback_col_name
         self.feedback_enabled = self.feedback_filename or self.feedback_col_name
         self.help_msg = help_msg
+        self.fcn_args_dict = fcn_args_dict
 
         # If any csv_col_names is None, then analysis only
         if None in csv_col_names:
@@ -48,7 +57,9 @@ class GradeItem:
                 grader.grades_csv_path.parent / "feedback" / self.feedback_filename
             )
             self.feedback_zip_path = (
-                grader.grades_csv_path.parent / "feedback" / (self.feedback_filename + ".zip")
+                grader.grades_csv_path.parent
+                / "feedback"
+                / (self.feedback_filename + ".zip")
             )
             self.feedback_dir_path.mkdir(exist_ok=True, parents=True)
 
@@ -59,6 +70,10 @@ class GradeItem:
         last_names = grades_csv.get_last_names(row)
         num_group_members = len(net_ids)
         concated_names = grades_csv.get_concated_names(row)
+
+        # Add any extra args for the callback function
+        if self.fcn_args_dict:
+            callback_args.update(self.fcn_args_dict)
 
         if self.analysis_only:
             num_group_members_need_grade_per_col = (num_group_members,)
@@ -116,7 +131,9 @@ class GradeItem:
             if self.grader.build_only:
                 break
             if self.grader.dry_run_first or self.grader.dry_run_all:
-                print_color(TermColors.YELLOW, "'dry_run_*' is set, so no grade will be saved.")
+                print_color(
+                    TermColors.YELLOW, "'dry_run_*' is set, so no grade will be saved."
+                )
                 break
 
             for i, col in enumerate(self.csv_col_names):
@@ -158,9 +175,11 @@ class GradeItem:
                         "but",
                         len(scores),
                         "values were returned.",
-                        "Since feedback is enabled, you should return one extra item that is the feedback, which can be an empty string for no feedback."
-                        if self.feedback_enabled
-                        else "",
+                        (
+                            "Since feedback is enabled, you should return one extra item that is the feedback, which can be an empty string for no feedback."
+                            if self.feedback_enabled
+                            else ""
+                        ),
                     )
                 if self.feedback_enabled:
                     feedback = scores[-1]
@@ -216,7 +235,9 @@ class GradeItem:
                     if self.feedback_zip_path.is_file():
                         self.feedback_zip_path.unlink()
                     shutil.make_archive(
-                        self.feedback_zip_path.with_suffix(""), "zip", self.feedback_dir_path
+                        self.feedback_zip_path.with_suffix(""),
+                        "zip",
+                        self.feedback_dir_path,
                     )
 
             student_grades_df.to_csv(
@@ -259,7 +280,12 @@ class GradeItem:
                     + "Enter a grade for "
                     + names
                     + ", "
-                    + (TermColors.UNDERLINE + grade_col + TermColors.END + TermColors.BLUE)
+                    + (
+                        TermColors.UNDERLINE
+                        + grade_col
+                        + TermColors.END
+                        + TermColors.BLUE
+                    )
                     + ":\n"
                 )
 

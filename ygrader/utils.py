@@ -1,6 +1,7 @@
-""" ygrader utility functions"""
+"""ygrader utility functions"""
 
 import pathlib
+import re
 import sys
 import shutil
 import subprocess
@@ -138,3 +139,10 @@ def ensure_tuple(x):
 def directory_is_empty(directory: pathlib.Path) -> bool:
     """Returns whether the given directory is empty"""
     return not any(directory.iterdir())
+
+
+def sanitize_filename(filename: str) -> str:
+    """Replace invalid filename characters with underscores."""
+    # Replace invalid characters with underscores
+    # Invalid characters: < > : " / \ | ? *
+    return re.sub(r'[<>:"/\\|?*]', "_", filename)

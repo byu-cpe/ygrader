@@ -103,6 +103,8 @@ class Grader:
         self,
         csv_col_names,
         grading_fcn,
+        *,
+        grading_fcn_args_dict=None,
         max_points=None,
         feedback_filename=None,
         feedback_col_name=None,
@@ -155,6 +157,8 @@ class Grader:
                 def my_callback(**kw):
                     lab_name = kw["lab_name"]
                     first_name = kw["first_names"][0]
+        grading_fcn_args_dict: dict
+            (Optional) A dictionary of additional arguments that will be passed to your grading function.
         max_points: int | list of int
             (Optional) Number of max points for the graded column(s).
         feedback_filename: str
@@ -239,6 +243,7 @@ class Grader:
             feedback_filename,
             feedback_col_name,
             help_msg,
+            fcn_args_dict=grading_fcn_args_dict,
         )
         _verify_callback_fcn(grading_fcn, item)
         self.items.append(item)
