@@ -45,7 +45,9 @@ class GradeItem:
             self.analysis_only = False
 
         # Feedback comments
-        self.feedback_list_path = self.grader.work_path / (str(csv_col_names) + ".json")
+        self.feedback_list_path = self.grader.feedback_path / (
+            str(csv_col_names) + ".json"
+        )
         self.feedback_list = []
         if self.feedback_list_path.is_file():
             with open(self.feedback_list_path, encoding="utf-8") as f:
@@ -53,13 +55,9 @@ class GradeItem:
 
         # Feeback file directory
         if self.feedback_filename:
-            self.feedback_dir_path = (
-                grader.grades_csv_path.parent / "feedback" / self.feedback_filename
-            )
-            self.feedback_zip_path = (
-                grader.grades_csv_path.parent
-                / "feedback"
-                / (self.feedback_filename + ".zip")
+            self.feedback_dir_path = grader.feedback_path / self.feedback_filename
+            self.feedback_zip_path = grader.feedback_path / (
+                self.feedback_filename + ".zip"
             )
             self.feedback_dir_path.mkdir(exist_ok=True, parents=True)
 

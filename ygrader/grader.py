@@ -76,6 +76,12 @@ class Grader:
         self.work_path = self.work_path / lab_name
         self.work_path.mkdir(parents=True, exist_ok=True)
 
+        # Create subdirectories for repos and feedback
+        self.repos_path = self.work_path / "repos"
+        self.feedback_path = self.work_path / "feedback"
+        self.repos_path.mkdir(parents=True, exist_ok=True)
+        self.feedback_path.mkdir(parents=True, exist_ok=True)
+
         # Read CSV and make sure it isn't empty
         try:
             pandas.read_csv(self.grades_csv_path)
@@ -535,7 +541,7 @@ class Grader:
                     continue
 
             # Print name(s) of who we are grading
-            student_work_path = self.work_path / utils.names_to_dir(
+            student_work_path = self.repos_path / utils.names_to_dir(
                 first_names, last_names, net_ids
             )
             print_color(
@@ -543,7 +549,7 @@ class Grader:
                 "\nGrading: ",
                 concated_names,
                 "-",
-                student_work_path.relative_to(self.work_path.parent),
+                student_work_path.relative_to(self.repos_path.parent),
             )
 
             # Get student code from zip or github.  If this fails it returns False.
@@ -596,12 +602,12 @@ class Grader:
         with zipfile.ZipFile(self.learning_suite_submissions_zip_path, "r") as f:
             for zip_info in f.infolist():
                 # Remove old zip file if it exists
-                unpack_path = self.work_path / zip_info.filename
+                unpack_path = self.repos_path / zip_info.filename
                 if unpack_path.is_file():
                     unpack_path.unlink()
 
                 # Unzip
-                f.extract(zip_info, self.work_path)
+                f.extract(zip_info, self.repos_path)
 
                 # Fix timestamp
                 date_time = time.mktime(zip_info.date_time + (0, 0, -1))
@@ -617,7 +623,7 @@ class Grader:
             # Find all submissions that belong to the group
             zip_matches = []
             for net_id in net_ids:
-                zip_matches.extend(list(self.work_path.glob("*_" + net_id + "_*.zip")))
+                zip_matches.extend(list(self.repos_path.glob("*_" + net_id + "_*.zip")))
             if len(zip_matches) == 0:
                 # print("No zip files match", group_name)
                 continue
@@ -789,15 +795,15 @@ class Grader:
 
     def _create_work_path(self):
         if self.code_source == CodeSource.LEARNING_SUITE:
-            if self.work_path.is_dir() and (
+            if self.repos_path.is_dir() and (
                 self.learning_suite_submissions_zip_path.stat().st_mtime
-                > self.work_path.stat().st_mtime
+                > self.repos_path.stat().st_mtime
             ):
-                shutil.rmtree(self.work_path)
+                shutil.rmtree(self.repos_path)
 
-        if not self.work_path.is_dir():
-            print_color(TermColors.BLUE, "Creating", self.work_path)
-            self.work_path.mkdir(exist_ok=True, parents=True)
+        if not self.repos_path.is_dir():
+            print_color(TermColors.BLUE, "Creating", self.repos_path)
+            self.repos_path.mkdir(exist_ok=True, parents=True)
 
 
 def _verify_callback_fcn(fcn, item, fcn_extra_args_dict=None):
@@ -858,7 +864,7 @@ def _verify_callback_fcn(fcn, item, fcn_extra_args_dict=None):
                 + "will not be able to call your callback function correctly. Available callback arguments:",
                 str(callback_args),
             )
-        elif named_arg not in callback_args:
+        elif named_arg not in callback_args and named_arg not in fcn_extra_args_dict:
             warning(
                 "Your callback function",
                 "(" + fcn.__name__ + ")",
