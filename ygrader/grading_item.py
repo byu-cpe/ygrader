@@ -96,12 +96,19 @@ class GradeItem:
             return
 
         while True:
+            # Print a single column name plainly when only one item is graded
+            cols_display = (
+                self.csv_col_names[0]
+                if isinstance(self.csv_col_names, (list, tuple))
+                and len(self.csv_col_names) == 1
+                else str(self.csv_col_names)
+            )
             print_color(
                 TermColors.BLUE,
                 "Running callback function",
                 "(" + str(self.fcn.__name__) + ")",
                 "to grade",
-                str(self.csv_col_names) + ":",
+                cols_display + ":",
             )
 
             scores = None

@@ -3,6 +3,7 @@ from setuptools import setup
 setup(
     name="ygrader",
     packages=["ygrader"],
+    package_data={"ygrader": ["*.ahk"]},
     version="1.1.28",
     description="Grading scripts used in BYU's Electrical and Computer Engineering Department",
     author="Jeff Goeders",

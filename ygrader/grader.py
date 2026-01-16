@@ -245,7 +245,9 @@ class Grader:
             help_msg,
             fcn_args_dict=grading_fcn_args_dict,
         )
-        _verify_callback_fcn(grading_fcn, item)
+        _verify_callback_fcn(
+            grading_fcn, item, fcn_extra_args_dict=grading_fcn_args_dict
+        )
         self.items.append(item)
 
     def add_analysis_item(
@@ -331,6 +333,9 @@ class Grader:
         # If building from class roster, build github URLs
         if build_from_classroster is not None:
             org, prefix = build_from_classroster
+            # Classroom exports call the Net ID column "identifier"; normalize it
+            if "identifier" in df.columns and "Net ID" not in df.columns:
+                df = df.rename(columns={"identifier": "Net ID"})
             # Build SSH URLs: git@github.com:<org>/<prefix>-<github_username>.git
             df[self.github_csv_col_name] = df.apply(
                 lambda row: f"git@github.com:{org}/{prefix}-{row['github_username']}.git",
@@ -795,7 +800,7 @@ class Grader:
             self.work_path.mkdir(exist_ok=True, parents=True)
 
 
-def _verify_callback_fcn(fcn, item):
+def _verify_callback_fcn(fcn, item, fcn_extra_args_dict=None):
     callback_args = [
         "lab_name",
         "student_code_path",
@@ -818,6 +823,9 @@ def _verify_callback_fcn(fcn, item):
         "homework_id",
     ]
 
+    if fcn_extra_args_dict is None:
+        fcn_extra_args_dict = {}
+
     # Check that callback function(s) are valid
     argspec = inspect.getfullargspec(fcn)
 
@@ -836,8 +844,10 @@ def _verify_callback_fcn(fcn, item):
         # Skip special arguments
         if named_arg in ("self", "cls") and i == 0:
             continue
-        if (named_arg not in callback_args) and (
-            named_arg not in callback_args_optional
+        if (
+            (named_arg not in callback_args)
+            and (named_arg not in callback_args_optional)
+            and (named_arg not in fcn_extra_args_dict)
         ):
             error(
                 "Your callback function",

@@ -146,3 +146,73 @@ def sanitize_filename(filename: str) -> str:
     # Replace invalid characters with underscores
     # Invalid characters: < > : " / \ | ? *
     return re.sub(r'[<>:"/\\|?*]', "_", filename)
+
+
+def is_wsl():
+    """Check if running in WSL"""
+    return (
+        pathlib.Path("/proc/version").exists()
+        and "microsoft" in pathlib.Path("/proc/version").read_text().lower()
+    )
+
+
+# Track if we've already printed the focus warnings
+_focus_warning_printed = False
+
+
+def open_file_in_vscode(file_path):
+    """Open a file in VS Code and return focus to terminal.
+
+    Parameters
+    ----------
+    file_path: pathlib.Path or str
+        Path to the file to open in VS Code
+    """
+    import time
+
+    global _focus_warning_printed
+
+    file_path = pathlib.Path(file_path)
+
+    # Open in VS Code (will steal focus)
+    subprocess.Popen(
+        ["code", "--reuse-window", file_path],
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+    )
+    # Give VS Code a moment to open, then send Ctrl+` to toggle terminal focus
+    time.sleep(0.5)
+
+    # Use AutoHotkey on WSL, xdotool on Linux
+    if is_wsl():
+        # Get the path to the .ahk file in the package
+        package_dir = pathlib.Path(__file__).parent
+        ahk_file = package_dir / "send_ctrl_backtick.ahk"
+        autohotkey_path = pathlib.Path(
+            "/mnt/c/Program Files/AutoHotkey/v2/AutoHotkey.exe"
+        )
+
+        if autohotkey_path.exists():
+            subprocess.run([str(autohotkey_path), str(ahk_file)])
+        else:
+            if not _focus_warning_printed:
+                warning(
+                    f"AutoHotkey not found at {autohotkey_path}. Install AutoHotkey v2 to keep terminal focus when opening files in VS Code."
+                )
+                _focus_warning_printed = True
+    else:
+        # Check if xdotool exists
+        try:
+            subprocess.run(
+                ["which", "xdotool"],
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                check=True,
+            )
+            subprocess.run(["xdotool", "key", "ctrl+grave"])
+        except subprocess.CalledProcessError:
+            if not _focus_warning_printed:
+                warning(
+                    "xdotool not found. Install xdotool to keep terminal focus when opening files in VS Code."
+                )
+                _focus_warning_printed = True
