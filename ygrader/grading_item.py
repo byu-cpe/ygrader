@@ -16,7 +16,7 @@ from .utils import (
     WorkflowHashError,
     verify_workflow_hash,
 )
-from . import grades_csv, utils
+from . import grades_csv
 from .deductions import StudentDeductions
 from .score_input import get_score, ScoreResult
 
@@ -39,10 +39,11 @@ class GradeItem:
         csv_col_name,
         fcn,
         max_points,
-        help_msg,
+        *,
+        help_msg=None,
         score_mode=ScoreMode.MANUAL,
         deductions_yaml_path=None,
-        fcn_args_dict={},
+        fcn_args_dict=None,
     ) -> None:
         self.grader = grader
         self.csv_col_name = csv_col_name
@@ -50,7 +51,7 @@ class GradeItem:
         self.max_points = max_points
         self.score_mode = score_mode
         self.help_msg = help_msg
-        self.fcn_args_dict = fcn_args_dict
+        self.fcn_args_dict = fcn_args_dict if fcn_args_dict is not None else {}
 
         # If csv_col_name is None, then analysis only
         if csv_col_name is None:
@@ -193,10 +194,11 @@ class GradeItem:
                 submission_date_path = student_code_path / ".commitdate"
                 if submission_date_path.is_file():
                     try:
-                        submission_time = datetime.datetime.strptime(
-                            open(submission_date_path).read().strip(),
-                            "%a %b %d %H:%M:%S %Z %Y",
-                        )
+                        with open(submission_date_path, encoding="utf-8") as f:
+                            submission_time = datetime.datetime.strptime(
+                                f.read().strip(),
+                                "%a %b %d %H:%M:%S %Z %Y",
+                            )
                         print_color(
                             TermColors.BLUE,
                             f"Submitted: {submission_time.strftime('%Y-%m-%d %H:%M:%S')}",
@@ -212,8 +214,9 @@ class GradeItem:
                                     exception_date = self.grader.due_date_exceptions[
                                         net_id
                                     ]
-                                    if exception_date > effective_due_date:
-                                        effective_due_date = exception_date
+                                    effective_due_date = max(
+                                        effective_due_date, exception_date
+                                    )
 
                             has_exception = effective_due_date != self.grader.due_date
                             if has_exception:
@@ -267,9 +270,9 @@ class GradeItem:
                                 concated_names,
                                 self.csv_col_name,
                                 self.max_points,
-                                self.help_msg,
-                                self.grader.allow_rebuild,
-                                self.grader.allow_rerun,
+                                help_msg=self.help_msg,
+                                allow_rebuild=self.grader.allow_rebuild,
+                                allow_rerun=self.grader.allow_rerun,
                             )
                         except KeyboardInterrupt:
                             print_color(TermColors.RED, "\nExiting")
@@ -281,9 +284,9 @@ class GradeItem:
                                 concated_names,
                                 self.csv_col_name,
                                 self.max_points,
-                                self.help_msg,
-                                self.grader.allow_rebuild,
-                                self.grader.allow_rerun,
+                                help_msg=self.help_msg,
+                                allow_rebuild=self.grader.allow_rebuild,
+                                allow_rerun=self.grader.allow_rerun,
                                 student_deductions=self.student_deductions,
                                 net_ids=tuple(net_ids),
                             )
@@ -310,7 +313,7 @@ class GradeItem:
                 continue
 
             # Record score
-            for first_name, last_name, net_id in zip(first_names, last_names, net_ids):
+            for _, _, net_id in zip(first_names, last_names, net_ids):
                 row_idx = grades_csv.find_idx_for_netid(student_grades_df, net_id)
 
                 student_grades_df.at[row_idx, self.csv_col_name] = score

@@ -6,6 +6,7 @@ import sys
 import shutil
 import subprocess
 import hashlib
+import time
 
 
 class TermColors:
@@ -152,12 +153,13 @@ def is_wsl():
     """Check if running in WSL"""
     return (
         pathlib.Path("/proc/version").exists()
-        and "microsoft" in pathlib.Path("/proc/version").read_text().lower()
+        and "microsoft"
+        in pathlib.Path("/proc/version").read_text(encoding="utf-8").lower()
     )
 
 
 # Track if we've already printed the focus warnings
-_focus_warning_printed = False
+_FOCUS_WARNING_PRINTED = False
 
 
 def open_file_in_vscode(file_path):
@@ -168,18 +170,17 @@ def open_file_in_vscode(file_path):
     file_path: pathlib.Path or str
         Path to the file to open in VS Code
     """
-    import time
-
-    global _focus_warning_printed
+    global _FOCUS_WARNING_PRINTED  # pylint: disable=global-statement
 
     file_path = pathlib.Path(file_path)
 
     # Open in VS Code (will steal focus)
-    subprocess.Popen(
+    with subprocess.Popen(
         ["code", "--reuse-window", file_path],
         stdout=subprocess.DEVNULL,
         stderr=subprocess.DEVNULL,
-    )
+    ):
+        pass
     # Give VS Code a moment to open, then send Ctrl+` to toggle terminal focus
     time.sleep(0.5)
 
@@ -193,13 +194,13 @@ def open_file_in_vscode(file_path):
         )
 
         if autohotkey_path.exists():
-            subprocess.run([str(autohotkey_path), str(ahk_file)])
+            subprocess.run([str(autohotkey_path), str(ahk_file)], check=False)
         else:
-            if not _focus_warning_printed:
+            if not _FOCUS_WARNING_PRINTED:
                 warning(
                     f"AutoHotkey not found at {autohotkey_path}. Install AutoHotkey v2 to keep terminal focus when opening files in VS Code."
                 )
-                _focus_warning_printed = True
+                _FOCUS_WARNING_PRINTED = True
     else:
         # Check if xdotool exists
         try:
@@ -209,10 +210,10 @@ def open_file_in_vscode(file_path):
                 stderr=subprocess.DEVNULL,
                 check=True,
             )
-            subprocess.run(["xdotool", "key", "ctrl+grave"])
+            subprocess.run(["xdotool", "key", "ctrl+grave"], check=False)
         except subprocess.CalledProcessError:
-            if not _focus_warning_printed:
+            if not _FOCUS_WARNING_PRINTED:
                 warning(
                     "xdotool not found. Install xdotool to keep terminal focus when opening files in VS Code."
                 )
-                _focus_warning_printed = True
+                _FOCUS_WARNING_PRINTED = True

@@ -1,3 +1,5 @@
+"""Module for handling parent items and sub-items in the grading system."""
+
 import pathlib
 
 import pandas

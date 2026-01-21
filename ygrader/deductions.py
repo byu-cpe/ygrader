@@ -2,7 +2,6 @@
 Deduction system for student assignments.
 """
 
-from dataclasses import dataclass, field
 import pathlib
 from typing import List, Optional
 
@@ -13,8 +12,6 @@ from .utils import TermColors, print_color
 
 class FlowList(list):
     """A list subclass that will be serialized in YAML flow style (inline)."""
-
-    pass
 
 
 def flow_list_representer(dumper, data):
@@ -75,7 +72,7 @@ class StudentDeductions:
         """
         assert self.yaml_path.exists(), f"YAML file {self.yaml_path} does not exist."
 
-        with open(self.yaml_path, "r") as f:
+        with open(self.yaml_path, "r", encoding="utf-8") as f:
             data = yaml.safe_load(f)
 
         # Load deduction types if present
@@ -168,7 +165,7 @@ class StudentDeductions:
             data["student_deductions"] = student_deduction_list
 
         # Write to file
-        with open(self.yaml_path, "w") as f:
+        with open(self.yaml_path, "w", encoding="utf-8") as f:
             yaml.dump(data, f, default_flow_style=False, sort_keys=False)
 
     def add_deduction_type(self, message: str, points: float = 0.0) -> int:

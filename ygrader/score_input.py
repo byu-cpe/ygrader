@@ -18,9 +18,10 @@ def get_score(
     names,
     csv_col_name,
     max_points,
-    help_msg,
-    allow_rebuild,
-    allow_rerun,
+    *,
+    help_msg=None,
+    allow_rebuild=True,
+    allow_rerun=True,
     student_deductions=None,
     net_ids=None,
 ):
@@ -183,11 +184,10 @@ def get_score(
                         tuple(net_ids), deduction_id
                     )
                 continue
-            elif result == "delete":
+            if result == "delete":
                 student_deductions.delete_deduction_type_interactive()
                 continue
-            else:
-                return result
+            return result
 
         # Check for deduction ID input (only in deductions mode)
         # 0 is reserved for clearing all deductions (must be standalone, not in a list)
@@ -210,7 +210,7 @@ def get_score(
                     if deduction_id <= 0:
                         all_valid = False
                         break
-                    elif deduction_id in student_deductions.deduction_types:
+                    if deduction_id in student_deductions.deduction_types:
                         valid_ids.append(deduction_id)
                     else:
                         all_valid = False

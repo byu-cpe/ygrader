@@ -1,27 +1,28 @@
 """Main ygrader module"""
 
-from collections import defaultdict
-import pathlib
+import datetime as dt
 import enum
-import re
-import zipfile
-import time
-import os
-import shutil
-from typing import Callable
 import inspect
+import os
+import pathlib
+import re
+import shutil
+import time
+import zipfile
+from collections import defaultdict
+from typing import Callable
+
 import pandas
+import yaml
 
-
-from . import grades_csv
-from . import utils, student_repos
+from . import grades_csv, student_repos, utils
 from .grading_item import GradeItem, ScoreMode
 from .utils import (
     CallbackFailed,
-    directory_is_empty,
-    print_color,
     TermColors,
+    directory_is_empty,
     error,
+    print_color,
     warning,
 )
 
@@ -96,6 +97,7 @@ class Grader:
         self.github_https = None
         self.groups_csv_path = None
         self.groups_csv_col_name = None
+        self.due_date_exceptions = {}
         self.set_other_options()
 
     def add_item_to_grade(
@@ -185,7 +187,7 @@ class Grader:
             csv_col_name,
             grading_fcn,
             max_points,
-            help_msg,
+            help_msg=help_msg,
             score_mode=score_mode,
             deductions_yaml_path=deductions_yaml_path,
             fcn_args_dict=grading_fcn_args_dict,
@@ -233,6 +235,7 @@ class Grader:
         tag,
         github_url_csv_path,
         repo_col_name="github_url",
+        *,
         use_https=False,
         build_from_classroster=None,
     ):
@@ -328,6 +331,7 @@ class Grader:
 
     def set_other_options(
         self,
+        *,
         format_code=False,
         build_only=False,
         run_only=False,
@@ -428,15 +432,13 @@ class Grader:
 
     def _load_due_date_exceptions(self):
         """Load due date exceptions from YAML file (simple net_id: deadline format)"""
-        import yaml
-        import datetime as dt
 
         self.due_date_exceptions = {}
         if not self.due_date_exceptions_path:
             return
 
         try:
-            with open(self.due_date_exceptions_path, "r") as f:
+            with open(self.due_date_exceptions_path, "r", encoding="utf-8") as f:
                 exceptions_raw = yaml.safe_load(f)
         except (IOError, yaml.YAMLError) as e:
             print_color(
