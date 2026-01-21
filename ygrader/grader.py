@@ -75,12 +75,6 @@ class Grader:
         self.work_path = pathlib.Path(work_path).resolve()
         self.work_path.mkdir(parents=True, exist_ok=True)
 
-        # Create subdirectories for repos and feedback
-        self.repos_path = self.work_path / "repos"
-        self.feedback_path = self.work_path / "feedback"
-        self.repos_path.mkdir(parents=True, exist_ok=True)
-        self.feedback_path.mkdir(parents=True, exist_ok=True)
-
         # Read CSV and make sure it isn't empty
         try:
             pandas.read_csv(self.grades_csv_path)
@@ -112,8 +106,7 @@ class Grader:
         grading_fcn_args_dict=None,
         max_points=None,
         score_mode=ScoreMode.MANUAL,
-        feedback_enabled=True,
-        feedback_dir_name=None,
+        deductions_yaml_path=None,
         help_msg=None,
     ):
         """Add a new item you want to grade.
@@ -166,12 +159,8 @@ class Grader:
             (Optional) A dictionary of additional arguments that will be passed to your grading function.
         max_points: int
             (Optional) Number of max points for the graded column.
-        feedback_enabled: bool
-            (Optional) Whether to prompt for feedback when grading. Defaults to True.
-        feedback_dir_name: str
-            (Optional) Grading feedback is stored in a subdirectory based on the csv_col_name by default.
-            If you have multiple grading items with the same csv_col_name, or want to ensure uniqueness, you can provide
-            this name directly to override the default feedback directory name.
+        deductions_yaml_path: pathlib.Path
+            (Optional) Path to the YAML file for storing deductions. Required if score_mode is DEDUCTIONS.
         help_msg: str
             (Optional) When the script asks the user for a grade, it will print this message first.  This can be a helpful
             reminder to the TAs of a grading rubric, things they should watch out for, etc.
@@ -198,8 +187,7 @@ class Grader:
             max_points,
             help_msg,
             score_mode=score_mode,
-            feedback_enabled=feedback_enabled,
-            feedback_dir_name=feedback_dir_name,
+            deductions_yaml_path=deductions_yaml_path,
             fcn_args_dict=grading_fcn_args_dict,
         )
         _verify_callback_fcn(
@@ -348,6 +336,9 @@ class Grader:
         prep_fcn=None,
         dry_run_first=False,
         dry_run_all=False,
+        workflow_hash=None,
+        due_date=None,
+        due_date_exceptions_path=None,
     ):
         """
         This can be used to set other options for the grader.
@@ -383,12 +374,29 @@ class Grader:
         dry_run_all: bool
             Perform a dry run, calling your callback function to perform grading, but not updating the grades CSV file.
             The callback is run for each student.
+        workflow_hash: str
+            (Optional) Expected hash of the GitHub workflow file. If provided, the workflow file will be verified
+            before grading each student. If the hash doesn't match, a warning will be displayed indicating
+            the student may have modified the workflow system.
+        due_date: datetime.datetime
+            (Optional) Due date for the assignment. If provided, the submission date will be compared to this
+            and late days will be calculated and displayed.
+        due_date_exceptions_path: str
+            (Optional) Path to a YAML file containing per-student due date exceptions. The file should be
+            a simple dictionary mapping net_ids to deadline strings in "YYYY-MM-DD HH:MM:SS" format.
+            Example:
+                "student1": "2025-01-15 23:59:59"
+                "student2": "2025-01-17 23:59:59"
         """
         self.format_code = format_code
         self.build_only = build_only
         self.run_only = run_only
         self.allow_rebuild = allow_rebuild
         self.allow_rerun = allow_rerun
+        self.workflow_hash = workflow_hash
+        self.due_date = due_date
+        self.due_date_exceptions = {}
+        self.due_date_exceptions_path = due_date_exceptions_path
         if prep_fcn and not isinstance(prep_fcn, Callable):
             error("The 'prep_fcn' argument must provide a callable function pointer")
         self.prep_fcn = prep_fcn
@@ -418,6 +426,38 @@ class Grader:
                 + "set_submission_system_learning_suite() or set_submission_system_github()."
             )
 
+    def _load_due_date_exceptions(self):
+        """Load due date exceptions from YAML file (simple net_id: deadline format)"""
+        import yaml
+        import datetime as dt
+
+        self.due_date_exceptions = {}
+        if not self.due_date_exceptions_path:
+            return
+
+        try:
+            with open(self.due_date_exceptions_path, "r") as f:
+                exceptions_raw = yaml.safe_load(f)
+        except (IOError, yaml.YAMLError) as e:
+            print_color(
+                TermColors.YELLOW, f"Warning: Could not load exceptions file: {e}"
+            )
+            return
+
+        if not exceptions_raw or not isinstance(exceptions_raw, dict):
+            return
+
+        for net_id, deadline_str in exceptions_raw.items():
+            try:
+                self.due_date_exceptions[net_id] = dt.datetime.strptime(
+                    deadline_str, "%Y-%m-%d %H:%M:%S"
+                )
+            except ValueError as e:
+                print_color(
+                    TermColors.YELLOW,
+                    f"Warning: Could not parse deadline for {net_id}: {e}",
+                )
+
     def _get_all_csv_cols_to_grade(self):
         """Collect all columns that will be graded into a single list"""
         return [
@@ -428,6 +468,7 @@ class Grader:
         """Call this to start (or resume) the grading process"""
 
         self._validate_config()
+        self._load_due_date_exceptions()
 
         # Print starting message
         print_color(TermColors.BLUE, "Running grader for", self.lab_name)
@@ -487,7 +528,7 @@ class Grader:
                     continue
 
             # Print name(s) of who we are grading
-            student_work_path = self.repos_path / utils.names_to_dir(
+            student_work_path = self.work_path / utils.names_to_dir(
                 first_names, last_names, net_ids
             )
             print_color(
@@ -495,7 +536,7 @@ class Grader:
                 "\nGrading: ",
                 concated_names,
                 "-",
-                student_work_path.relative_to(self.repos_path.parent),
+                student_work_path.relative_to(self.work_path.parent),
             )
 
             # Get student code from zip or github.  If this fails it returns False.
@@ -548,12 +589,12 @@ class Grader:
         with zipfile.ZipFile(self.learning_suite_submissions_zip_path, "r") as f:
             for zip_info in f.infolist():
                 # Remove old zip file if it exists
-                unpack_path = self.repos_path / zip_info.filename
+                unpack_path = self.work_path / zip_info.filename
                 if unpack_path.is_file():
                     unpack_path.unlink()
 
                 # Unzip
-                f.extract(zip_info, self.repos_path)
+                f.extract(zip_info, self.work_path)
 
                 # Fix timestamp
                 date_time = time.mktime(zip_info.date_time + (0, 0, -1))
@@ -569,7 +610,7 @@ class Grader:
             # Find all submissions that belong to the group
             zip_matches = []
             for net_id in net_ids:
-                zip_matches.extend(list(self.repos_path.glob("*_" + net_id + "_*.zip")))
+                zip_matches.extend(list(self.work_path.glob("*_" + net_id + "_*.zip")))
             if len(zip_matches) == 0:
                 # print("No zip files match", group_name)
                 continue
@@ -741,15 +782,15 @@ class Grader:
 
     def _create_work_path(self):
         if self.code_source == CodeSource.LEARNING_SUITE:
-            if self.repos_path.is_dir() and (
+            if self.work_path.is_dir() and (
                 self.learning_suite_submissions_zip_path.stat().st_mtime
-                > self.repos_path.stat().st_mtime
+                > self.work_path.stat().st_mtime
             ):
-                shutil.rmtree(self.repos_path)
+                shutil.rmtree(self.work_path)
 
-        if not self.repos_path.is_dir():
-            print_color(TermColors.BLUE, "Creating", self.repos_path)
-            self.repos_path.mkdir(exist_ok=True, parents=True)
+        if not self.work_path.is_dir():
+            print_color(TermColors.BLUE, "Creating", self.work_path)
+            self.work_path.mkdir(exist_ok=True, parents=True)
 
 
 def _verify_callback_fcn(fcn, item, fcn_extra_args_dict=None):

@@ -62,7 +62,10 @@ def get_score(
             current_deductions = student_deductions.get_student_deductions(
                 tuple(net_ids)
             )
-            print(fpad2 + f"Current score: {TermColors.GREEN}{computed_score}{TermColors.END}")
+            print(
+                fpad2
+                + f"Current score: {TermColors.GREEN}{computed_score}{TermColors.END}"
+            )
             print(fpad2 + "Current deductions:")
             if current_deductions:
                 for d in current_deductions:
@@ -126,11 +129,7 @@ def get_score(
             if i < len(left_items):
                 key1, desc1 = left_items[i]
                 col1 = (
-                    fpad2
-                    + TermColors.BLUE
-                    + key1.ljust(pad)
-                    + TermColors.END
-                    + desc1
+                    fpad2 + TermColors.BLUE + key1.ljust(pad) + TermColors.END + desc1
                 )
                 # Pad to column width (accounting for ANSI codes)
                 col1_visible_len = len(fpad2) + len(key1.ljust(pad)) + len(desc1)
@@ -141,30 +140,25 @@ def get_score(
             # Right column
             if i < len(right_items):
                 key2, desc2 = right_items[i]
-                col2 = (
-                    TermColors.BLUE
-                    + key2.ljust(pad)
-                    + TermColors.END
-                    + desc2
-                )
+                col2 = TermColors.BLUE + key2.ljust(pad) + TermColors.END + desc2
                 input_txt += col1_padded + col2 + "\n"
             else:
                 input_txt += col1_padded.rstrip() + "\n"
 
         # Show available deduction types to apply (keep single column for these)
         if deductions_mode:
-                input_txt += fpad2 + "Apply deduction(s):\n"
-                for (
-                    deduction_id,
-                    deduction_type,
-                ) in student_deductions.deduction_types.items():
-                    input_txt += (
-                        fpad2
-                        + TermColors.BLUE
-                        + f"  [{deduction_id}]".ljust(pad)
-                        + TermColors.END
-                        + f"-{deduction_type.points}: {deduction_type.message}\n"
-                    )
+            input_txt += fpad2 + "Apply deduction(s):\n"
+            for (
+                deduction_id,
+                deduction_type,
+            ) in student_deductions.deduction_types.items():
+                input_txt += (
+                    fpad2
+                    + TermColors.BLUE
+                    + f"  [{deduction_id}]".ljust(pad)
+                    + TermColors.END
+                    + f"-{deduction_type.points}: {deduction_type.message}\n"
+                )
 
         input_txt += TermColors.BLUE + ">>> " + TermColors.END
 

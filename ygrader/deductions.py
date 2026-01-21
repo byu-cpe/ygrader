@@ -13,12 +13,13 @@ from .utils import TermColors, print_color
 
 class FlowList(list):
     """A list subclass that will be serialized in YAML flow style (inline)."""
+
     pass
 
 
 def flow_list_representer(dumper, data):
     """Custom YAML representer for FlowList to use flow style."""
-    return dumper.represent_sequence('tag:yaml.org,2002:seq', data, flow_style=True)
+    return dumper.represent_sequence("tag:yaml.org,2002:seq", data, flow_style=True)
 
 
 yaml.add_representer(FlowList, flow_list_representer)
@@ -46,6 +47,7 @@ class StudentDeductions:
 
     def __init__(self, yaml_path: Optional[pathlib.Path] = None):
         self.deductions_by_students = {}
+        self.days_late_by_students = {}
         self.deduction_types = {}
         self.yaml_path = yaml_path
 
@@ -103,6 +105,10 @@ class StudentDeductions:
 
                 self.deductions_by_students[student_key] = deduction_items
 
+                # Load days_late if present
+                if "days_late" in entry:
+                    self.days_late_by_students[student_key] = entry["days_late"]
+
     def _write_yaml(self):
         """Write deduction types and student deductions to the YAML file.
 
@@ -131,10 +137,14 @@ class StudentDeductions:
                 )
             data["deduction_types"] = deduction_list
 
-        # Write student deductions
-        if self.deductions_by_students:
+        # Write student deductions (include students with deductions OR days_late)
+        all_student_keys = set(self.deductions_by_students.keys()) | set(
+            self.days_late_by_students.keys()
+        )
+        if all_student_keys:
             student_deduction_list = []
-            for student_key, deduction_items in self.deductions_by_students.items():
+            for student_key in all_student_keys:
+                deduction_items = self.deductions_by_students.get(student_key, [])
                 # Find the deduction IDs for these deduction items
                 deduction_ids = []
                 for deduction_item in deduction_items:
@@ -145,7 +155,15 @@ class StudentDeductions:
                             break
 
                 student_deduction_list.append(
-                    {"net_ids": FlowList(student_key), "deductions": FlowList(deduction_ids)}
+                    {
+                        "net_ids": FlowList(student_key),
+                        "deductions": FlowList(deduction_ids),
+                        **(
+                            {"days_late": self.days_late_by_students[student_key]}
+                            if student_key in self.days_late_by_students
+                            else {}
+                        ),
+                    }
                 )
             data["student_deductions"] = student_deduction_list
 
@@ -281,7 +299,10 @@ class StudentDeductions:
             return False
 
         if self.is_deduction_in_use(deduction_id):
-            print_color(TermColors.YELLOW, "Cannot delete - deduction is in use by one or more students.")
+            print_color(
+                TermColors.YELLOW,
+                "Cannot delete - deduction is in use by one or more students.",
+            )
             return False
 
         deduction_type = self.deduction_types[deduction_id]
@@ -334,7 +355,35 @@ class StudentDeductions:
         student_key = tuple(net_ids) if not isinstance(net_ids, tuple) else net_ids
         if student_key in self.deductions_by_students:
             del self.deductions_by_students[student_key]
-            self._save()
+        if student_key in self.days_late_by_students:
+            del self.days_late_by_students[student_key]
+        self._save()
+
+    def set_days_late(self, net_ids: tuple, days_late: int):
+        """Set the number of days late for a student.
+
+        Args:
+            net_ids: Tuple of net_ids for the student.
+            days_late: Number of business days late (0 or None to remove).
+        """
+        student_key = tuple(net_ids) if not isinstance(net_ids, tuple) else net_ids
+        if days_late and days_late > 0:
+            self.days_late_by_students[student_key] = days_late
+        elif student_key in self.days_late_by_students:
+            del self.days_late_by_students[student_key]
+        self._save()
+
+    def get_days_late(self, net_ids: tuple) -> Optional[int]:
+        """Get the number of days late for a student.
+
+        Args:
+            net_ids: Tuple of net_ids for the student.
+
+        Returns:
+            Number of business days late, or None if not set/on time.
+        """
+        student_key = tuple(net_ids) if not isinstance(net_ids, tuple) else net_ids
+        return self.days_late_by_students.get(student_key)
 
     def total_deductions(self, net_ids: Optional[tuple] = None) -> float:
         """Calculate the total deductions for a student or all students.

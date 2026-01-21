@@ -123,7 +123,7 @@ def verify_workflow_hash(workflow_file_path, hash_str):
     hash_val = hash_file(workflow_file_path)
     if hash_val != hash_str:
         raise WorkflowHashError(
-            f"Hash value {hash_val} does not match expected value of {hash_str}"
+            f"Workflow hash mismatch:\n  Got:      {hash_val}\n  Expected: {hash_str}"
         )
 
 

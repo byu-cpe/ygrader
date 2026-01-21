@@ -79,8 +79,8 @@ class SubItem:
         self, dir_path: pathlib.Path, name: str, points: float, other_data: dict = None
     ):
         self.name = name
-        filename = sanitize_filename(name)
-        self.csv_path = dir_path / f"{filename}.csv"
+        self.filename = sanitize_filename(name)
+        self.csv_path = dir_path / "subitems" / f"{self.filename}.csv"
         self.points = points
         self.other_data = other_data if other_data is not None else {}
 
@@ -93,9 +93,13 @@ def generate_subitem_csvs(grades_csv_path, item_yaml_path) -> None:
 
     grades_df = grades_csv.parse_and_check(grades_csv_path, [parent_item.csv_col_name])
 
+    # Create subitems subdirectory
+    subitems_dir = item_yaml_path.parent / "subitems"
+    subitems_dir.mkdir(exist_ok=True)
+
     overwrite_all = False
     for subitem in parent_item.subitems:
-        subitem_csv_path = item_yaml_path.parent / f"{subitem.filename}.csv"
+        subitem_csv_path = subitems_dir / f"{subitem.filename}.csv"
 
         # Check if file already exists and ask user if they want to overwrite
         if subitem_csv_path.exists() and not overwrite_all:

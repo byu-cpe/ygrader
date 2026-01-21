@@ -1,12 +1,21 @@
 """Module to manage each item that is to be graded"""
 
 import csv
+import datetime
 import sys
 from enum import Enum, auto
 
+import numpy as np
 import pandas
 
-from .utils import CallbackFailed, TermColors, print_color, error
+from .utils import (
+    CallbackFailed,
+    TermColors,
+    print_color,
+    error,
+    WorkflowHashError,
+    verify_workflow_hash,
+)
 from . import grades_csv, utils
 from .deductions import StudentDeductions
 from .score_input import get_score, ScoreResult
@@ -32,8 +41,7 @@ class GradeItem:
         max_points,
         help_msg,
         score_mode=ScoreMode.MANUAL,
-        feedback_enabled=True,
-        feedback_dir_name=None,
+        deductions_yaml_path=None,
         fcn_args_dict={},
     ) -> None:
         self.grader = grader
@@ -41,7 +49,6 @@ class GradeItem:
         self.fcn = fcn
         self.max_points = max_points
         self.score_mode = score_mode
-        self.feedback_enabled = feedback_enabled
         self.help_msg = help_msg
         self.fcn_args_dict = fcn_args_dict
 
@@ -51,17 +58,15 @@ class GradeItem:
         else:
             self.analysis_only = False
 
-        # Directory for storing feedback (use feedback_dir_name if provided, otherwise csv_col_name)
-        feedback_dir = (
-            feedback_dir_name if feedback_dir_name is not None else csv_col_name
-        )
-        if feedback_dir is not None:
-            self.feedback_dir_path = grader.feedback_path / feedback_dir
-            self.feedback_dir_path.mkdir(exist_ok=True, parents=True)
-
-        # Load deductions from YAML file
-        deductions_yaml_path = self.feedback_dir_path / "deductions.yaml"
-        self.student_deductions = StudentDeductions(deductions_yaml_path)
+        # Load deductions from YAML file (required for DEDUCTIONS mode)
+        if score_mode == ScoreMode.DEDUCTIONS:
+            if deductions_yaml_path is None:
+                raise ValueError(
+                    "deductions_yaml_path is required when score_mode is DEDUCTIONS"
+                )
+            self.student_deductions = StudentDeductions(deductions_yaml_path)
+        else:
+            self.student_deductions = None
 
     def run_grading(self, student_grades_df, row, callback_args):
         """Run the grading process for this item"""
@@ -145,6 +150,112 @@ class GradeItem:
                     self.csv_col_name,
                     "; this grade will be overwritten.",
                 )
+
+            # Verify workflow hash if configured
+            if self.grader.workflow_hash is not None:
+                student_code_path = callback_args.get("student_code_path")
+                if student_code_path:
+                    workflow_file_path = (
+                        student_code_path / ".github" / "workflows" / "submission.yml"
+                    )
+                    try:
+                        verify_workflow_hash(
+                            workflow_file_path, self.grader.workflow_hash
+                        )
+                    except WorkflowHashError as e:
+                        print("")
+                        print_color(TermColors.RED, "=" * 70)
+                        print_color(
+                            TermColors.RED,
+                            "WARNING: WORKFLOW FILE VERIFICATION FAILED!",
+                        )
+                        print_color(TermColors.RED, "=" * 70)
+                        print_color(TermColors.RED, str(e))
+                        print_color(TermColors.RED, "")
+                        print_color(
+                            TermColors.RED,
+                            "This student may have modified the GitHub workflow system.",
+                        )
+                        print_color(
+                            TermColors.RED, "The submission date CANNOT be guaranteed."
+                        )
+                        print_color(TermColors.RED, "")
+                        print_color(
+                            TermColors.RED,
+                            "Please contact the instructor before grading this student.",
+                        )
+                        print_color(TermColors.RED, "=" * 70)
+                        print("")
+
+            # Display submission date if available
+            student_code_path = callback_args.get("student_code_path")
+            if student_code_path:
+                submission_date_path = student_code_path / ".commitdate"
+                if submission_date_path.is_file():
+                    try:
+                        submission_time = datetime.datetime.strptime(
+                            open(submission_date_path).read().strip(),
+                            "%a %b %d %H:%M:%S %Z %Y",
+                        )
+                        print_color(
+                            TermColors.BLUE,
+                            f"Submitted: {submission_time.strftime('%Y-%m-%d %H:%M:%S')}",
+                        )
+
+                        # Calculate late days if due_date is configured
+                        if self.grader.due_date is not None:
+                            # Check for student-specific due date exception
+                            # Use the latest (most generous) exception if multiple group members have them
+                            effective_due_date = self.grader.due_date
+                            for net_id in net_ids:
+                                if net_id in self.grader.due_date_exceptions:
+                                    exception_date = self.grader.due_date_exceptions[
+                                        net_id
+                                    ]
+                                    if exception_date > effective_due_date:
+                                        effective_due_date = exception_date
+
+                            has_exception = effective_due_date != self.grader.due_date
+                            if has_exception:
+                                print_color(
+                                    TermColors.YELLOW,
+                                    f"Exception due date: {effective_due_date.strftime('%Y-%m-%d %H:%M:%S')}",
+                                )
+
+                            if submission_time <= effective_due_date:
+                                print_color(TermColors.GREEN, "Status: ON TIME")
+                                # Set days_late to 0 (on time) in deductions if using DEDUCTIONS mode
+                                if (
+                                    self.score_mode == ScoreMode.DEDUCTIONS
+                                    and self.student_deductions
+                                ):
+                                    self.student_deductions.set_days_late(
+                                        tuple(net_ids), 0
+                                    )
+                            else:
+                                days_late = np.busday_count(
+                                    effective_due_date.date(),
+                                    submission_time.date(),
+                                )
+                                if days_late == 0:
+                                    days_late = 1  # Same day but after deadline
+                                print_color(
+                                    TermColors.RED,
+                                    f"Status: LATE ({days_late} business day(s))",
+                                )
+                                # Store days_late in deductions if using DEDUCTIONS mode
+                                if (
+                                    self.score_mode == ScoreMode.DEDUCTIONS
+                                    and self.student_deductions
+                                ):
+                                    self.student_deductions.set_days_late(
+                                        tuple(net_ids), int(days_late)
+                                    )
+                    except (ValueError, IOError) as e:
+                        print_color(
+                            TermColors.YELLOW,
+                            f"Could not parse submission date: {e}",
+                        )
 
             if score is None:
                 if not self.analysis_only:
