@@ -29,7 +29,7 @@ class TestGithub(unittest.TestCase):
         grader = Grader(
             lab_name="github_test",
             grades_csv_path=TEST_RESOURCES_PATH / "grades1.csv",
-            work_path=TEST_PATH / "temp",
+            work_path=TEST_PATH / "temp_github",
         )
         grader.add_item_to_grade("lab1", self.runner, max_points=10)
         grader.add_item_to_grade("lab1m2", self.runner, max_points=20)
@@ -53,7 +53,7 @@ class TestLearningSuite(unittest.TestCase):
         grader = Grader(
             lab_name="learningsuite_test",
             grades_csv_path=grades_path,
-            work_path=TEST_PATH / "temp",
+            work_path=TEST_PATH / "temp_learningsuite",
         )
         grader.add_item_to_grade(
             csv_col_name="lab1",
@@ -81,7 +81,7 @@ class TestLearningSuite(unittest.TestCase):
         grader = Grader(
             "groups_test",
             TEST_RESOURCES_PATH / "grades3.csv",
-            work_path=TEST_PATH / "temp",
+            work_path=TEST_PATH / "temp_groups",
         )
         grader.add_item_to_grade(
             csv_col_name="l1",
