@@ -31,8 +31,8 @@ class TestGithub(unittest.TestCase):
             grades_csv_path=TEST_RESOURCES_PATH / "grades1.csv",
             work_path=TEST_PATH / "temp",
         )
-        grader.add_item_to_grade("lab1", self.runner, 10)
-        grader.add_item_to_grade("lab1m2", self.runner, 20)
+        grader.add_item_to_grade("lab1", self.runner, max_points=10)
+        grader.add_item_to_grade("lab1m2", self.runner, max_points=20)
         grader.set_submission_system_github(
             "main", TEST_RESOURCES_PATH / "github.csv", use_https=True
         )
