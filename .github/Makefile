@@ -1,10 +1,12 @@
 IN_ENV := . .venv/bin/activate;
 
-env:
+env: .venv/bin/activate
+
+.venv/bin/activate:
 	python3 -m venv .venv
 	$(IN_ENV) pip3 install packaging
 
-check_version_increase:
+check_version_increase: .venv/bin/activate
 	$(IN_ENV) pip uninstall -y ygrader
 	$(IN_ENV) pip install ygrader
 	$(IN_ENV) echo `python print_version.py` > pypi_version.txt
