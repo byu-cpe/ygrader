@@ -181,21 +181,14 @@ def open_file_in_vscode(file_path):
     print(f"Opening {file_path} in VS Code...")
 
     # Open in VS Code (will steal focus)
-    try:
-        result = subprocess.run(
-            ["code", "--reuse-window", file_path],
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
-            check=False,
-        )
-        if result.returncode != 0:
-            error(f"VS Code exited with code {result.returncode}")
-    except FileNotFoundError:
-        error(
-            "VS Code command 'code' not found. Make sure VS Code is installed and 'code' is in your PATH."
-        )
-    except Exception as e:
-        error(f"Failed to open VS Code: {e}")
+    result = subprocess.run(
+        ["code", "--reuse-window", file_path],
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+        check=False,
+    )
+    if result.returncode != 0:
+        error(f"VS Code exited with code {result.returncode}")
 
     # Give VS Code a moment to open, then send Ctrl+` to toggle terminal focus
     time.sleep(0.5)
