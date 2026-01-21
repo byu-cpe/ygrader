@@ -32,14 +32,15 @@ def test_me():
         work_path=TEST_PATH / "temp",
     )
     grader.add_item_to_grade(
-        "lab1", run_on_milestone, 10, help_msg="This is a long string\nWith lots of advice\nFor TAs"
+        "lab1",
+        run_on_milestone,
+        10,
+        help_msg="This is a long string\nWith lots of advice\nFor TAs",
     )
     grader.add_item_to_grade(
         "lab1m2",
         run_on_milestone,
-        help_msg=[
-            "msg2",
-        ],
+        help_msg="msg2",
     )
     grader.set_submission_system_learning_suite(TEST_RESOURCES_PATH / "submissions.zip")
     grader.set_other_options(prep_fcn=run_on_lab)

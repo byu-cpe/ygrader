@@ -27,8 +27,13 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v2
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.12'
     - name: Install dependencies
       run: |
-          sudo pip3 install -r requirements.txt
+          pip install -r requirements.txt
+          pip install --upgrade pylint astroid
     - name: Lint
       run: make lint

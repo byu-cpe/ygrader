@@ -1,21 +1,30 @@
-""" Main ygrader module"""
-from collections import defaultdict
-import pathlib
+"""Main ygrader module"""
+
+import datetime as dt
 import enum
-import re
-import zipfile
-import time
-import os
-import shutil
-from typing import Callable
 import inspect
+import os
+import pathlib
+import re
+import shutil
+import time
+import zipfile
+from collections import defaultdict
+from typing import Callable
+
 import pandas
+import yaml
 
-
-from . import grades_csv
-from . import utils, student_repos
-from .grading_item import GradeItem
-from .utils import CallbackFailed, directory_is_empty, print_color, TermColors, error, warning
+from . import grades_csv, student_repos, utils
+from .grading_item import GradeItem, ScoreMode
+from .utils import (
+    CallbackFailed,
+    TermColors,
+    directory_is_empty,
+    error,
+    print_color,
+    warning,
+)
 
 
 class CodeSource(enum.Enum):
@@ -65,13 +74,17 @@ class Grader:
 
         # Create a working directory
         self.work_path = pathlib.Path(work_path).resolve()
-        self.work_path = self.work_path / lab_name
+        self.work_path.mkdir(parents=True, exist_ok=True)
 
         # Read CSV and make sure it isn't empty
         try:
             pandas.read_csv(self.grades_csv_path)
         except pandas.errors.EmptyDataError:
-            error("Your grades csv", "(" + str(grades_csv_path) + ")", "appears to be empty")
+            error(
+                "Your grades csv",
+                "(" + str(grades_csv_path) + ")",
+                "appears to be empty",
+            )
 
         # Initialize other class members
         self.items = []
@@ -84,23 +97,26 @@ class Grader:
         self.github_https = None
         self.groups_csv_path = None
         self.groups_csv_col_name = None
+        self.due_date_exceptions = {}
         self.set_other_options()
 
     def add_item_to_grade(
         self,
-        csv_col_names,
+        csv_col_name,
         grading_fcn,
+        *,
+        grading_fcn_args_dict=None,
         max_points=None,
-        feedback_filename=None,
-        feedback_col_name=None,
+        score_mode=ScoreMode.MANUAL,
+        deductions_yaml_path=None,
         help_msg=None,
     ):
         """Add a new item you want to grade.
 
         Parameters
         ----------
-        csv_col_names: (str | list of str)
-            The column name(s) from your grading CSV file that you want to grade.
+        csv_col_name: str
+            The column name from your grading CSV file that you want to grade.
         grading_fcn: Callable
             The callback function that will perform all your grading work. Your callback function will be provided with the following arguments:
 
@@ -108,8 +124,7 @@ class Grader:
                 Useful if you use the same callback function to grade multiple different assignments.
 
               * student_code_path (*pathlib.Path*): The location where the unzipped/cloned student files are stored.
-              * cols_to_grade (*str*): The current CSV column being graded. Typically only needed if you are grading
-                multiple different items.
+              * csv_col_name (*str*): The current CSV column being graded.
               * points (*int*): The maximum number of points possible for the item being graded, used for validating the
                 grade when prompting the user to input a grade.  If your callback function automatically calcuates and
                 returns a grade, this argument is ignored.
@@ -127,9 +142,9 @@ class Grader:
               * homework_id: (*str*) Student homework ID, assuming 'Course Homework ID' was contained in grades_csv
                 exported from Learning Suite.
 
-            Your callback should return *None* or an *int*/*float* (or a list of *int*/*float* if you are grading multiple
-            columns in this item).  If you return *None*, then the user will be prompted to input a grade.  If you already
-            know the grade you want to assign, and don't want to prompt the user, return the grade value(s).
+            Your callback should return *None* or an *int*/*float*.  If you return *None*, then the user will be prompted to input a grade.  If you already
+            know the grade you want to assign, and don't want to prompt the user, return the grade value.
+            If feedback is enabled, return a tuple of (score, feedback).
 
             If there's a problem with the student's submission and you want to skip them, then `raise CallbackFailed`.
             You can provide an argument to this exception with any error message you want printed.
@@ -142,76 +157,25 @@ class Grader:
                 def my_callback(**kw):
                     lab_name = kw["lab_name"]
                     first_name = kw["first_names"][0]
-        max_points: int | list of int
-            (Optional) Number of max points for the graded column(s).
-        feedback_filename: str
-            (Optional) Filename for feedback that will be zipped and can be uploaded to LearningSuite.
-            This feedback zip file will be stored in a 'feedback' directory, located with your grades CSV.
-        feedback_col_name: str
-            (Optional) Alterantively, feedback can be saved to a column in the grade CSV file.  To do this, provide the name of CSV column.
-        help_msg: str | list of str
+        grading_fcn_args_dict: dict
+            (Optional) A dictionary of additional arguments that will be passed to your grading function.
+        max_points: int
+            (Optional) Number of max points for the graded column.
+        deductions_yaml_path: pathlib.Path
+            (Optional) Path to the YAML file for storing deductions. Required if score_mode is DEDUCTIONS.
+        help_msg: str
             (Optional) When the script asks the user for a grade, it will print this message first.  This can be a helpful
-            reminder to the TAs of a grading rubric, things they should watch out for, etc.  If you are grading multiple
-            CSV columns, then you should provide a separate help message per column.
+            reminder to the TAs of a grading rubric, things they should watch out for, etc.
         """
         # Check data types
         if not isinstance(grading_fcn, Callable):
             error("'grading_fcn' must be a callable function")
 
-        # Make these into lists, even if there is only one item
-        csv_col_names = utils.ensure_tuple(csv_col_names)
-        if max_points:
-            max_points = utils.ensure_tuple(max_points)
-
-            # Check that # of CSV columns to grade matches # of points list
-            if len(csv_col_names) != len(max_points):
-                error(
-                    "'csv_col_names'",
-                    csv_col_names,
-                    "has list length =",
-                    len(csv_col_names),
-                    "but 'max_points'",
-                    max_points,
-                    "has list length =",
-                    str(len(max_points)) + ".",
-                    "They must be equal.",
-                )
-
-        if help_msg:
-            help_msg = utils.ensure_tuple(help_msg)
-
-            # Check that # of CSV columns to grade matches # of help_msg list
-            if len(csv_col_names) != len(help_msg):
-                error(
-                    "'csv_col_names'",
-                    csv_col_names,
-                    "has list length =",
-                    len(csv_col_names),
-                    "but 'help_msg'",
-                    help_msg,
-                    "has list length =",
-                    str(len(help_msg)) + ".",
-                    "They must be equal.",
-                )
-
         df = pandas.read_csv(self.grades_csv_path)
-        for col_name in csv_col_names:
-            if col_name is not None and col_name not in df:
-                error(
-                    "Provided grade column name",
-                    "(" + col_name + ")",
-                    "does not exist in grades_csv_path",
-                    "(" + str(self.grades_csv_path) + ").",
-                    "Columns:",
-                    list(df.columns),
-                )
-
-        if feedback_filename is not None and feedback_col_name is not None:
-            error("Provide only one of feedback_filename or feedback_col_name")
-        if feedback_col_name and feedback_col_name not in df:
+        if csv_col_name is not None and csv_col_name not in df:
             error(
-                "Provided feedback_col_name",
-                "(" + feedback_col_name + ")",
+                "Provided grade column name",
+                "(" + csv_col_name + ")",
                 "does not exist in grades_csv_path",
                 "(" + str(self.grades_csv_path) + ").",
                 "Columns:",
@@ -220,14 +184,17 @@ class Grader:
 
         item = GradeItem(
             self,
-            csv_col_names,
+            csv_col_name,
             grading_fcn,
             max_points,
-            feedback_filename,
-            feedback_col_name,
-            help_msg,
+            help_msg=help_msg,
+            score_mode=score_mode,
+            deductions_yaml_path=deductions_yaml_path,
+            fcn_args_dict=grading_fcn_args_dict,
         )
-        _verify_callback_fcn(grading_fcn, item)
+        _verify_callback_fcn(
+            grading_fcn, item, fcn_extra_args_dict=grading_fcn_args_dict
+        )
         self.items.append(item)
 
     def add_analysis_item(
@@ -264,7 +231,13 @@ class Grader:
             error("Provided zip_path", zip_path, "does not exist")
 
     def set_submission_system_github(
-        self, tag, github_url_csv_path, repo_col_name="github_url", use_https=False
+        self,
+        tag,
+        github_url_csv_path,
+        repo_col_name="github_url",
+        *,
+        use_https=False,
+        build_from_classroster=None,
     ):
         """
         Call this function if you are using student submissions on Github.
@@ -282,6 +255,9 @@ class Grader:
         use_https: bool
             By default SSH will be used to clone the student repos.  If you want to use an access token or stored
             credentials over https, set this to True.
+        build_from_classroster: (str, str)
+            If the CSV file does not contain the github URLs, but instead contains a class roster from Git Classroom,
+            then this should provide the organization and classroom prefix name to build the github URLs.
         """
         self.code_source = CodeSource.GITHUB
         self.github_csv_path = pathlib.Path(github_url_csv_path).resolve()
@@ -295,8 +271,29 @@ class Grader:
                 "(" + str(github_url_csv_path) + ")",
                 "does not exist",
             )
+        if build_from_classroster is not None and repo_col_name != "github_url":
+            error(
+                "When using build_from_classroster, don't override repo_col_name.",
+            )
 
         df = pandas.read_csv(github_url_csv_path)
+
+        # If building from class roster, build github URLs
+        if build_from_classroster is not None:
+            org, prefix = build_from_classroster
+            # Classroom exports call the Net ID column "identifier"; normalize it
+            if "identifier" in df.columns and "Net ID" not in df.columns:
+                df = df.rename(columns={"identifier": "Net ID"})
+            # Build SSH URLs: git@github.com:<org>/<prefix>-<github_username>.git
+            df[self.github_csv_col_name] = df.apply(
+                lambda row: f"git@github.com:{org}/{prefix}-{row['github_username']}.git",
+                axis=1,
+            )
+            # Write the updated dataframe back to the CSV
+            self.github_csv_path = self.work_path / "temp_github_urls.csv"
+            df.to_csv(self.github_csv_path, index=False)
+
+        # Make sure repo_col_name exists
         if repo_col_name not in df:
             error(
                 "Provided repo_col_name",
@@ -334,6 +331,7 @@ class Grader:
 
     def set_other_options(
         self,
+        *,
         format_code=False,
         build_only=False,
         run_only=False,
@@ -342,6 +340,9 @@ class Grader:
         prep_fcn=None,
         dry_run_first=False,
         dry_run_all=False,
+        workflow_hash=None,
+        due_date=None,
+        due_date_exceptions_path=None,
     ):
         """
         This can be used to set other options for the grader.
@@ -377,12 +378,29 @@ class Grader:
         dry_run_all: bool
             Perform a dry run, calling your callback function to perform grading, but not updating the grades CSV file.
             The callback is run for each student.
+        workflow_hash: str
+            (Optional) Expected hash of the GitHub workflow file. If provided, the workflow file will be verified
+            before grading each student. If the hash doesn't match, a warning will be displayed indicating
+            the student may have modified the workflow system.
+        due_date: datetime.datetime
+            (Optional) Due date for the assignment. If provided, the submission date will be compared to this
+            and late days will be calculated and displayed.
+        due_date_exceptions_path: str
+            (Optional) Path to a YAML file containing per-student due date exceptions. The file should be
+            a simple dictionary mapping net_ids to deadline strings in "YYYY-MM-DD HH:MM:SS" format.
+            Example:
+                "student1": "2025-01-15 23:59:59"
+                "student2": "2025-01-17 23:59:59"
         """
         self.format_code = format_code
         self.build_only = build_only
         self.run_only = run_only
         self.allow_rebuild = allow_rebuild
         self.allow_rerun = allow_rerun
+        self.workflow_hash = workflow_hash
+        self.due_date = due_date
+        self.due_date_exceptions = {}
+        self.due_date_exceptions_path = due_date_exceptions_path
         if prep_fcn and not isinstance(prep_fcn, Callable):
             error("The 'prep_fcn' argument must provide a callable function pointer")
         self.prep_fcn = prep_fcn
@@ -412,14 +430,47 @@ class Grader:
                 + "set_submission_system_learning_suite() or set_submission_system_github()."
             )
 
+    def _load_due_date_exceptions(self):
+        """Load due date exceptions from YAML file (simple net_id: deadline format)"""
+
+        self.due_date_exceptions = {}
+        if not self.due_date_exceptions_path:
+            return
+
+        try:
+            with open(self.due_date_exceptions_path, "r", encoding="utf-8") as f:
+                exceptions_raw = yaml.safe_load(f)
+        except (IOError, yaml.YAMLError) as e:
+            print_color(
+                TermColors.YELLOW, f"Warning: Could not load exceptions file: {e}"
+            )
+            return
+
+        if not exceptions_raw or not isinstance(exceptions_raw, dict):
+            return
+
+        for net_id, deadline_str in exceptions_raw.items():
+            try:
+                self.due_date_exceptions[net_id] = dt.datetime.strptime(
+                    deadline_str, "%Y-%m-%d %H:%M:%S"
+                )
+            except ValueError as e:
+                print_color(
+                    TermColors.YELLOW,
+                    f"Warning: Could not parse deadline for {net_id}: {e}",
+                )
+
     def _get_all_csv_cols_to_grade(self):
         """Collect all columns that will be graded into a single list"""
-        return [col for item in self.items for col in item.csv_col_names]
+        return [
+            item.csv_col_name for item in self.items if item.csv_col_name is not None
+        ]
 
     def run(self):
         """Call this to start (or resume) the grading process"""
 
         self._validate_config()
+        self._load_due_date_exceptions()
 
         # Print starting message
         print_color(TermColors.BLUE, "Running grader for", self.lab_name)
@@ -428,13 +479,6 @@ class Grader:
         student_grades_df = grades_csv.parse_and_check(
             self.grades_csv_path, self._get_all_csv_cols_to_grade()
         )
-
-        # Convert columns
-        for item in self.items:
-            if item.feedback_col_name:
-                student_grades_df[item.feedback_col_name] = student_grades_df[
-                    item.feedback_col_name
-                ].fillna("")
 
         # Filter by students who need a grade
         grades_needed_df = grades_csv.filter_need_grade(
@@ -481,7 +525,7 @@ class Grader:
                     item.num_grades_needed(row) for item in self.items
                 ]
 
-                if sum(sum(s) for s in num_group_members_need_grade_per_item) == 0:
+                if sum(num_group_members_need_grade_per_item) == 0:
                     # This student/group is already fully graded
                     continue
 
@@ -538,7 +582,8 @@ class Grader:
 
             if self.dry_run_first:
                 print_color(
-                    TermColors.YELLOW, "'dry_run_first' is set, so exiting after first student."
+                    TermColors.YELLOW,
+                    "'dry_run_first' is set, so exiting after first student.",
                 )
                 break
 
@@ -588,7 +633,9 @@ class Grader:
                 df, self.github_csv_path, self.github_csv_col_name, self.github_https
             )
 
-            df_needs_grades = grades_csv.filter_need_grade(df, self._get_all_csv_cols_to_grade())
+            df_needs_grades = grades_csv.filter_need_grade(
+                df, self._get_all_csv_cols_to_grade()
+            )
             groupby_column = "github_url"
 
         elif self.groups_csv_path is None:
@@ -605,7 +652,9 @@ class Grader:
             )
 
             # Check how many students remain
-            df_needs_grades = grades_csv.filter_need_grade(df, self._get_all_csv_cols_to_grade())
+            df_needs_grades = grades_csv.filter_need_grade(
+                df, self._get_all_csv_cols_to_grade()
+            )
             print_color(
                 TermColors.BLUE,
                 str(df_needs_grades.shape[0]),
@@ -627,12 +676,16 @@ class Grader:
 
         # Clone student repo
         print("Student repo url: " + row["github_url"])
-        if not student_repos.clone_repo(row["github_url"], self.github_tag, student_work_path):
+        if not student_repos.clone_repo(
+            row["github_url"], self.github_tag, student_work_path
+        ):
             return False
         return True
 
     def _get_student_code_learning_suite(self, row, student_work_path):
-        print("Extracting submitted files for", grades_csv.get_concated_names(row), "...")
+        print(
+            "Extracting submitted files for", grades_csv.get_concated_names(row), "..."
+        )
         if student_work_path.is_dir() and not directory_is_empty(student_work_path):
             # Code already extracted from Zip, return
             print("  Files already extracted previously.")
@@ -669,7 +722,10 @@ class Grader:
 
                         # If we've already extracted a file of this name, don't overwrite if older
                         if extract_to_name in extracted_by_name:
-                            if file.date_time <= extracted_by_name[extract_to_name].date_time:
+                            if (
+                                file.date_time
+                                <= extracted_by_name[extract_to_name].date_time
+                            ):
                                 continue
                         top_zip.extract(file, student_work_path)
                         extracted_by_name[extract_to_name] = file
@@ -693,7 +749,10 @@ class Grader:
 
                             # If we've already extracted a file of this name, don't overwrite if older
                             if file2.filename in extracted_by_name:
-                                if file2.date_time <= extracted_by_name[file2.filename].date_time:
+                                if (
+                                    file2.date_time
+                                    <= extracted_by_name[file2.filename].date_time
+                                ):
                                     continue
 
                             inner_zip.extract(file2, student_work_path)
@@ -736,7 +795,7 @@ class Grader:
             self.work_path.mkdir(exist_ok=True, parents=True)
 
 
-def _verify_callback_fcn(fcn, item):
+def _verify_callback_fcn(fcn, item, fcn_extra_args_dict=None):
     callback_args = [
         "lab_name",
         "student_code_path",
@@ -752,12 +811,15 @@ def _verify_callback_fcn(fcn, item):
 
         # If this is a fcn for a graded item (not a prep-only function), then
         # this argument is required.
-        callback_args.append("csv_col_names")
+        callback_args.append("csv_col_name")
 
     callback_args_optional = [
         "section",
         "homework_id",
     ]
+
+    if fcn_extra_args_dict is None:
+        fcn_extra_args_dict = {}
 
     # Check that callback function(s) are valid
     argspec = inspect.getfullargspec(fcn)
@@ -777,7 +839,11 @@ def _verify_callback_fcn(fcn, item):
         # Skip special arguments
         if named_arg in ("self", "cls") and i == 0:
             continue
-        if (named_arg not in callback_args) and (named_arg not in callback_args_optional):
+        if (
+            (named_arg not in callback_args)
+            and (named_arg not in callback_args_optional)
+            and (named_arg not in fcn_extra_args_dict)
+        ):
             error(
                 "Your callback function",
                 "(" + fcn.__name__ + ")",
@@ -787,7 +853,7 @@ def _verify_callback_fcn(fcn, item):
                 + "will not be able to call your callback function correctly. Available callback arguments:",
                 str(callback_args),
             )
-        elif named_arg not in callback_args:
+        elif named_arg not in callback_args and named_arg not in fcn_extra_args_dict:
             warning(
                 "Your callback function",
                 "(" + fcn.__name__ + ")",

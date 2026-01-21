@@ -33,6 +33,4 @@ A: Keep your groups in a CSV file, and use one column for each assignment.  When
 A: You can call `set_other_options()` and set `build_only` to True.  Run the grader with this option set first, then run it again with `run_only` set to True.  This will set the `build` and `run` boolean arguments of your callback function appropriately.  
 
 **Q: Can I grade multiple items for a student at once?**
-A: Yes, you can grade multiple columns, and can control whether your callback is called for each column, or whether your callback is run once to determine grades for multiple columns (or a mix of these approaches).
-
-For each columns(s) you want your callback function invoked, use a separate call to `add_item_to_grade`.  If you want to grade multiple columns per invocation of your callback, then provide a list of those column names to `add_item_to_grade`.
+A: Yes, you can grade multiple columns. For each column you want your callback function invoked, use a separate call to `add_item_to_grade`.

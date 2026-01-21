@@ -1,4 +1,3 @@
-import pkg_resources  # part of setuptools
+from importlib.metadata import version
 
-version = pkg_resources.require("ygrader")[0].version
-print(version)
+print(version("ygrader"))

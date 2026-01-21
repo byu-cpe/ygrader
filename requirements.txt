@@ -1,4 +1,5 @@
 pandas
 numpy
+pyyaml
 pylint==2.14.4
 twine

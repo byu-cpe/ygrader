@@ -1,8 +1,10 @@
-""" Manages student repositories when using Github sumission system """
+"""Manages student repositories when using Github sumission system"""
+
 import shutil
 import subprocess
 import sys
 import re
+import tempfile
 
 from .utils import print_color, TermColors
 
@@ -60,13 +62,25 @@ def clone_repo(git_path, tag, student_repo_path):
         ]
     else:
         cmd = ["git", "clone", git_path, str(student_repo_path.absolute())]
+
+    # Redirect clone output to a temporary log file in /tmp
+    log_path = None
     try:
-        subprocess.run(cmd, check=True)
+        with tempfile.NamedTemporaryFile(
+            delete=False, dir="/tmp", prefix="ygrader_clone_", suffix=".log"
+        ) as tmp_log:
+            log_path = tmp_log.name
+            subprocess.run(cmd, check=True, stdout=tmp_log, stderr=subprocess.STDOUT)
+        # Inform user where the clone output was written
+        if log_path:
+            print(f"git clone output logged to {log_path}")
     except KeyboardInterrupt:
         shutil.rmtree(str(student_repo_path))
         sys.exit(-1)
     except subprocess.CalledProcessError:
         print_color(TermColors.RED, "Clone failed")
+        if log_path:
+            print_color(TermColors.YELLOW, "See log:", log_path)
         return False
     return True
 

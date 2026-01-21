@@ -1,10 +1,12 @@
-""" ygrader utility functions"""
+"""ygrader utility functions"""
 
 import pathlib
+import re
 import sys
 import shutil
 import subprocess
 import hashlib
+import time
 
 
 class TermColors:
@@ -122,7 +124,7 @@ def verify_workflow_hash(workflow_file_path, hash_str):
     hash_val = hash_file(workflow_file_path)
     if hash_val != hash_str:
         raise WorkflowHashError(
-            f"Hash value {hash_val} does not match expected value of {hash_str}"
+            f"Workflow hash mismatch:\n  Got:      {hash_val}\n  Expected: {hash_str}"
         )
 
 
@@ -138,3 +140,80 @@ def ensure_tuple(x):
 def directory_is_empty(directory: pathlib.Path) -> bool:
     """Returns whether the given directory is empty"""
     return not any(directory.iterdir())
+
+
+def sanitize_filename(filename: str) -> str:
+    """Replace invalid filename characters with underscores."""
+    # Replace invalid characters with underscores
+    # Invalid characters: < > : " / \ | ? *
+    return re.sub(r'[<>:"/\\|?*]', "_", filename)
+
+
+def is_wsl():
+    """Check if running in WSL"""
+    return (
+        pathlib.Path("/proc/version").exists()
+        and "microsoft"
+        in pathlib.Path("/proc/version").read_text(encoding="utf-8").lower()
+    )
+
+
+# Track if we've already printed the focus warnings
+_FOCUS_WARNING_PRINTED = False
+
+
+def open_file_in_vscode(file_path):
+    """Open a file in VS Code and return focus to terminal.
+
+    Parameters
+    ----------
+    file_path: pathlib.Path or str
+        Path to the file to open in VS Code
+    """
+    global _FOCUS_WARNING_PRINTED  # pylint: disable=global-statement
+
+    file_path = pathlib.Path(file_path)
+
+    # Open in VS Code (will steal focus)
+    with subprocess.Popen(
+        ["code", "--reuse-window", file_path],
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+    ):
+        pass
+    # Give VS Code a moment to open, then send Ctrl+` to toggle terminal focus
+    time.sleep(0.5)
+
+    # Use AutoHotkey on WSL, xdotool on Linux
+    if is_wsl():
+        # Get the path to the .ahk file in the package
+        package_dir = pathlib.Path(__file__).parent
+        ahk_file = package_dir / "send_ctrl_backtick.ahk"
+        autohotkey_path = pathlib.Path(
+            "/mnt/c/Program Files/AutoHotkey/v2/AutoHotkey.exe"
+        )
+
+        if autohotkey_path.exists():
+            subprocess.run([str(autohotkey_path), str(ahk_file)], check=False)
+        else:
+            if not _FOCUS_WARNING_PRINTED:
+                warning(
+                    f"AutoHotkey not found at {autohotkey_path}. Install AutoHotkey v2 to keep terminal focus when opening files in VS Code."
+                )
+                _FOCUS_WARNING_PRINTED = True
+    else:
+        # Check if xdotool exists
+        try:
+            subprocess.run(
+                ["which", "xdotool"],
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                check=True,
+            )
+            subprocess.run(["xdotool", "key", "ctrl+grave"], check=False)
+        except subprocess.CalledProcessError:
+            if not _FOCUS_WARNING_PRINTED:
+                warning(
+                    "xdotool not found. Install xdotool to keep terminal focus when opening files in VS Code."
+                )
+                _FOCUS_WARNING_PRINTED = True
