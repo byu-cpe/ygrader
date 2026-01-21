@@ -56,11 +56,13 @@ class TestLearningSuite(unittest.TestCase):
             work_path=TEST_PATH / "temp",
         )
         grader.add_item_to_grade(
-            csv_col_names="lab1",
+            csv_col_name="lab1",
             grading_fcn=self.runner,
-            max_points=(10,),
+            max_points=10,
         )
-        grader.set_submission_system_learning_suite(TEST_RESOURCES_PATH / "submissions.zip")
+        grader.set_submission_system_learning_suite(
+            TEST_RESOURCES_PATH / "submissions.zip"
+        )
         grader.run()
 
         self.assertTrue(filecmp.cmp(grades_path, grades_path_golden))
@@ -82,13 +84,14 @@ class TestLearningSuite(unittest.TestCase):
             work_path=TEST_PATH / "temp",
         )
         grader.add_item_to_grade(
-            csv_col_names="l1",
+            csv_col_name="l1",
             grading_fcn=self.group_grader_1,
         )
-        grader.add_item_to_grade(
-            ("l2", "l3"), self.group_grader_2, help_msg=("rubric message 1", "rubric message 2")
+        grader.add_item_to_grade("l2", self.group_grader_2, help_msg="rubric message 1")
+        grader.add_item_to_grade("l3", self.group_grader_3, help_msg="rubric message 2")
+        grader.set_submission_system_learning_suite(
+            TEST_RESOURCES_PATH / "submissions2.zip"
         )
-        grader.set_submission_system_learning_suite(TEST_RESOURCES_PATH / "submissions2.zip")
         grader.set_learning_suite_groups(TEST_RESOURCES_PATH / "groups3.csv")
         grader.run()
 
@@ -96,4 +99,7 @@ class TestLearningSuite(unittest.TestCase):
         return 1.5
 
     def group_grader_2(self, **kw):
-        return (2, 3.0)
+        return 2
+
+    def group_grader_3(self, **kw):
+        return 3.0

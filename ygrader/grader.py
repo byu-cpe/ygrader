@@ -15,7 +15,7 @@ import pandas
 
 from . import grades_csv
 from . import utils, student_repos
-from .grading_item import GradeItem
+from .grading_item import GradeItem, ScoreMode
 from .utils import (
     CallbackFailed,
     directory_is_empty,
@@ -73,7 +73,6 @@ class Grader:
 
         # Create a working directory
         self.work_path = pathlib.Path(work_path).resolve()
-        self.work_path = self.work_path / lab_name
         self.work_path.mkdir(parents=True, exist_ok=True)
 
         # Create subdirectories for repos and feedback
@@ -107,21 +106,22 @@ class Grader:
 
     def add_item_to_grade(
         self,
-        csv_col_names,
+        csv_col_name,
         grading_fcn,
         *,
         grading_fcn_args_dict=None,
         max_points=None,
-        feedback_filename=None,
-        feedback_col_name=None,
+        score_mode=ScoreMode.MANUAL,
+        feedback_enabled=True,
+        feedback_dir_name=None,
         help_msg=None,
     ):
         """Add a new item you want to grade.
 
         Parameters
         ----------
-        csv_col_names: (str | list of str)
-            The column name(s) from your grading CSV file that you want to grade.
+        csv_col_name: str
+            The column name from your grading CSV file that you want to grade.
         grading_fcn: Callable
             The callback function that will perform all your grading work. Your callback function will be provided with the following arguments:
 
@@ -129,8 +129,7 @@ class Grader:
                 Useful if you use the same callback function to grade multiple different assignments.
 
               * student_code_path (*pathlib.Path*): The location where the unzipped/cloned student files are stored.
-              * cols_to_grade (*str*): The current CSV column being graded. Typically only needed if you are grading
-                multiple different items.
+              * csv_col_name (*str*): The current CSV column being graded.
               * points (*int*): The maximum number of points possible for the item being graded, used for validating the
                 grade when prompting the user to input a grade.  If your callback function automatically calcuates and
                 returns a grade, this argument is ignored.
@@ -148,9 +147,9 @@ class Grader:
               * homework_id: (*str*) Student homework ID, assuming 'Course Homework ID' was contained in grades_csv
                 exported from Learning Suite.
 
-            Your callback should return *None* or an *int*/*float* (or a list of *int*/*float* if you are grading multiple
-            columns in this item).  If you return *None*, then the user will be prompted to input a grade.  If you already
-            know the grade you want to assign, and don't want to prompt the user, return the grade value(s).
+            Your callback should return *None* or an *int*/*float*.  If you return *None*, then the user will be prompted to input a grade.  If you already
+            know the grade you want to assign, and don't want to prompt the user, return the grade value.
+            If feedback is enabled, return a tuple of (score, feedback).
 
             If there's a problem with the student's submission and you want to skip them, then `raise CallbackFailed`.
             You can provide an argument to this exception with any error message you want printed.
@@ -165,76 +164,27 @@ class Grader:
                     first_name = kw["first_names"][0]
         grading_fcn_args_dict: dict
             (Optional) A dictionary of additional arguments that will be passed to your grading function.
-        max_points: int | list of int
-            (Optional) Number of max points for the graded column(s).
-        feedback_filename: str
-            (Optional) Filename for feedback that will be zipped and can be uploaded to LearningSuite.
-            This feedback zip file will be stored in a 'feedback' directory, located with your grades CSV.
-        feedback_col_name: str
-            (Optional) Alterantively, feedback can be saved to a column in the grade CSV file.  To do this, provide the name of CSV column.
-        help_msg: str | list of str
+        max_points: int
+            (Optional) Number of max points for the graded column.
+        feedback_enabled: bool
+            (Optional) Whether to prompt for feedback when grading. Defaults to True.
+        feedback_dir_name: str
+            (Optional) Grading feedback is stored in a subdirectory based on the csv_col_name by default.
+            If you have multiple grading items with the same csv_col_name, or want to ensure uniqueness, you can provide
+            this name directly to override the default feedback directory name.
+        help_msg: str
             (Optional) When the script asks the user for a grade, it will print this message first.  This can be a helpful
-            reminder to the TAs of a grading rubric, things they should watch out for, etc.  If you are grading multiple
-            CSV columns, then you should provide a separate help message per column.
+            reminder to the TAs of a grading rubric, things they should watch out for, etc.
         """
         # Check data types
         if not isinstance(grading_fcn, Callable):
             error("'grading_fcn' must be a callable function")
 
-        # Make these into lists, even if there is only one item
-        csv_col_names = utils.ensure_tuple(csv_col_names)
-        if max_points:
-            max_points = utils.ensure_tuple(max_points)
-
-            # Check that # of CSV columns to grade matches # of points list
-            if len(csv_col_names) != len(max_points):
-                error(
-                    "'csv_col_names'",
-                    csv_col_names,
-                    "has list length =",
-                    len(csv_col_names),
-                    "but 'max_points'",
-                    max_points,
-                    "has list length =",
-                    str(len(max_points)) + ".",
-                    "They must be equal.",
-                )
-
-        if help_msg:
-            help_msg = utils.ensure_tuple(help_msg)
-
-            # Check that # of CSV columns to grade matches # of help_msg list
-            if len(csv_col_names) != len(help_msg):
-                error(
-                    "'csv_col_names'",
-                    csv_col_names,
-                    "has list length =",
-                    len(csv_col_names),
-                    "but 'help_msg'",
-                    help_msg,
-                    "has list length =",
-                    str(len(help_msg)) + ".",
-                    "They must be equal.",
-                )
-
         df = pandas.read_csv(self.grades_csv_path)
-        for col_name in csv_col_names:
-            if col_name is not None and col_name not in df:
-                error(
-                    "Provided grade column name",
-                    "(" + col_name + ")",
-                    "does not exist in grades_csv_path",
-                    "(" + str(self.grades_csv_path) + ").",
-                    "Columns:",
-                    list(df.columns),
-                )
-
-        if feedback_filename is not None and feedback_col_name is not None:
-            error("Provide only one of feedback_filename or feedback_col_name")
-        if feedback_col_name and feedback_col_name not in df:
+        if csv_col_name is not None and csv_col_name not in df:
             error(
-                "Provided feedback_col_name",
-                "(" + feedback_col_name + ")",
+                "Provided grade column name",
+                "(" + csv_col_name + ")",
                 "does not exist in grades_csv_path",
                 "(" + str(self.grades_csv_path) + ").",
                 "Columns:",
@@ -243,12 +193,13 @@ class Grader:
 
         item = GradeItem(
             self,
-            csv_col_names,
+            csv_col_name,
             grading_fcn,
             max_points,
-            feedback_filename,
-            feedback_col_name,
             help_msg,
+            score_mode=score_mode,
+            feedback_enabled=feedback_enabled,
+            feedback_dir_name=feedback_dir_name,
             fcn_args_dict=grading_fcn_args_dict,
         )
         _verify_callback_fcn(
@@ -469,7 +420,9 @@ class Grader:
 
     def _get_all_csv_cols_to_grade(self):
         """Collect all columns that will be graded into a single list"""
-        return [col for item in self.items for col in item.csv_col_names]
+        return [
+            item.csv_col_name for item in self.items if item.csv_col_name is not None
+        ]
 
     def run(self):
         """Call this to start (or resume) the grading process"""
@@ -483,13 +436,6 @@ class Grader:
         student_grades_df = grades_csv.parse_and_check(
             self.grades_csv_path, self._get_all_csv_cols_to_grade()
         )
-
-        # Convert columns
-        for item in self.items:
-            if item.feedback_col_name:
-                student_grades_df[item.feedback_col_name] = student_grades_df[
-                    item.feedback_col_name
-                ].fillna("")
 
         # Filter by students who need a grade
         grades_needed_df = grades_csv.filter_need_grade(
@@ -536,7 +482,7 @@ class Grader:
                     item.num_grades_needed(row) for item in self.items
                 ]
 
-                if sum(sum(s) for s in num_group_members_need_grade_per_item) == 0:
+                if sum(num_group_members_need_grade_per_item) == 0:
                     # This student/group is already fully graded
                     continue
 
@@ -822,7 +768,7 @@ def _verify_callback_fcn(fcn, item, fcn_extra_args_dict=None):
 
         # If this is a fcn for a graded item (not a prep-only function), then
         # this argument is required.
-        callback_args.append("csv_col_names")
+        callback_args.append("csv_col_name")
 
     callback_args_optional = [
         "section",
