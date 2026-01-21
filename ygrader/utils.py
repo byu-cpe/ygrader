@@ -174,13 +174,29 @@ def open_file_in_vscode(file_path):
 
     file_path = pathlib.Path(file_path)
 
+    # Verify file exists before trying to open
+    if not file_path.exists():
+        error(f"File does not exist: {file_path}")
+
+    print(f"Opening {file_path} in VS Code...")
+
     # Open in VS Code (will steal focus)
-    with subprocess.Popen(
-        ["code", "--reuse-window", file_path],
-        stdout=subprocess.DEVNULL,
-        stderr=subprocess.DEVNULL,
-    ):
-        pass
+    try:
+        result = subprocess.run(
+            ["code", "--reuse-window", file_path],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            check=False,
+        )
+        if result.returncode != 0:
+            error(f"VS Code exited with code {result.returncode}")
+    except FileNotFoundError:
+        error(
+            "VS Code command 'code' not found. Make sure VS Code is installed and 'code' is in your PATH."
+        )
+    except Exception as e:
+        error(f"Failed to open VS Code: {e}")
+
     # Give VS Code a moment to open, then send Ctrl+` to toggle terminal focus
     time.sleep(0.5)
 
@@ -194,7 +210,13 @@ def open_file_in_vscode(file_path):
         )
 
         if autohotkey_path.exists():
-            subprocess.run([str(autohotkey_path), str(ahk_file)], check=False)
+            result = subprocess.run([str(autohotkey_path), str(ahk_file)], check=False)
+            if result.returncode != 0:
+                if not _FOCUS_WARNING_PRINTED:
+                    warning(
+                        f"AutoHotkey failed to send hotkey (exit code {result.returncode}). Check that AutoHotkey v2 is properly installed."
+                    )
+                    _FOCUS_WARNING_PRINTED = True
         else:
             if not _FOCUS_WARNING_PRINTED:
                 warning(
@@ -210,7 +232,13 @@ def open_file_in_vscode(file_path):
                 stderr=subprocess.DEVNULL,
                 check=True,
             )
-            subprocess.run(["xdotool", "key", "ctrl+grave"], check=False)
+            result = subprocess.run(["xdotool", "key", "ctrl+grave"], check=False)
+            if result.returncode != 0:
+                if not _FOCUS_WARNING_PRINTED:
+                    warning(
+                        f"xdotool failed to send hotkey (exit code {result.returncode}). Check that xdotool is properly installed."
+                    )
+                    _FOCUS_WARNING_PRINTED = True
         except subprocess.CalledProcessError:
             if not _FOCUS_WARNING_PRINTED:
                 warning(
