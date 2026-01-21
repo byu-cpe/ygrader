@@ -10,5 +10,5 @@ setup(
     author_email="jeff.goeders@gmail.com",
     license="MIT",
     url="https://github.com/byu-cpe/ygrader",
-    install_requires=["pandas>=1.0.0"],
+    install_requires=["pandas>=1.0.0", "pyyaml"],
 )
