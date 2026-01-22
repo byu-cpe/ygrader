@@ -193,7 +193,7 @@ def open_file_in_vscode(file_path):
     # Give VS Code a moment to open, then send Ctrl+` to toggle terminal focus
     time.sleep(0.5)
 
-    # Use AutoHotkey on WSL, xdotool on Linux
+    # Use AutoHotkey on WSL, osascript on macOS, xdotool on Linux
     if is_wsl():
         # Get the path to the .ahk file in the package
         package_dir = pathlib.Path(__file__).parent
@@ -214,6 +214,28 @@ def open_file_in_vscode(file_path):
             if not _FOCUS_WARNING_PRINTED:
                 warning(
                     f"AutoHotkey not found at {autohotkey_path}. Install AutoHotkey v2 to keep terminal focus when opening files in VS Code."
+                )
+                _FOCUS_WARNING_PRINTED = True
+    elif sys.platform == "darwin":
+        # macOS: Use osascript to send Ctrl+` (toggle terminal) to VS Code
+        applescript = """
+            tell application "System Events"
+                tell process "Code"
+                    keystroke "`" using control down
+                end tell
+            end tell
+        """
+        result = subprocess.run(
+            ["osascript", "-e", applescript],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            check=False,
+        )
+        if result.returncode != 0:
+            if not _FOCUS_WARNING_PRINTED:
+                warning(
+                    f"osascript failed to send hotkey (exit code {result.returncode}). "
+                    "Make sure VS Code is granted accessibility permissions in System Preferences."
                 )
                 _FOCUS_WARNING_PRINTED = True
     else:
