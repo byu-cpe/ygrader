@@ -4,7 +4,7 @@ setup(
     name="ygrader",
     packages=["ygrader"],
     package_data={"ygrader": ["*.ahk"]},
-    version="1.2.1",
+    version="1.2.2",
     description="Grading scripts used in BYU's Electrical and Computer Engineering Department",
     author="Jeff Goeders",
     author_email="jeff.goeders@gmail.com",

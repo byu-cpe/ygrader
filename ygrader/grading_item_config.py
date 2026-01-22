@@ -1,4 +1,4 @@
-"""Module for handling parent items and sub-items in the grading system."""
+"""Module for handling grade item configs and grade subitem configs in the grading system."""
 
 import pathlib
 
@@ -9,8 +9,8 @@ from . import grades_csv
 from .utils import sanitize_filename
 
 
-class ParentItem:
-    """Represents a parent item in the grading system."""
+class GradeItemConfig:
+    """Represents a grade column configuration in the grading system, with a one-to-one mapping to a LearningSuite column"""
 
     def __init__(self, yaml_path: pathlib.Path):
         self.subitems = []
@@ -59,7 +59,7 @@ class ParentItem:
             other_data = {
                 k: v for k, v in subitem_data.items() if k not in ("name", "points")
             }
-            self.subitems.append(SubItem(yaml_path.parent, name, points, other_data))
+            self.subitems.append(GradeSubitemConfig(yaml_path.parent, name, points, other_data))
 
         # Parse any other data in the YAML file beyond 'parent_column' and 'columns'
         self.other_data = {
@@ -74,8 +74,8 @@ class ParentItem:
         raise ValueError(f"Sub-item with name '{name}' not found.")
 
 
-class SubItem:
-    """Represents a sub-item in the grading system."""
+class GradeSubitemConfig:
+    """Represents a grade subitem configuration in the grading system."""
 
     def __init__(
         self, dir_path: pathlib.Path, name: str, points: float, other_data: dict = None
@@ -90,17 +90,17 @@ class SubItem:
 def generate_subitem_csvs(grades_csv_path, item_yaml_path) -> None:
     """Generate CSV files for sub-items based on the provided item YAML path."""
     item_yaml_path = pathlib.Path(item_yaml_path)
-    parent_item = ParentItem(item_yaml_path)
+    grade_item_config = GradeItemConfig(item_yaml_path)
     # grader = Grader("", grades_csv_path)
 
-    grades_df = grades_csv.parse_and_check(grades_csv_path, [parent_item.csv_col_name])
+    grades_df = grades_csv.parse_and_check(grades_csv_path, [grade_item_config.csv_col_name])
 
     # Create subitems subdirectory
     subitems_dir = item_yaml_path.parent / "subitems"
     subitems_dir.mkdir(exist_ok=True)
 
     overwrite_all = False
-    for subitem in parent_item.subitems:
+    for subitem in grade_item_config.subitems:
         subitem_csv_path = subitems_dir / f"{subitem.filename}.csv"
 
         # Check if file already exists and ask user if they want to overwrite
