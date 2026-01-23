@@ -7,18 +7,20 @@ from typing import Dict
 import pandas
 
 from .deductions import StudentDeductions
-from .grading_item_config import GradeItemConfig
+from .grading_item_config import LearningSuiteColumn
 
 
 def generate_feedback_zip(
     yaml_path: pathlib.Path,
+    class_list_csv_path: pathlib.Path,
     subitem_feedback_paths: Dict[str, pathlib.Path],
     output_zip_path: pathlib.Path = None,
 ) -> pathlib.Path:
     """Generate a zip file containing feedback files for each student.
 
     Args:
-        yaml_path: Path to the YAML file that can be loaded by GradeItemConfig.
+        yaml_path: Path to the YAML file that can be loaded by LearningSuiteColumn.
+        class_list_csv_path: Path to CSV file with class list (Net ID, First Name, Last Name).
         subitem_feedback_paths: Mapping from subitem name to feedback YAML file path.
         output_zip_path: Path for the output zip file. If None, defaults to
             <yaml_dir>/feedback.zip.
@@ -27,7 +29,7 @@ def generate_feedback_zip(
         Path to the generated zip file.
     """
     yaml_path = pathlib.Path(yaml_path)
-    grade_item_config = GradeItemConfig(yaml_path)
+    ls_column = LearningSuiteColumn(yaml_path)
 
     # Get the lab name from the YAML file's parent directory
     lab_name = yaml_path.stem
@@ -38,7 +40,7 @@ def generate_feedback_zip(
 
     # Load all student deductions for each subitem
     subitem_deductions: Dict[str, StudentDeductions] = {}
-    for subitem in grade_item_config.subitems:
+    for subitem in ls_column.items:
         if subitem.name in subitem_feedback_paths:
             feedback_path = subitem_feedback_paths[subitem.name]
             if feedback_path.exists():
@@ -48,15 +50,8 @@ def generate_feedback_zip(
         else:
             subitem_deductions[subitem.name] = StudentDeductions()
 
-    # Load the first subitem's CSV to get the list of students
-    # (all subitems should have the same students)
-    first_subitem = grade_item_config.subitems[0]
-    if not first_subitem.csv_path.exists():
-        raise FileNotFoundError(
-            f"CSV file for subitem '{first_subitem.name}' not found at {first_subitem.csv_path}"
-        )
-
-    students_df = pandas.read_csv(first_subitem.csv_path)
+    # Load class list from provided CSV
+    students_df = pandas.read_csv(class_list_csv_path)
 
     # Create the zip file
     with zipfile.ZipFile(output_zip_path, "w", zipfile.ZIP_DEFLATED) as zip_file:
@@ -68,7 +63,7 @@ def generate_feedback_zip(
             # Generate feedback content for this student
             feedback_content = _generate_student_feedback(
                 student_row=student_row,
-                grade_item_config=grade_item_config,
+                ls_column=ls_column,
                 subitem_deductions=subitem_deductions,
             )
 
@@ -92,14 +87,14 @@ def generate_feedback_zip(
 
 def _generate_student_feedback(
     student_row: pandas.Series,
-    grade_item_config: GradeItemConfig,
+    ls_column: LearningSuiteColumn,
     subitem_deductions: Dict[str, StudentDeductions],
 ) -> str:
     """Generate the feedback text content for a single student.
 
     Args:
         student_row: A row from the student DataFrame.
-        grade_item_config: The GradeItemConfig object.
+        ls_column: The LearningSuiteColumn object.
         subitem_deductions: Mapping from subitem name to StudentDeductions.
 
     Returns:
@@ -121,11 +116,11 @@ def _generate_student_feedback(
     feedback_col_width = 45
     points_col_width = 15
 
-    for subitem in grade_item_config.subitems:
-        subitem_points_possible = subitem.points
+    for item in ls_column.items:
+        subitem_points_possible = item.points
         total_points_possible += subitem_points_possible
 
-        lines.append(f"{subitem.name} ({subitem_points_possible} points)")
+        lines.append(f"{item.name} ({subitem_points_possible} points)")
         lines.append("-" * 60)
 
         # Header row
@@ -135,8 +130,8 @@ def _generate_student_feedback(
 
         subitem_points_deducted = 0
 
-        # Get deductions for this student in this subitem
-        student_deductions_obj = subitem_deductions.get(subitem.name)
+        # Get deductions for this student in this item
+        student_deductions_obj = subitem_deductions.get(item.name)
         if student_deductions_obj:
             # Find the student's deductions (try single net_id first, then tuple)
             student_key = None

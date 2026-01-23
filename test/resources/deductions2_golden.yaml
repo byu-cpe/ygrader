@@ -1,0 +1,7 @@
+deduction_types:
+- id: 1
+  desc: New feedback
+  points: 2
+student_deductions:
+- net_ids: [jgoeders]
+  deductions: [1]

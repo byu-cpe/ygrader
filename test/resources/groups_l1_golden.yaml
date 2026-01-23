@@ -1,0 +1,5 @@
+student_deductions:
+- net_ids: [student1]
+  deductions: []
+- net_ids: [student2, student3]
+  deductions: []

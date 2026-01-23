@@ -1,4 +1,4 @@
-""" Manage the grade CSV file"""
+"""Manage the grade CSV file"""
 
 import pandas
 
@@ -6,14 +6,14 @@ from .student_repos import convert_github_url_format
 from .utils import TermColors, error, print_color, warning
 
 
-def parse_and_check(grades_csv_path, csv_cols):
-    """Parse the grades CSV file and check that column names are valid"""
+def parse_and_check(class_list_csv_path, csv_cols):
+    """Parse the class list CSV file and check that column names are valid"""
     try:
-        grades_df = pandas.read_csv(grades_csv_path)
+        grades_df = pandas.read_csv(class_list_csv_path)
     except pandas.errors.EmptyDataError:
         error(
             "Exception: pandas.errors.EmptyDataError.  Is your",
-            grades_csv_path.name,
+            class_list_csv_path.name,
             "file empty?",
         )
     check_csv_column_names(grades_df, csv_cols)
