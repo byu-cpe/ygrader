@@ -120,6 +120,7 @@ def assemble_grades(
     yaml_path: pathlib.Path,
     class_list_csv_path: pathlib.Path,
     subitem_feedback_paths: Dict[str, pathlib.Path],
+    *,
     output_zip_path: Optional[pathlib.Path] = None,
     output_csv_path: Optional[pathlib.Path] = None,
     late_penalty_callback: Optional[LatePenaltyCallback] = None,
@@ -162,12 +163,8 @@ def assemble_grades(
     # Prepare for CSV output
     grades_data = []
 
-    # Prepare for zip output
-    zip_file = None
-    if output_zip_path:
-        zip_file = zipfile.ZipFile(output_zip_path, "w", zipfile.ZIP_DEFLATED)
-
-    try:
+    def process_students(zip_file: Optional[zipfile.ZipFile]) -> None:
+        """Process all students, adding to grades_data and optionally writing to zip."""
         for _, student_row in students_df.iterrows():
             first_name = str(student_row["First Name"]).strip()
             last_name = str(student_row["Last Name"]).strip()
@@ -209,9 +206,12 @@ def assemble_grades(
                 )
                 zip_file.writestr(filename, feedback_content)
 
-    finally:
-        if zip_file:
-            zip_file.close()
+    # Process students with or without zip file
+    if output_zip_path:
+        with zipfile.ZipFile(output_zip_path, "w", zipfile.ZIP_DEFLATED) as zf:
+            process_students(zf)
+    else:
+        process_students(None)
 
     # Write CSV
     if output_csv_path and grades_data:
