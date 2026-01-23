@@ -19,7 +19,7 @@ class LearningSuiteColumn:
         self.csv_col_name = None
         self.other_data = {}
 
-        # First make sure the YAML file exists in a directory of the same name
+        # Make sure the YAML file exists
         if yaml_path.suffix != ".yaml":
             raise LearningSuiteColumnParseError(
                 "The item_yaml_path must point to a .yaml file."
@@ -27,10 +27,6 @@ class LearningSuiteColumn:
         if not yaml_path.exists():
             raise LearningSuiteColumnParseError(
                 f"The specified YAML file does not exist: {yaml_path}"
-            )
-        if yaml_path.parent.name != yaml_path.stem:
-            raise LearningSuiteColumnParseError(
-                f"The YAML file must be located in a directory of the same name. Currently {yaml_path} is in {yaml_path.parent}"
             )
 
         with yaml_path.open("r") as f:
