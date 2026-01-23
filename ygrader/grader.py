@@ -1,6 +1,5 @@
 """Main ygrader module"""
 
-import datetime as dt
 import enum
 import inspect
 import os
@@ -13,7 +12,6 @@ from collections import defaultdict
 from typing import Callable
 
 import pandas
-import yaml
 
 from . import grades_csv, student_repos, utils
 from .grading_item import GradeItem
@@ -101,7 +99,6 @@ class Grader:
         self.github_https = None
         self.groups_csv_path = None
         self.groups_csv_col_name = None
-        self.due_date_exceptions = {}
         self.set_other_options()
 
     def add_item_to_grade(
@@ -335,8 +332,6 @@ class Grader:
         dry_run_first=False,
         dry_run_all=False,
         workflow_hash=None,
-        due_date=None,
-        due_date_exceptions_path=None,
     ):
         """
         This can be used to set other options for the grader.
@@ -376,15 +371,6 @@ class Grader:
             (Optional) Expected hash of the GitHub workflow file. If provided, the workflow file will be verified
             before grading each student. If the hash doesn't match, a warning will be displayed indicating
             the student may have modified the workflow system.
-        due_date: datetime.datetime
-            (Optional) Due date for the assignment. If provided, the submission date will be compared to this
-            and late days will be calculated and displayed.
-        due_date_exceptions_path: str
-            (Optional) Path to a YAML file containing per-student due date exceptions. The file should be
-            a simple dictionary mapping net_ids to deadline strings in "YYYY-MM-DD HH:MM:SS" format.
-            Example:
-                "student1": "2025-01-15 23:59:59"
-                "student2": "2025-01-17 23:59:59"
         """
         self.format_code = format_code
         self.build_only = build_only
@@ -392,9 +378,6 @@ class Grader:
         self.allow_rebuild = allow_rebuild
         self.allow_rerun = allow_rerun
         self.workflow_hash = workflow_hash
-        self.due_date = due_date
-        self.due_date_exceptions = {}
-        self.due_date_exceptions_path = due_date_exceptions_path
         if prep_fcn and not isinstance(prep_fcn, Callable):
             error("The 'prep_fcn' argument must provide a callable function pointer")
         self.prep_fcn = prep_fcn
@@ -424,36 +407,6 @@ class Grader:
                 + "set_submission_system_learning_suite() or set_submission_system_github()."
             )
 
-    def _load_due_date_exceptions(self):
-        """Load due date exceptions from YAML file (simple net_id: deadline format)"""
-
-        self.due_date_exceptions = {}
-        if not self.due_date_exceptions_path:
-            return
-
-        try:
-            with open(self.due_date_exceptions_path, "r", encoding="utf-8") as f:
-                exceptions_raw = yaml.safe_load(f)
-        except (IOError, yaml.YAMLError) as e:
-            print_color(
-                TermColors.YELLOW, f"Warning: Could not load exceptions file: {e}"
-            )
-            return
-
-        if not exceptions_raw or not isinstance(exceptions_raw, dict):
-            return
-
-        for net_id, deadline_str in exceptions_raw.items():
-            try:
-                self.due_date_exceptions[net_id] = dt.datetime.strptime(
-                    deadline_str, "%Y-%m-%d %H:%M:%S"
-                )
-            except ValueError as e:
-                print_color(
-                    TermColors.YELLOW,
-                    f"Warning: Could not parse deadline for {net_id}: {e}",
-                )
-
     def _get_all_csv_cols_to_grade(self):
         """Collect all columns that will be graded into a single list.
 
@@ -465,7 +418,6 @@ class Grader:
         """Call this to start (or resume) the grading process"""
 
         self._validate_config()
-        self._load_due_date_exceptions()
 
         # Print starting message
         print_color(TermColors.BLUE, "Running grader for", self.lab_name)
