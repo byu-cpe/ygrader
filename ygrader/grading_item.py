@@ -3,8 +3,6 @@
 import datetime
 import sys
 
-import numpy as np
-
 from .utils import (
     CallbackFailed,
     TermColors,
@@ -149,10 +147,10 @@ class GradeItem:
                         print_color(TermColors.RED, "=" * 70)
                         print("")
 
-            # Display submission date if available
+            # Display submission date if available and store for later late calculation
             student_code_path = callback_args.get("student_code_path")
-            # Calculate days_late but don't save yet - will be saved only after successful grading
-            pending_days_late = None
+            # Store submission time but don't save yet - will be saved only after successful grading
+            pending_submit_time = None
             if student_code_path:
                 submission_date_path = student_code_path / ".commitdate"
                 if submission_date_path.is_file():
@@ -166,43 +164,8 @@ class GradeItem:
                             TermColors.BLUE,
                             f"Submitted: {submission_time.strftime('%Y-%m-%d %H:%M:%S')}",
                         )
-
-                        # Calculate late days if due_date is configured
-                        if self.grader.due_date is not None:
-                            # Check for student-specific due date exception
-                            # Use the latest (most generous) exception if multiple group members have them
-                            effective_due_date = self.grader.due_date
-                            for net_id in net_ids:
-                                if net_id in self.grader.due_date_exceptions:
-                                    exception_date = self.grader.due_date_exceptions[
-                                        net_id
-                                    ]
-                                    effective_due_date = max(
-                                        effective_due_date, exception_date
-                                    )
-
-                            has_exception = effective_due_date != self.grader.due_date
-                            if has_exception:
-                                print_color(
-                                    TermColors.YELLOW,
-                                    f"Exception due date: {effective_due_date.strftime('%Y-%m-%d %H:%M:%S')}",
-                                )
-
-                            if submission_time <= effective_due_date:
-                                print_color(TermColors.GREEN, "Status: ON TIME")
-                                pending_days_late = 0
-                            else:
-                                days_late = np.busday_count(
-                                    effective_due_date.date(),
-                                    submission_time.date(),
-                                )
-                                if days_late == 0:
-                                    days_late = 1  # Same day but after deadline
-                                print_color(
-                                    TermColors.RED,
-                                    f"Status: LATE ({days_late} business day(s))",
-                                )
-                                pending_days_late = int(days_late)
+                        # Store as ISO format for later late calculation
+                        pending_submit_time = submission_time.isoformat()
                     except (ValueError, IOError) as e:
                         print_color(
                             TermColors.YELLOW,
@@ -230,10 +193,10 @@ class GradeItem:
                             TermColors.BLUE,
                             f"Applied deduction: {deduction_desc} (-{deduction_points})",
                         )
-                    # Save days_late now that grading succeeded
-                    if pending_days_late is not None:
-                        self.student_deductions.set_days_late(
-                            tuple(net_ids), pending_days_late
+                    # Save submit_time now that grading succeeded
+                    if pending_submit_time is not None:
+                        self.student_deductions.set_submit_time(
+                            tuple(net_ids), pending_submit_time
                         )
                     # Ensure student is in the deductions file
                     self.student_deductions.ensure_student_in_file(tuple(net_ids))
@@ -270,10 +233,10 @@ class GradeItem:
                 build = False
                 continue
 
-            # Record score - save days_late and ensure the student is in the deductions file
+            # Record score - save submit_time and ensure the student is in the deductions file
             # (even if they have no deductions, to indicate they were graded)
-            if pending_days_late is not None:
-                self.student_deductions.set_days_late(tuple(net_ids), pending_days_late)
+            if pending_submit_time is not None:
+                self.student_deductions.set_submit_time(tuple(net_ids), pending_submit_time)
             self.student_deductions.ensure_student_in_file(tuple(net_ids))
             break
 

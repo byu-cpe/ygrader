@@ -44,7 +44,7 @@ class StudentDeductions:
 
     def __init__(self, yaml_path: Optional[pathlib.Path] = None):
         self.deductions_by_students = {}
-        self.days_late_by_students = {}
+        self.submit_time_by_students = {}  # ISO format timestamp strings
         self.deduction_types = {}
         self.yaml_path = yaml_path
 
@@ -102,9 +102,9 @@ class StudentDeductions:
 
                 self.deductions_by_students[student_key] = deduction_items
 
-                # Load days_late if present
-                if "days_late" in entry:
-                    self.days_late_by_students[student_key] = entry["days_late"]
+                # Load submit_time if present
+                if "submit_time" in entry:
+                    self.submit_time_by_students[student_key] = entry["submit_time"]
 
     def _write_yaml(self):
         """Write deduction types and student deductions to the YAML file.
@@ -134,9 +134,9 @@ class StudentDeductions:
                 )
             data["deduction_types"] = deduction_list
 
-        # Write student deductions (include students with deductions OR days_late)
+        # Write student deductions (include students with deductions OR submit_time)
         all_student_keys = set(self.deductions_by_students.keys()) | set(
-            self.days_late_by_students.keys()
+            self.submit_time_by_students.keys()
         )
         # Sort student keys for consistent output ordering
         sorted_student_keys = sorted(all_student_keys)
@@ -158,8 +158,8 @@ class StudentDeductions:
                         "net_ids": FlowList(student_key),
                         "deductions": FlowList(deduction_ids),
                         **(
-                            {"days_late": self.days_late_by_students[student_key]}
-                            if student_key in self.days_late_by_students
+                            {"submit_time": self.submit_time_by_students[student_key]}
+                            if student_key in self.submit_time_by_students
                             else {}
                         ),
                     }
@@ -375,8 +375,8 @@ class StudentDeductions:
         student_key = tuple(net_ids) if not isinstance(net_ids, tuple) else net_ids
         if student_key in self.deductions_by_students:
             del self.deductions_by_students[student_key]
-        if student_key in self.days_late_by_students:
-            del self.days_late_by_students[student_key]
+        if student_key in self.submit_time_by_students:
+            del self.submit_time_by_students[student_key]
         self._save()
 
     def ensure_student_in_file(self, net_ids: tuple):
@@ -405,31 +405,31 @@ class StudentDeductions:
         student_key = tuple(net_ids) if not isinstance(net_ids, tuple) else net_ids
         return student_key in self.deductions_by_students
 
-    def set_days_late(self, net_ids: tuple, days_late: int):
-        """Set the number of days late for a student.
+    def set_submit_time(self, net_ids: tuple, submit_time: Optional[str]):
+        """Set the submission time for a student.
 
         Args:
             net_ids: Tuple of net_ids for the student.
-            days_late: Number of business days late (0 or None to remove).
+            submit_time: ISO format timestamp string, or None to remove.
         """
         student_key = tuple(net_ids) if not isinstance(net_ids, tuple) else net_ids
-        if days_late and days_late > 0:
-            self.days_late_by_students[student_key] = days_late
-        elif student_key in self.days_late_by_students:
-            del self.days_late_by_students[student_key]
+        if submit_time:
+            self.submit_time_by_students[student_key] = submit_time
+        elif student_key in self.submit_time_by_students:
+            del self.submit_time_by_students[student_key]
         self._save()
 
-    def get_days_late(self, net_ids: tuple) -> Optional[int]:
-        """Get the number of days late for a student.
+    def get_submit_time(self, net_ids: tuple) -> Optional[str]:
+        """Get the submission time for a student.
 
         Args:
             net_ids: Tuple of net_ids for the student.
 
         Returns:
-            Number of business days late, or None if not set/on time.
+            ISO format timestamp string, or None if not set.
         """
         student_key = tuple(net_ids) if not isinstance(net_ids, tuple) else net_ids
-        return self.days_late_by_students.get(student_key)
+        return self.submit_time_by_students.get(student_key)
 
     def total_deductions(self, net_ids: Optional[tuple] = None) -> float:
         """Calculate the total deductions for a student or all students.

@@ -1,35 +1,74 @@
 """Module for generating student feedback files and grades CSV."""
 
+import datetime
 import pathlib
 import zipfile
 from typing import Callable, Dict, Optional, Tuple
 
+import numpy as np
 import pandas
 
 from .deductions import StudentDeductions
 from .grading_item_config import LearningSuiteColumn
-from .utils import warning
+from .utils import warning, print_color, TermColors
 
 
 # Type alias for late penalty callback: (late_days, max_score, actual_score) -> new_score
 LatePenaltyCallback = Callable[[int, float, float], float]
 
 
+def _calculate_late_days(
+    submit_time_str: Optional[str],
+    due_date: datetime.datetime,
+) -> int:
+    """Calculate the number of business days late from a submit time.
+
+    Args:
+        submit_time_str: ISO format timestamp string of submission.
+        due_date: The effective due date for the student.
+
+    Returns:
+        Number of business days late (0 if on time or no submit time).
+    """
+    if not submit_time_str:
+        return 0
+
+    try:
+        submit_time = datetime.datetime.fromisoformat(submit_time_str)
+    except ValueError:
+        return 0
+
+    if submit_time <= due_date:
+        return 0
+
+    days_late = np.busday_count(due_date.date(), submit_time.date())
+    if days_late == 0:
+        days_late = 1  # Same day but after deadline
+    return int(days_late)
+
+
 def _get_student_key_and_max_late_days(
     net_id: str,
     item_deductions: Dict[str, StudentDeductions],
+    due_date: Optional[datetime.datetime] = None,
+    due_date_exceptions: Optional[Dict[str, datetime.datetime]] = None,
 ) -> tuple:
     """Find the student key and maximum late days across all items.
 
     Args:
         net_id: The student's net ID.
         item_deductions: Mapping from item name to StudentDeductions.
+        due_date: The default due date for the assignment.
+        due_date_exceptions: Mapping from net_id to exception due date.
 
     Returns:
         Tuple of (student_key or None, max_late_days).
     """
     max_late_days = 0
     found_student_key = None
+
+    if due_date_exceptions is None:
+        due_date_exceptions = {}
 
     for deductions_obj in item_deductions.values():
         if not deductions_obj:
@@ -39,12 +78,12 @@ def _get_student_key_and_max_late_days(
         student_key = None
         if (net_id,) in deductions_obj.deductions_by_students:
             student_key = (net_id,)
-        elif (net_id,) in deductions_obj.days_late_by_students:
+        elif (net_id,) in deductions_obj.submit_time_by_students:
             student_key = (net_id,)
         else:
             # Check for multi-student keys containing this net_id
             for key in set(deductions_obj.deductions_by_students.keys()) | set(
-                deductions_obj.days_late_by_students.keys()
+                deductions_obj.submit_time_by_students.keys()
             ):
                 if net_id in key:
                     student_key = key
@@ -52,8 +91,25 @@ def _get_student_key_and_max_late_days(
 
         if student_key:
             found_student_key = student_key
-            days_late = deductions_obj.days_late_by_students.get(student_key, 0)
-            max_late_days = max(max_late_days, days_late)
+
+            # Calculate late days from submit_time if we have a due date
+            if due_date is not None:
+                submit_time_str = deductions_obj.submit_time_by_students.get(
+                    student_key
+                )
+                if submit_time_str:
+                    # Calculate effective due date (using most generous exception for group)
+                    effective_due_date = due_date
+                    for member_net_id in student_key:
+                        if member_net_id in due_date_exceptions:
+                            effective_due_date = max(
+                                effective_due_date, due_date_exceptions[member_net_id]
+                            )
+
+                    days_late = _calculate_late_days(
+                        submit_time_str, effective_due_date
+                    )
+                    max_late_days = max(max_late_days, days_late)
 
     return found_student_key, max_late_days
 
@@ -62,8 +118,11 @@ def _calculate_student_score(
     net_id: str,
     ls_column: LearningSuiteColumn,
     item_deductions: Dict[str, StudentDeductions],
+    *,
     late_penalty_callback: Optional[LatePenaltyCallback] = None,
     warn_on_missing_callback: bool = True,
+    due_date: Optional[datetime.datetime] = None,
+    due_date_exceptions: Optional[Dict[str, datetime.datetime]] = None,
 ) -> Tuple[float, float, int]:
     """Calculate a student's final score.
 
@@ -73,6 +132,8 @@ def _calculate_student_score(
         item_deductions: Mapping from item name to StudentDeductions.
         late_penalty_callback: Optional callback for late penalty.
         warn_on_missing_callback: Whether to warn if late days found but no callback.
+        due_date: The default due date for the assignment.
+        due_date_exceptions: Mapping from net_id to exception due date.
 
     Returns:
         Tuple of (final_score, total_possible, max_late_days).
@@ -102,7 +163,9 @@ def _calculate_student_score(
     score = max(0, total_possible - total_deductions)
 
     # Get max late days
-    _, max_late_days = _get_student_key_and_max_late_days(net_id, item_deductions)
+    _, max_late_days = _get_student_key_and_max_late_days(
+        net_id, item_deductions, due_date, due_date_exceptions
+    )
 
     # Apply late penalty if applicable
     if max_late_days > 0:
@@ -124,6 +187,8 @@ def assemble_grades(
     output_zip_path: Optional[pathlib.Path] = None,
     output_csv_path: Optional[pathlib.Path] = None,
     late_penalty_callback: Optional[LatePenaltyCallback] = None,
+    due_date: Optional[datetime.datetime] = None,
+    due_date_exceptions: Optional[Dict[str, datetime.datetime]] = None,
 ) -> Tuple[Optional[pathlib.Path], Optional[pathlib.Path]]:
     """Generate feedback zip and/or grades CSV from deductions.
 
@@ -135,6 +200,8 @@ def assemble_grades(
         output_csv_path: Path for the output CSV file. If None, no CSV is generated.
         late_penalty_callback: Optional callback function that takes
             (late_days, max_score, actual_score) and returns the adjusted score.
+        due_date: The default due date for the assignment. Required for late penalty.
+        due_date_exceptions: Mapping from net_id to exception due date.
 
     Returns:
         Tuple of (feedback_zip_path or None, grades_csv_path or None).
@@ -170,14 +237,31 @@ def assemble_grades(
             last_name = str(student_row["Last Name"]).strip()
             net_id = str(student_row["Net ID"]).strip()
 
-            # Calculate final score (only warn once, when generating CSV)
-            final_score, _, _ = _calculate_student_score(
+            # Calculate score before late penalty
+            score_before_late, total_possible, max_late_days = _calculate_student_score(
                 net_id=net_id,
                 ls_column=ls_column,
                 item_deductions=subitem_deductions,
-                late_penalty_callback=late_penalty_callback,
-                warn_on_missing_callback=(output_csv_path is not None),
+                late_penalty_callback=None,  # Don't apply late penalty yet
+                warn_on_missing_callback=False,
+                due_date=due_date,
+                due_date_exceptions=due_date_exceptions,
             )
+
+            # Apply late penalty if applicable
+            final_score = score_before_late
+            if max_late_days > 0 and late_penalty_callback:
+                final_score = max(
+                    0,
+                    late_penalty_callback(
+                        max_late_days, total_possible, score_before_late
+                    ),
+                )
+                print_color(
+                    TermColors.YELLOW,
+                    f"Late: {net_id} ({max_late_days} day{'s' if max_late_days != 1 else ''}): "
+                    f"{score_before_late:.1f} -> {final_score:.1f}",
+                )
 
             # Add to grades data
             if output_csv_path:
@@ -192,6 +276,8 @@ def assemble_grades(
                     ls_column=ls_column,
                     subitem_deductions=subitem_deductions,
                     late_penalty_callback=late_penalty_callback,
+                    due_date=due_date,
+                    due_date_exceptions=due_date_exceptions,
                 )
 
                 filename = (
@@ -226,7 +312,10 @@ def _generate_student_feedback(
     student_row: pandas.Series,
     ls_column: LearningSuiteColumn,
     subitem_deductions: Dict[str, StudentDeductions],
+    *,
     late_penalty_callback: Optional[LatePenaltyCallback] = None,
+    due_date: Optional[datetime.datetime] = None,
+    due_date_exceptions: Optional[Dict[str, datetime.datetime]] = None,
 ) -> str:
     """Generate the feedback text content for a single student.
 
@@ -235,6 +324,8 @@ def _generate_student_feedback(
         ls_column: The LearningSuiteColumn object.
         subitem_deductions: Mapping from subitem name to StudentDeductions.
         late_penalty_callback: Optional callback for calculating late penalty.
+        due_date: The default due date for the assignment.
+        due_date_exceptions: Mapping from net_id to exception due date.
 
     Returns:
         The formatted feedback text.
@@ -317,7 +408,9 @@ def _generate_student_feedback(
     score_before_late = max(0, total_points_possible - total_points_deducted)
 
     # Get max late days for this student
-    _, max_late_days = _get_student_key_and_max_late_days(net_id, subitem_deductions)
+    _, max_late_days = _get_student_key_and_max_late_days(
+        net_id, subitem_deductions, due_date, due_date_exceptions
+    )
 
     # Late penalty section
     lines.append("")
