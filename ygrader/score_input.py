@@ -13,6 +13,7 @@ class ScoreResult(Enum):
     RERUN = auto()
     CREATE_DEDUCTION = auto()
     UNDO_LAST = auto()
+    EXIT = auto()
 
 
 def get_score(
@@ -99,10 +100,14 @@ def get_score(
         left_items.append(("[g]", "Manage grades"))
         allowed_cmds["g"] = "manage"
 
-        # Add undo option last if there's a last graded student
+        # Add undo option if there's a last graded student
         if last_graded_net_ids is not None:
             left_items.append(("[u]", f"Undo last ({last_graded_net_ids[0]})"))
             allowed_cmds["u"] = ScoreResult.UNDO_LAST
+
+        # Add exit option at bottom of left column
+        left_items.append(("[e]", "Exit grader"))
+        allowed_cmds["e"] = ScoreResult.EXIT
 
         # Format menu items in two columns
         col_width = 38  # Each column width (2 columns * 38 = 76 < 80)

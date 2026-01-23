@@ -259,6 +259,9 @@ class GradeItem:
                 # run again, but don't build
                 build = False
                 continue
+            if score == ScoreResult.EXIT:
+                print_color(TermColors.BLUE, "Exiting grader")
+                sys.exit(0)
             if score == ScoreResult.UNDO_LAST:
                 # Undo the last graded student and signal to go back
                 if self.last_graded_net_ids is not None:
