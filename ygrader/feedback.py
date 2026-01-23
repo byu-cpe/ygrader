@@ -7,6 +7,7 @@ from typing import Callable, Dict, Optional, Tuple
 
 import numpy as np
 import pandas
+import yaml
 
 from .deductions import StudentDeductions
 from .grading_item_config import LearningSuiteColumn
@@ -15,6 +16,36 @@ from .utils import warning, print_color, TermColors
 
 # Type alias for late penalty callback: (late_days, max_score, actual_score) -> new_score
 LatePenaltyCallback = Callable[[int, float, float], float]
+
+
+def _load_due_date_exceptions(
+    exceptions_path: pathlib.Path,
+) -> Dict[str, datetime.datetime]:
+    """Load due date exceptions from YAML file.
+
+    Args:
+        exceptions_path: Path to the deadline_exceptions.yaml file.
+            Expected format is: net_id: "YYYY-MM-DD HH:MM:SS"
+
+    Returns:
+        Mapping from net_id to exception datetime.
+    """
+    if not exceptions_path.exists():
+        return {}
+
+    with open(exceptions_path, "r", encoding="utf-8") as f:
+        data = yaml.safe_load(f)
+
+    if not data:
+        return {}
+
+    exceptions = {}
+    for net_id, exception_date in data.items():
+        if net_id and exception_date:
+            exceptions[net_id] = datetime.datetime.strptime(
+                exception_date, "%Y-%m-%d %H:%M:%S"
+            )
+    return exceptions
 
 
 def _calculate_late_days(
@@ -188,7 +219,7 @@ def assemble_grades(
     output_csv_path: Optional[pathlib.Path] = None,
     late_penalty_callback: Optional[LatePenaltyCallback] = None,
     due_date: Optional[datetime.datetime] = None,
-    due_date_exceptions: Optional[Dict[str, datetime.datetime]] = None,
+    due_date_exceptions_path: Optional[pathlib.Path] = None,
 ) -> Tuple[Optional[pathlib.Path], Optional[pathlib.Path]]:
     """Generate feedback zip and/or grades CSV from deductions.
 
@@ -201,12 +232,17 @@ def assemble_grades(
         late_penalty_callback: Optional callback function that takes
             (late_days, max_score, actual_score) and returns the adjusted score.
         due_date: The default due date for the assignment. Required for late penalty.
-        due_date_exceptions: Mapping from net_id to exception due date.
+        due_date_exceptions_path: Path to YAML file with due date exceptions (net_id: "YYYY-MM-DD HH:MM:SS").
 
     Returns:
         Tuple of (feedback_zip_path or None, grades_csv_path or None).
     """
     yaml_path = pathlib.Path(yaml_path)
+
+    # Load due date exceptions if path provided
+    due_date_exceptions: Dict[str, datetime.datetime] = {}
+    if due_date_exceptions_path:
+        due_date_exceptions = _load_due_date_exceptions(due_date_exceptions_path)
     ls_column = LearningSuiteColumn(yaml_path)
 
     # Get the lab name from the YAML file's parent directory
