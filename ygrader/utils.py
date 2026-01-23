@@ -162,13 +162,16 @@ def is_wsl():
 _FOCUS_WARNING_PRINTED = False
 
 
-def open_file_in_vscode(file_path):
+def open_file_in_vscode(file_path, sleep_time=1.0):
     """Open a file in VS Code and return focus to terminal.
 
     Parameters
     ----------
     file_path: pathlib.Path or str
         Path to the file to open in VS Code
+    sleep_time: float, optional
+        Time in seconds to wait for VS Code to open before returning focus to terminal.
+        Default is 1.0 seconds.
     """
     global _FOCUS_WARNING_PRINTED  # pylint: disable=global-statement
 
@@ -191,7 +194,7 @@ def open_file_in_vscode(file_path):
         error(f"VS Code exited with code {result.returncode}")
 
     # Give VS Code a moment to open, then send Ctrl+` to toggle terminal focus
-    time.sleep(0.5)
+    time.sleep(sleep_time)
 
     # Use AutoHotkey on WSL, osascript on macOS, xdotool on Linux
     if is_wsl():
