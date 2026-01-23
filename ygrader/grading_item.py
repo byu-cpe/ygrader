@@ -1,18 +1,14 @@
 """Module to manage each item that is to be graded"""
 
-import csv
 import datetime
 import sys
-from enum import Enum, auto
 
 import numpy as np
-import pandas
 
 from .utils import (
     CallbackFailed,
     TermColors,
     print_color,
-    error,
     WorkflowHashError,
     verify_workflow_hash,
 )
@@ -30,10 +26,10 @@ class GradeItem:
         self,
         grader,
         item_name,
+        *,
         fcn,
         max_points,
         deductions_yaml_path,
-        *,
         fcn_args_dict=None,
     ) -> None:
         self.grader = grader
@@ -43,11 +39,9 @@ class GradeItem:
         self.fcn_args_dict = fcn_args_dict if fcn_args_dict is not None else {}
         self.student_deductions = StudentDeductions(deductions_yaml_path)
 
-    def run_grading(self, student_grades_df, row, callback_args):
+    def run_grading(self, _student_grades_df, row, callback_args):
         """Run the grading process for this item"""
         net_ids = grades_csv.get_net_ids(row)
-        first_names = grades_csv.get_first_names(row)
-        last_names = grades_csv.get_last_names(row)
         num_group_members = len(net_ids)
         concated_names = grades_csv.get_concated_names(row)
         callback_args["item_name"] = self.item_name
@@ -238,17 +232,19 @@ class GradeItem:
                         )
                     # Save days_late now that grading succeeded
                     if pending_days_late is not None:
-                        self.student_deductions.set_days_late(tuple(net_ids), pending_days_late)
+                        self.student_deductions.set_days_late(
+                            tuple(net_ids), pending_days_late
+                        )
                     # Ensure student is in the deductions file
                     self.student_deductions.ensure_student_in_file(tuple(net_ids))
                     break
-                else:
-                    print_color(
-                        TermColors.RED,
-                        f"Invalid callback return type: {type(callback_result)}. Expected None or list of (str, int) tuples.",
-                    )
-                    # Don't mark student as graded - just skip to next student
-                    break
+
+                print_color(
+                    TermColors.RED,
+                    f"Invalid callback return type: {type(callback_result)}. Expected None or list of (str, int) tuples.",
+                )
+                # Don't mark student as graded - just skip to next student
+                break
 
             # callback_result is None - interactive mode
             # Prompt with deductions mode - handles everything internally

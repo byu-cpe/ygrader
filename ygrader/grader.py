@@ -170,9 +170,9 @@ class Grader:
         item = GradeItem(
             self,
             item_name,
-            grading_fcn,
-            max_points,
-            deductions_yaml_path,
+            fcn=grading_fcn,
+            max_points=max_points,
+            deductions_yaml_path=deductions_yaml_path,
             fcn_args_dict=grading_fcn_args_dict,
         )
         _verify_callback_fcn(

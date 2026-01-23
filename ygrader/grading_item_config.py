@@ -10,8 +10,6 @@ from .utils import sanitize_filename
 class LearningSuiteColumnParseError(Exception):
     """Exception raised when a LearningSuiteColumn YAML file cannot be parsed correctly."""
 
-    pass
-
 
 class LearningSuiteColumn:
     """Represents a grade column configuration in the grading system, with a one-to-one mapping to a LearningSuite column"""
