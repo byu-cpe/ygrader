@@ -7,4 +7,4 @@ from .grading_item_config import (
     LearningSuiteColumn,
     LearningSuiteColumnParseError,
 )
-from .feedback import generate_feedback_zip
+from .feedback import assemble_grades
