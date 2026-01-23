@@ -213,9 +213,10 @@ def assemble_grades(
     else:
         process_students(None)
 
-    # Write CSV
+    # Write CSV (sorted by Net ID for easier git diffs)
     if output_csv_path and grades_data:
         grades_df = pandas.DataFrame(grades_data)
+        grades_df = grades_df.sort_values("Net ID")
         grades_df.to_csv(output_csv_path, index=False)
 
     return (output_zip_path, output_csv_path)
