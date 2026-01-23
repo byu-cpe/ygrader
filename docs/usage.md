@@ -4,15 +4,15 @@
 
 When you configure the script correctly, the expected flow is:
 
-1. Grade CSV from LearningSuite is parsed, and student grades are tracked in a pandas DataFrame
-1. Students are filtered down to only those that still need a grade for the assignment.
+1. Class list CSV is parsed to get the list of students to grade.
+1. Students are filtered down to only those that still need a grade for the assignment (tracked in deductions YAML files).
 1. Students are formed into their groups (groups of 1 for individual assignments)
 1. For each student:
 
-   * Student code is retrieved (from Github or Learning suite zip file) and copied into a per-group working folder.
+   * Student code is retrieved (from Github or Learning Suite zip file) and copied into a per-group working folder.
    * *Callbacks are made to your code*, where you can build and run the student's code.
-   * The TA is prompted to enter a grade.  They can optionally rebuild and rerun the students code, or skip to the next student without entering a grade.
-   * Grade CSV is updated with grade for all group members.
+   * If your callback returns `None`, the TA is prompted to enter deductions interactively. If your callback returns a list of deduction tuples, those are applied automatically.
+   * Deductions YAML file is updated to track the student's grade.
 
 In the above process, *you will only need to write the callback code to build and run the student's code*.
 
@@ -24,14 +24,19 @@ I typically give TAs access to this grading repo, and put them in charge of both
 
 ## Setup
 
-1. Start by creating a *Grader* object where you assign a name to what you are grading and provide the path of a CSV file contains student grades (exported from LearningSuite).
+1. Start by creating a *Grader* object where you assign a name to what you are grading and provide the path of a CSV file containing the class list (exported from LearningSuite with Net ID, first name, and last name columns).
     ```python
-    grader = ygrader.Grader(lab_name = "lab1", grades_csv_path = "learning_suite/grades.csv")
+    grader = ygrader.Grader(lab_name="lab1", class_list_csv_path="class_list.csv")
     ```
 
-1. Next, indicate what item(s) (i.e., columns from your CSV file) that you want to grade, and provide a callback function that you want to be run for each student's submission (this callback function is where you will run student's code, inspect their submitted files, etc).  You can optionally specify a maximum number of points that this item is out of.
+1. Next, indicate what item(s) you want to grade, and provide a callback function that you want to be run for each student's submission. You must also specify a path to a YAML file where deductions will be stored.
     ```python
-    grader.add_item_to_grade("lab1_grade", my_callback, max_points = 10)
+    grader.add_item_to_grade(
+        item_name="lab_report.txt",
+        grading_fcn=my_callback,
+        deductions_yaml_path="deductions/lab_report.yaml",
+        max_points=10,
+    )
     ```
 1. Set the submission system to either:
 

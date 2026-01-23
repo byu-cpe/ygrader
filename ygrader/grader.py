@@ -16,7 +16,7 @@ import pandas
 import yaml
 
 from . import grades_csv, student_repos, utils
-from .grading_item import GradeItem, ScoreMode
+from .grading_item import GradeItem
 from .utils import (
     CallbackFailed,
     TermColors,
@@ -40,7 +40,7 @@ class Grader:
     def __init__(
         self,
         lab_name: str,
-        grades_csv_path: pathlib.Path,
+        class_list_csv_path: pathlib.Path,
         work_path: pathlib.Path = pathlib.Path.cwd() / "temp",
     ):
         """
@@ -48,27 +48,31 @@ class Grader:
         ----------
         lab_name: str
             Name of the lab/assignment that you are grading (ie. 'lab3').
-            This is used for folder naming, logging mesasge, etc., and passed back to your callback functions.
-        grades_csv_path: pathlib.Path
-            Path to CSV file with student grades exported from LearningSuite.  You need to export netid, first
-            and last name, and any grade columns you want to populate.
+            This is used for logging messages and passed back to your callback functions.
+        class_list_csv_path: pathlib.Path
+            Path to CSV file with class list exported from LearningSuite. You need to export netid, first
+            and last name columns.
         work_path: pathlib.Path
             Path to directory where student files will be placed.  For example, if you pass in '.', then student
             code would be placed in './lab3'.  By default the working path is a "temp" folder created in your working directory.
         """
         self.lab_name = lab_name
-        self.grades_csv_path = pathlib.Path(grades_csv_path).resolve()
+        self.class_list_csv_path = pathlib.Path(class_list_csv_path).resolve()
 
-        # Make sure grades csv exists, and that file is writable
-        if not self.grades_csv_path.is_file():
-            error("grades_csv_path", "(" + str(grades_csv_path) + ")", "does not exist")
+        # Make sure class list csv exists and is readable
+        if not self.class_list_csv_path.is_file():
+            error(
+                "class_list_csv_path",
+                "(" + str(class_list_csv_path) + ")",
+                "does not exist",
+            )
         try:
-            with open(grades_csv_path, "a", encoding="utf-8"):
+            with open(class_list_csv_path, "r", encoding="utf-8"):
                 pass
         except PermissionError:
             error(
-                "You do not have permissions to modify the grades_csv_path file",
-                "(" + str(grades_csv_path) + ").",
+                "You do not have permissions to read the class_list_csv_path file",
+                "(" + str(class_list_csv_path) + ").",
                 "Is this file open and locked?",
             )
 
@@ -78,11 +82,11 @@ class Grader:
 
         # Read CSV and make sure it isn't empty
         try:
-            pandas.read_csv(self.grades_csv_path)
+            pandas.read_csv(self.class_list_csv_path)
         except pandas.errors.EmptyDataError:
             error(
-                "Your grades csv",
-                "(" + str(grades_csv_path) + ")",
+                "Your class list csv",
+                "(" + str(class_list_csv_path) + ")",
                 "appears to be empty",
             )
 
@@ -102,29 +106,24 @@ class Grader:
 
     def add_item_to_grade(
         self,
-        csv_col_name,
+        item_name,
         grading_fcn,
+        deductions_yaml_path,
         *,
         grading_fcn_args_dict=None,
         max_points=None,
-        score_mode=ScoreMode.MANUAL,
-        deductions_yaml_path=None,
-        help_msg=None,
     ):
         """Add a new item you want to grade.
 
         Parameters
         ----------
-        csv_col_name: str
-            The column name from your grading CSV file that you want to grade.
         grading_fcn: Callable
             The callback function that will perform all your grading work. Your callback function will be provided with the following arguments:
 
               * lab_name (*str*): This will pass back the lab name you passed to *__init__*.
                 Useful if you use the same callback function to grade multiple different assignments.
-
+              * item_name (*str*): The name of the item being graded (e.g., "answers.txt").
               * student_code_path (*pathlib.Path*): The location where the unzipped/cloned student files are stored.
-              * csv_col_name (*str*): The current CSV column being graded.
               * points (*int*): The maximum number of points possible for the item being graded, used for validating the
                 grade when prompting the user to input a grade.  If your callback function automatically calcuates and
                 returns a grade, this argument is ignored.
@@ -157,38 +156,22 @@ class Grader:
                 def my_callback(**kw):
                     lab_name = kw["lab_name"]
                     first_name = kw["first_names"][0]
+        deductions_yaml_path: pathlib.Path
+            Path to the YAML file for storing deductions and tracking grading status.
         grading_fcn_args_dict: dict
             (Optional) A dictionary of additional arguments that will be passed to your grading function.
         max_points: int
             (Optional) Number of max points for the graded column.
-        deductions_yaml_path: pathlib.Path
-            (Optional) Path to the YAML file for storing deductions. Required if score_mode is DEDUCTIONS.
-        help_msg: str
-            (Optional) When the script asks the user for a grade, it will print this message first.  This can be a helpful
-            reminder to the TAs of a grading rubric, things they should watch out for, etc.
         """
         # Check data types
         if not isinstance(grading_fcn, Callable):
             error("'grading_fcn' must be a callable function")
 
-        df = pandas.read_csv(self.grades_csv_path)
-        if csv_col_name is not None and csv_col_name not in df:
-            error(
-                "Provided grade column name",
-                "(" + csv_col_name + ")",
-                "does not exist in grades_csv_path",
-                "(" + str(self.grades_csv_path) + ").",
-                "Columns:",
-                list(df.columns),
-            )
-
         item = GradeItem(
             self,
-            csv_col_name,
-            grading_fcn,
-            max_points,
-            help_msg=help_msg,
-            score_mode=score_mode,
+            item_name,
+            fcn=grading_fcn,
+            max_points=max_points,
             deductions_yaml_path=deductions_yaml_path,
             fcn_args_dict=grading_fcn_args_dict,
         )
@@ -197,21 +180,32 @@ class Grader:
         )
         self.items.append(item)
 
-    def add_analysis_item(
+    def add_item_to_grade_from_config(
         self,
-        analysis_fcn,
+        grade_item_config,
+        grading_fcn,
     ):
-        """Run an analysis function on the student code, without performing any grading.
+        """Add a new item to grade using a GradeItemConfig object.
+
+        This is a convenience method that extracts all necessary information from
+        a GradeItemConfig object and calls add_item_to_grade.
 
         Parameters
         ----------
-        analysis_fcn: Callable
-            The callback function that will perform the analysis.
-            The callback will be provided with the same arguments as when you register a grading function.
-
+        grade_item_config: GradeItemConfig
+            The configuration object for the grade item, containing points,
+            feedback_path, and other_data.
+        grading_fcn: Callable
+            The callback function that will perform the grading work.
+            See add_item_to_grade for details on the callback function signature.
         """
-
-        self.add_item_to_grade(None, analysis_fcn)
+        self.add_item_to_grade(
+            grading_fcn=grading_fcn,
+            item_name=grade_item_config.name,
+            deductions_yaml_path=grade_item_config.feedback_path,
+            grading_fcn_args_dict=grade_item_config.other_data,
+            max_points=grade_item_config.points,
+        )
 
     def set_submission_system_learning_suite(self, zip_path):
         """
@@ -461,10 +455,11 @@ class Grader:
                 )
 
     def _get_all_csv_cols_to_grade(self):
-        """Collect all columns that will be graded into a single list"""
-        return [
-            item.csv_col_name for item in self.items if item.csv_col_name is not None
-        ]
+        """Collect all columns that will be graded into a single list.
+
+        Returns empty list since grades are stored in deductions files, not CSV columns.
+        """
+        return []
 
     def run(self):
         """Call this to start (or resume) the grading process"""
@@ -477,7 +472,7 @@ class Grader:
 
         # Read in CSV and validate.  Print # students who need a grade
         student_grades_df = grades_csv.parse_and_check(
-            self.grades_csv_path, self._get_all_csv_cols_to_grade()
+            self.class_list_csv_path, self._get_all_csv_cols_to_grade()
         )
 
         # Filter by students who need a grade
@@ -520,14 +515,13 @@ class Grader:
             concated_names = grades_csv.get_concated_names(row)
 
             # Check if student/group needs grading
-            if not any(item.analysis_only for item in self.items):
-                num_group_members_need_grade_per_item = [
-                    item.num_grades_needed(row) for item in self.items
-                ]
+            num_group_members_need_grade_per_item = [
+                item.num_grades_needed_deductions(net_ids) for item in self.items
+            ]
 
-                if sum(num_group_members_need_grade_per_item) == 0:
-                    # This student/group is already fully graded
-                    continue
+            if sum(num_group_members_need_grade_per_item) == 0:
+                # This student/group is already fully graded
+                continue
 
             # Print name(s) of who we are grading
             student_work_path = self.work_path / utils.names_to_dir(
@@ -798,6 +792,7 @@ class Grader:
 def _verify_callback_fcn(fcn, item, fcn_extra_args_dict=None):
     callback_args = [
         "lab_name",
+        "item_name",
         "student_code_path",
         "run",
         "build",
@@ -808,10 +803,6 @@ def _verify_callback_fcn(fcn, item, fcn_extra_args_dict=None):
     if item:
         if item.max_points:
             callback_args.append("max_points")
-
-        # If this is a fcn for a graded item (not a prep-only function), then
-        # this argument is required.
-        callback_args.append("csv_col_name")
 
     callback_args_optional = [
         "section",

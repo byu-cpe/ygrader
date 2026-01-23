@@ -1,31 +1,20 @@
 """Module to manage each item that is to be graded"""
 
-import csv
 import datetime
 import sys
-from enum import Enum, auto
 
 import numpy as np
-import pandas
 
 from .utils import (
     CallbackFailed,
     TermColors,
     print_color,
-    error,
     WorkflowHashError,
     verify_workflow_hash,
 )
 from . import grades_csv
 from .deductions import StudentDeductions
 from .score_input import get_score, ScoreResult
-
-
-class ScoreMode(Enum):
-    """Enum to specify how scores are determined for a grading item."""
-
-    MANUAL = auto()  # Grader is prompted to enter a score
-    DEDUCTIONS = auto()  # Score is computed from max_points minus deductions
 
 
 class GradeItem:
@@ -36,67 +25,44 @@ class GradeItem:
     def __init__(
         self,
         grader,
-        csv_col_name,
+        item_name,
+        *,
         fcn,
         max_points,
-        *,
-        help_msg=None,
-        score_mode=ScoreMode.MANUAL,
-        deductions_yaml_path=None,
+        deductions_yaml_path,
         fcn_args_dict=None,
     ) -> None:
         self.grader = grader
-        self.csv_col_name = csv_col_name
+        self.item_name = item_name
         self.fcn = fcn
         self.max_points = max_points
-        self.score_mode = score_mode
-        self.help_msg = help_msg
         self.fcn_args_dict = fcn_args_dict if fcn_args_dict is not None else {}
+        self.student_deductions = StudentDeductions(deductions_yaml_path)
 
-        # If csv_col_name is None, then analysis only
-        if csv_col_name is None:
-            self.analysis_only = True
-        else:
-            self.analysis_only = False
-
-        # Load deductions from YAML file (required for DEDUCTIONS mode)
-        if score_mode == ScoreMode.DEDUCTIONS:
-            if deductions_yaml_path is None:
-                raise ValueError(
-                    "deductions_yaml_path is required when score_mode is DEDUCTIONS"
-                )
-            self.student_deductions = StudentDeductions(deductions_yaml_path)
-        else:
-            self.student_deductions = None
-
-    def run_grading(self, student_grades_df, row, callback_args):
+    def run_grading(self, _student_grades_df, row, callback_args):
         """Run the grading process for this item"""
         net_ids = grades_csv.get_net_ids(row)
-        first_names = grades_csv.get_first_names(row)
-        last_names = grades_csv.get_last_names(row)
         num_group_members = len(net_ids)
         concated_names = grades_csv.get_concated_names(row)
+        callback_args["item_name"] = self.item_name
 
         # Add any extra args for the callback function
         if self.fcn_args_dict:
             callback_args.update(self.fcn_args_dict)
 
-        if self.analysis_only:
-            num_group_members_need_grade = num_group_members
-        else:
-            num_group_members_need_grade = self.num_grades_needed(row)
+        # Check if student is already in the deductions file
+        num_group_members_need_grade = self.num_grades_needed_deductions(net_ids)
 
         # variable to flag if build needs to be performed
         # initialize to True as the code must be built at least once
         # (will be false if user chooses to just re-run and not re-build)
         build = True
 
-        if not self.analysis_only and self.num_grades_needed(row) == 0:
+        if num_group_members_need_grade == 0:
             # No one in the group needs grades for this
             print_color(
                 TermColors.BLUE,
-                "Grade already exists for ",
-                self.csv_col_name,
+                "Grade already exists for this item",
                 "(skipping)",
             )
             return
@@ -106,17 +72,15 @@ class GradeItem:
                 TermColors.BLUE,
                 "Running callback function",
                 "(" + str(self.fcn.__name__) + ")",
-                "to grade",
-                str(self.csv_col_name) + ":",
+                "to grade item:",
             )
 
-            score = None
+            callback_result = None
 
             # Build it and run
             try:
-                score = self.fcn(
+                callback_result = self.fcn(
                     **callback_args,
-                    csv_col_name=self.csv_col_name,
                     points=self.max_points,
                     build=build and not self.grader.run_only,
                 )
@@ -125,8 +89,6 @@ class GradeItem:
                 break
             except KeyboardInterrupt:
                 print("")
-            else:
-                print_color(TermColors.BLUE, "Callback returned:", score)
 
             # reset the flag
             build = True
@@ -147,8 +109,7 @@ class GradeItem:
                     TermColors.YELLOW,
                     "Warning:",
                     num_group_members - num_group_members_need_grade,
-                    "group member(s) already have a grade for",
-                    self.csv_col_name,
+                    "group member(s) already have a grade for this item",
                     "; this grade will be overwritten.",
                 )
 
@@ -190,6 +151,8 @@ class GradeItem:
 
             # Display submission date if available
             student_code_path = callback_args.get("student_code_path")
+            # Calculate days_late but don't save yet - will be saved only after successful grading
+            pending_days_late = None
             if student_code_path:
                 submission_date_path = student_code_path / ".commitdate"
                 if submission_date_path.is_file():
@@ -227,14 +190,7 @@ class GradeItem:
 
                             if submission_time <= effective_due_date:
                                 print_color(TermColors.GREEN, "Status: ON TIME")
-                                # Set days_late to 0 (on time) in deductions if using DEDUCTIONS mode
-                                if (
-                                    self.score_mode == ScoreMode.DEDUCTIONS
-                                    and self.student_deductions
-                                ):
-                                    self.student_deductions.set_days_late(
-                                        tuple(net_ids), 0
-                                    )
+                                pending_days_late = 0
                             else:
                                 days_late = np.busday_count(
                                     effective_due_date.date(),
@@ -246,62 +202,64 @@ class GradeItem:
                                     TermColors.RED,
                                     f"Status: LATE ({days_late} business day(s))",
                                 )
-                                # Store days_late in deductions if using DEDUCTIONS mode
-                                if (
-                                    self.score_mode == ScoreMode.DEDUCTIONS
-                                    and self.student_deductions
-                                ):
-                                    self.student_deductions.set_days_late(
-                                        tuple(net_ids), int(days_late)
-                                    )
+                                pending_days_late = int(days_late)
                     except (ValueError, IOError) as e:
                         print_color(
                             TermColors.YELLOW,
                             f"Could not parse submission date: {e}",
                         )
 
-            if score is None:
-                if not self.analysis_only:
-                    # Determine score based on score_mode
-                    if self.score_mode == ScoreMode.MANUAL:
-                        # Prompt the user for a score
-                        try:
-                            score = get_score(
-                                concated_names,
-                                self.csv_col_name,
-                                self.max_points,
-                                help_msg=self.help_msg,
-                                allow_rebuild=self.grader.allow_rebuild,
-                                allow_rerun=self.grader.allow_rerun,
+            # Process callback result:
+            # - None: interactive mode (prompt for deductions)
+            # - List of (str, int) tuples: automatic deductions to apply
+            if callback_result is not None:
+                # Callback returned deductions to apply automatically
+                if isinstance(callback_result, list):
+                    for deduction_desc, deduction_points in callback_result:
+                        # Find or create the deduction type
+                        deduction_id = (
+                            self.student_deductions.find_or_create_deduction_type(
+                                deduction_desc, deduction_points
                             )
-                        except KeyboardInterrupt:
-                            print_color(TermColors.RED, "\nExiting")
-                            sys.exit(0)
-                    elif self.score_mode == ScoreMode.DEDUCTIONS:
-                        # Prompt with deductions mode - handles everything internally
-                        try:
-                            score = get_score(
-                                concated_names,
-                                self.csv_col_name,
-                                self.max_points,
-                                help_msg=self.help_msg,
-                                allow_rebuild=self.grader.allow_rebuild,
-                                allow_rerun=self.grader.allow_rerun,
-                                student_deductions=self.student_deductions,
-                                net_ids=tuple(net_ids),
-                            )
-                        except KeyboardInterrupt:
-                            print_color(TermColors.RED, "\nExiting")
-                            sys.exit(0)
-            else:
-                # If score was returned, validate it
-                if self.analysis_only:
-                    error(
-                        "The grading item was set up as 'analysis only', but the callback returned a score."
-                    )
+                        )
+                        # Apply to this student
+                        self.student_deductions.apply_deduction_to_student(
+                            tuple(net_ids), deduction_id
+                        )
+                        print_color(
+                            TermColors.BLUE,
+                            f"Applied deduction: {deduction_desc} (-{deduction_points})",
+                        )
+                    # Save days_late now that grading succeeded
+                    if pending_days_late is not None:
+                        self.student_deductions.set_days_late(
+                            tuple(net_ids), pending_days_late
+                        )
+                    # Ensure student is in the deductions file
+                    self.student_deductions.ensure_student_in_file(tuple(net_ids))
+                    break
 
-            if self.analysis_only:
+                print_color(
+                    TermColors.RED,
+                    f"Invalid callback return type: {type(callback_result)}. Expected None or list of (str, int) tuples.",
+                )
+                # Don't mark student as graded - just skip to next student
                 break
+
+            # callback_result is None - interactive mode
+            # Prompt with deductions mode - handles everything internally
+            try:
+                score = get_score(
+                    concated_names,
+                    self.max_points,
+                    allow_rebuild=self.grader.allow_rebuild,
+                    allow_rerun=self.grader.allow_rerun,
+                    student_deductions=self.student_deductions,
+                    net_ids=tuple(net_ids),
+                )
+            except KeyboardInterrupt:
+                print_color(TermColors.RED, "\nExiting")
+                sys.exit(0)
 
             if score == ScoreResult.SKIP:
                 break
@@ -312,23 +270,18 @@ class GradeItem:
                 build = False
                 continue
 
-            # Record score
-            for _, _, net_id in zip(first_names, last_names, net_ids):
-                row_idx = grades_csv.find_idx_for_netid(student_grades_df, net_id)
-
-                student_grades_df.at[row_idx, self.csv_col_name] = score
-
-            student_grades_df.to_csv(
-                str(self.grader.grades_csv_path),
-                index=False,
-                quoting=csv.QUOTE_ALL,
-            )
+            # Record score - save days_late and ensure the student is in the deductions file
+            # (even if they have no deductions, to indicate they were graded)
+            if pending_days_late is not None:
+                self.student_deductions.set_days_late(tuple(net_ids), pending_days_late)
+            self.student_deductions.ensure_student_in_file(tuple(net_ids))
             break
 
-    def num_grades_needed(self, row):
-        """Return the number of group members who need a grade for this column."""
-        empty_cnt = 0
-        for grade in row[self.csv_col_name]:
-            if pandas.isnull(grade):
-                empty_cnt += 1
-        return empty_cnt
+    def num_grades_needed_deductions(self, net_ids):
+        """Return the number of group members who need a grade.
+
+        A student needs grading if they're not in the deductions file.
+        """
+        if self.student_deductions.is_student_graded(tuple(net_ids)):
+            return 0
+        return len(net_ids)

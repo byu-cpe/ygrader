@@ -138,9 +138,11 @@ class StudentDeductions:
         all_student_keys = set(self.deductions_by_students.keys()) | set(
             self.days_late_by_students.keys()
         )
-        if all_student_keys:
+        # Sort student keys for consistent output ordering
+        sorted_student_keys = sorted(all_student_keys)
+        if sorted_student_keys:
             student_deduction_list = []
-            for student_key in all_student_keys:
+            for student_key in sorted_student_keys:
                 deduction_items = self.deductions_by_students.get(student_key, [])
                 # Find the deduction IDs for these deduction items
                 deduction_ids = []
@@ -163,6 +165,9 @@ class StudentDeductions:
                     }
                 )
             data["student_deductions"] = student_deduction_list
+
+        # Create parent directory if it doesn't exist
+        self.yaml_path.parent.mkdir(parents=True, exist_ok=True)
 
         # Write to file
         with open(self.yaml_path, "w", encoding="utf-8") as f:
@@ -190,6 +195,24 @@ class StudentDeductions:
 
         self._save()
         return next_id
+
+    def find_or_create_deduction_type(self, message: str, points: float = 0.0) -> int:
+        """Find an existing deduction type by message, or create a new one if not found.
+
+        Args:
+            message: The deduction message/description to find or create
+            points: Points to deduct (used only if creating a new type)
+
+        Returns:
+            The ID of the existing or newly created deduction type
+        """
+        # Search for existing deduction type with matching message
+        for deduction_id, deduction_type in self.deduction_types.items():
+            if deduction_type.message == message:
+                return deduction_id
+
+        # Not found, create a new one
+        return self.add_deduction_type(message, points)
 
     def create_deduction_type_interactive(self) -> int:
         """Interactively prompt the user to create a new deduction type.
@@ -355,6 +378,32 @@ class StudentDeductions:
         if student_key in self.days_late_by_students:
             del self.days_late_by_students[student_key]
         self._save()
+
+    def ensure_student_in_file(self, net_ids: tuple):
+        """Ensure a student is in the deductions file, even with no deductions.
+
+        This is used to indicate that a student has been graded (with a perfect score)
+        rather than being absent from the file (not yet graded).
+
+        Args:
+            net_ids: Tuple of net_ids for the student.
+        """
+        student_key = tuple(net_ids) if not isinstance(net_ids, tuple) else net_ids
+        if student_key not in self.deductions_by_students:
+            self.deductions_by_students[student_key] = []
+            self._save()
+
+    def is_student_graded(self, net_ids: tuple) -> bool:
+        """Check if a student has been graded (is in the deductions file).
+
+        Args:
+            net_ids: Tuple of net_ids for the student.
+
+        Returns:
+            True if the student is in the deductions file (graded), False otherwise.
+        """
+        student_key = tuple(net_ids) if not isinstance(net_ids, tuple) else net_ids
+        return student_key in self.deductions_by_students
 
     def set_days_late(self, net_ids: tuple, days_late: int):
         """Set the number of days late for a student.

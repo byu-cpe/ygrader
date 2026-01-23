@@ -1,0 +1,9 @@
+deduction_types:
+- id: 1
+  desc: Did not follow instructions
+  points: 5
+student_deductions:
+- net_ids: [student1]
+  deductions: [1]
+- net_ids: [student2, student3]
+  deductions: [1]

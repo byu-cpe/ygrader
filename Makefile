@@ -5,7 +5,7 @@ package:
 	$(IN_ENV) twine upload dist/*
 
 test: 
-	cd test && python3 -m unittest
+	cd test && rm -rf grades && python3 -m unittest
 
 doc:
 	cd doc && make html

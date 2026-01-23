@@ -1,0 +1,5 @@
+student_deductions:
+- net_ids: [jgoeders]
+  deductions: []
+- net_ids: [tester123]
+  deductions: []

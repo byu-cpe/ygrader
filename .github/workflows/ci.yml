@@ -18,8 +18,9 @@ jobs:
     steps:
     - uses: actions/checkout@v2
     - name: Install packages
-      run: 
+      run: | 
           sudo pip3 install pandas
+          sudo pip3 install pyyaml
     - name: Pytests
       run: cd test && python3 -m unittest
 

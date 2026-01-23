@@ -16,10 +16,8 @@ class ScoreResult(Enum):
 
 def get_score(
     names,
-    csv_col_name,
     max_points,
     *,
-    help_msg=None,
     allow_rebuild=True,
     allow_rerun=True,
     student_deductions=None,
@@ -29,13 +27,11 @@ def get_score(
 
     Args:
         names: Student name(s) to display
-        csv_col_name: Name of the CSV column being graded
         max_points: Maximum points for this item (or None if no limit)
-        help_msg: Optional help message to display
         allow_rebuild: Whether rebuild option is available
         allow_rerun: Whether rerun option is available
-        student_deductions: StudentDeductions object (for DEDUCTIONS mode)
-        net_ids: Tuple of net_ids for the current student (for DEDUCTIONS mode)
+        student_deductions: StudentDeductions object (for deductions mode)
+        net_ids: Tuple of net_ids for the current student (for deductions mode)
 
     Returns:
         Either a numeric score (float) or a ScoreResult enum value
@@ -55,8 +51,6 @@ def get_score(
 
         print("")
         print("-" * 60)
-        if help_msg:
-            print_color(TermColors.BOLD, help_msg)
 
         # Show current deductions for this student if in deductions mode (in white)
         if deductions_mode:
@@ -113,14 +107,7 @@ def get_score(
         # Format menu items in two columns
         col_width = 38  # Each column width (2 columns * 38 = 76 < 80)
         input_txt = (
-            TermColors.BLUE
-            + "Enter a grade for "
-            + names
-            + ", "
-            + (TermColors.UNDERLINE + csv_col_name + TermColors.END + TermColors.BLUE)
-            + ":"
-            + TermColors.END
-            + "\n"
+            TermColors.BLUE + "Enter a grade for " + names + ":" + TermColors.END + "\n"
         )
 
         # Combine left and right items row by row
