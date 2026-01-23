@@ -56,8 +56,7 @@ def get_score(
         # Show current deductions for this student
         current_deductions = student_deductions.get_student_deductions(tuple(net_ids))
         print(
-            fpad2
-            + f"Current score: {TermColors.GREEN}{computed_score}{TermColors.END}"
+            fpad2 + f"Current score: {TermColors.GREEN}{computed_score}{TermColors.END}"
         )
         print(fpad2 + "Current deductions:")
         if current_deductions:
@@ -274,7 +273,10 @@ def _manage_grades_interactive(student_deductions, names_by_netid=None):
                 # Check if search matches first/last name
                 if names_by_netid and net_id in names_by_netid:
                     first_name, last_name = names_by_netid[net_id]
-                    if not list_all and (search_lower in first_name.lower() or search_lower in last_name.lower()):
+                    if not list_all and (
+                        search_lower in first_name.lower()
+                        or search_lower in last_name.lower()
+                    ):
                         match_found = True
                     display_parts.append(f"{first_name} {last_name} ({net_id})")
                 else:
@@ -314,9 +316,11 @@ def _manage_grades_interactive(student_deductions, names_by_netid=None):
             if 0 <= idx < len(matches):
                 student_key, display = matches[idx]
                 # Confirm deletion
-                confirm = input(
-                    f"Delete grade for {display}? This cannot be undone. [y/N]: "
-                ).strip().lower()
+                confirm = (
+                    input(f"Delete grade for {display}? This cannot be undone. [y/N]: ")
+                    .strip()
+                    .lower()
+                )
 
                 if confirm == "y":
                     student_deductions.clear_student_deductions(student_key)

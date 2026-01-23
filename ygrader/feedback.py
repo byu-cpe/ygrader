@@ -299,8 +299,10 @@ def assemble_grades(
                 )
 
             # Get submit info for this student
-            _, effective_due_date, submitted_datetime = _get_student_key_and_submit_info(
-                net_id, subitem_deductions, due_date, due_date_exceptions
+            _, effective_due_date, submitted_datetime = (
+                _get_student_key_and_submit_info(
+                    net_id, subitem_deductions, due_date, due_date_exceptions
+                )
             )
 
             # Calculate score before late penalty
@@ -501,12 +503,17 @@ def _generate_student_feedback(
         and effective_due_date is not None
     ):
         final_score = late_penalty_callback(
-            effective_due_date, submitted_datetime, total_points_possible, score_before_late
+            effective_due_date,
+            submitted_datetime,
+            total_points_possible,
+            score_before_late,
         )
         # Ensure final score is not negative
         final_score = max(0, final_score)
         late_penalty_points = score_before_late - final_score
-        late_label = f"Late Penalty (submitted {submitted_datetime.strftime('%Y-%m-%d %H:%M')}):"
+        late_label = (
+            f"Late Penalty (submitted {submitted_datetime.strftime('%Y-%m-%d %H:%M')}):"
+        )
         lines.append(
             f"{late_label:<{item_col_width}} {-late_penalty_points:>{score_col_width}.1f}"
         )
