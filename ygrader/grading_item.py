@@ -37,12 +37,15 @@ class GradeItem:
         self.fcn_args_dict = fcn_args_dict if fcn_args_dict is not None else {}
         self.student_deductions = StudentDeductions(deductions_yaml_path)
         self.last_graded_net_ids = None  # Track last graded student for undo
-        self.names_by_netid = self._build_names_lookup()  # net_id -> (first_name, last_name)
+        self.names_by_netid = (
+            self._build_names_lookup()
+        )  # net_id -> (first_name, last_name)
 
     def _build_names_lookup(self):
         """Build a lookup dictionary from net_id to (first_name, last_name) from the class list CSV."""
         # Import pandas here to avoid circular import and since it's already imported in grader.py
         import pandas  # pylint: disable=import-outside-toplevel
+
         names_by_netid = {}
         try:
             df = pandas.read_csv(self.grader.class_list_csv_path)
@@ -51,7 +54,11 @@ class GradeItem:
                     net_id = row["Net ID"]
                     first_name = row["First Name"]
                     last_name = row["Last Name"]
-                    if pandas.notna(net_id) and pandas.notna(first_name) and pandas.notna(last_name):
+                    if (
+                        pandas.notna(net_id)
+                        and pandas.notna(first_name)
+                        and pandas.notna(last_name)
+                    ):
                         names_by_netid[net_id] = (first_name, last_name)
         except (FileNotFoundError, pandas.errors.EmptyDataError, KeyError):
             pass  # If we can't read the CSV, just use an empty dict
@@ -259,6 +266,9 @@ class GradeItem:
                 # run again, but don't build
                 build = False
                 continue
+            if score == ScoreResult.EXIT:
+                print_color(TermColors.BLUE, "Exiting grader")
+                sys.exit(0)
             if score == ScoreResult.UNDO_LAST:
                 # Undo the last graded student and signal to go back
                 if self.last_graded_net_ids is not None:
@@ -276,7 +286,9 @@ class GradeItem:
             # Record score - save submit_time and ensure the student is in the deductions file
             # (even if they have no deductions, to indicate they were graded)
             if pending_submit_time is not None:
-                self.student_deductions.set_submit_time(tuple(net_ids), pending_submit_time)
+                self.student_deductions.set_submit_time(
+                    tuple(net_ids), pending_submit_time
+                )
             self.student_deductions.ensure_student_in_file(tuple(net_ids))
             # Track this student as last graded for undo functionality
             self.last_graded_net_ids = tuple(net_ids)

@@ -154,10 +154,13 @@ def _calculate_student_score(
         Tuple of (final_score, total_possible, submitted_datetime or None if on time).
     """
     total_possible = sum(item.points for item in ls_column.items)
-    total_deductions = 0.0
+    total_score = 0.0
 
     for item in ls_column.items:
         deductions_obj = item_deductions.get(item.name)
+        student_graded = False
+        item_deduction_total = 0.0
+
         if deductions_obj:
             # Find the student's deductions
             student_key = None
@@ -170,12 +173,18 @@ def _calculate_student_score(
                         break
 
             if student_key:
+                student_graded = True
                 deductions = deductions_obj.deductions_by_students[student_key]
                 for deduction in deductions:
-                    total_deductions += deduction.points
+                    item_deduction_total += deduction.points
 
-    # Calculate score before late penalty
-    score = max(0, total_possible - total_deductions)
+        # Only award points if the student was graded for this item
+        if student_graded:
+            total_score += max(0, item.points - item_deduction_total)
+        # else: student gets 0 for this item (not graded)
+
+    # Score is already calculated
+    score = total_score
 
     # Get submit info
     _, effective_due_date, submitted_datetime = _get_student_key_and_submit_info(
@@ -290,8 +299,10 @@ def assemble_grades(
                 )
 
             # Get submit info for this student
-            _, effective_due_date, submitted_datetime = _get_student_key_and_submit_info(
-                net_id, subitem_deductions, due_date, due_date_exceptions
+            _, effective_due_date, submitted_datetime = (
+                _get_student_key_and_submit_info(
+                    net_id, subitem_deductions, due_date, due_date_exceptions
+                )
             )
 
             # Calculate score before late penalty
@@ -421,7 +432,8 @@ def _generate_student_feedback(
         total_points_possible += subitem_points_possible
 
         subitem_points_deducted = 0
-        item_deductions = []
+        item_deduction_list = []
+        student_graded = False
 
         # Get deductions for this student in this item
         student_deductions_obj = subitem_deductions.get(item.name)
@@ -438,13 +450,19 @@ def _generate_student_feedback(
                         break
 
             if student_key:
+                student_graded = True
                 deductions = student_deductions_obj.deductions_by_students[student_key]
                 for deduction in deductions:
-                    item_deductions.append((deduction.message, deduction.points))
+                    item_deduction_list.append((deduction.message, deduction.points))
                     subitem_points_deducted += deduction.points
 
-        # Calculate item score
-        subitem_score = max(0, subitem_points_possible - subitem_points_deducted)
+        # Calculate item score (0 if not graded)
+        if student_graded:
+            subitem_score = max(0, subitem_points_possible - subitem_points_deducted)
+        else:
+            subitem_score = 0
+            item_deduction_list.append(("Not graded", subitem_points_possible))
+            subitem_points_deducted = subitem_points_possible
         score_str = f"{subitem_score:.1f} / {subitem_points_possible:.1f}"
 
         # Item line with score
@@ -454,7 +472,7 @@ def _generate_student_feedback(
         )
 
         # Deduction lines (indented)
-        for msg, pts in item_deductions:
+        for msg, pts in item_deduction_list:
             # Wrap long messages
             wrapped = _wrap_text(msg, deduction_msg_width)
             for i, line_text in enumerate(wrapped):
@@ -485,12 +503,17 @@ def _generate_student_feedback(
         and effective_due_date is not None
     ):
         final_score = late_penalty_callback(
-            effective_due_date, submitted_datetime, total_points_possible, score_before_late
+            effective_due_date,
+            submitted_datetime,
+            total_points_possible,
+            score_before_late,
         )
         # Ensure final score is not negative
         final_score = max(0, final_score)
         late_penalty_points = score_before_late - final_score
-        late_label = f"Late Penalty (submitted {submitted_datetime.strftime('%Y-%m-%d %H:%M')}):"
+        late_label = (
+            f"Late Penalty (submitted {submitted_datetime.strftime('%Y-%m-%d %H:%M')}):"
+        )
         lines.append(
             f"{late_label:<{item_col_width}} {-late_penalty_points:>{score_col_width}.1f}"
         )

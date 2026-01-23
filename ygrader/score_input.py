@@ -13,6 +13,7 @@ class ScoreResult(Enum):
     RERUN = auto()
     CREATE_DEDUCTION = auto()
     UNDO_LAST = auto()
+    EXIT = auto()
 
 
 def get_score(
@@ -55,8 +56,7 @@ def get_score(
         # Show current deductions for this student
         current_deductions = student_deductions.get_student_deductions(tuple(net_ids))
         print(
-            fpad2
-            + f"Current score: {TermColors.GREEN}{computed_score}{TermColors.END}"
+            fpad2 + f"Current score: {TermColors.GREEN}{computed_score}{TermColors.END}"
         )
         print(fpad2 + "Current deductions:")
         if current_deductions:
@@ -99,10 +99,14 @@ def get_score(
         left_items.append(("[g]", "Manage grades"))
         allowed_cmds["g"] = "manage"
 
-        # Add undo option last if there's a last graded student
+        # Add undo option if there's a last graded student
         if last_graded_net_ids is not None:
             left_items.append(("[u]", f"Undo last ({last_graded_net_ids[0]})"))
             allowed_cmds["u"] = ScoreResult.UNDO_LAST
+
+        # Add exit option at bottom of left column
+        left_items.append(("[e]", "Exit grader"))
+        allowed_cmds["e"] = ScoreResult.EXIT
 
         # Format menu items in two columns
         col_width = 38  # Each column width (2 columns * 38 = 76 < 80)
@@ -269,7 +273,10 @@ def _manage_grades_interactive(student_deductions, names_by_netid=None):
                 # Check if search matches first/last name
                 if names_by_netid and net_id in names_by_netid:
                     first_name, last_name = names_by_netid[net_id]
-                    if not list_all and (search_lower in first_name.lower() or search_lower in last_name.lower()):
+                    if not list_all and (
+                        search_lower in first_name.lower()
+                        or search_lower in last_name.lower()
+                    ):
                         match_found = True
                     display_parts.append(f"{first_name} {last_name} ({net_id})")
                 else:
@@ -309,9 +316,11 @@ def _manage_grades_interactive(student_deductions, names_by_netid=None):
             if 0 <= idx < len(matches):
                 student_key, display = matches[idx]
                 # Confirm deletion
-                confirm = input(
-                    f"Delete grade for {display}? This cannot be undone. [y/N]: "
-                ).strip().lower()
+                confirm = (
+                    input(f"Delete grade for {display}? This cannot be undone. [y/N]: ")
+                    .strip()
+                    .lower()
+                )
 
                 if confirm == "y":
                     student_deductions.clear_student_deductions(student_key)
