@@ -36,9 +36,34 @@ class GradeItem:
         self.max_points = max_points
         self.fcn_args_dict = fcn_args_dict if fcn_args_dict is not None else {}
         self.student_deductions = StudentDeductions(deductions_yaml_path)
+        self.last_graded_net_ids = None  # Track last graded student for undo
+        self.names_by_netid = self._build_names_lookup()  # net_id -> (first_name, last_name)
+
+    def _build_names_lookup(self):
+        """Build a lookup dictionary from net_id to (first_name, last_name) from the class list CSV."""
+        # Import pandas here to avoid circular import and since it's already imported in grader.py
+        import pandas  # pylint: disable=import-outside-toplevel
+        names_by_netid = {}
+        try:
+            df = pandas.read_csv(self.grader.class_list_csv_path)
+            for _, row in df.iterrows():
+                if "Net ID" in row and "First Name" in row and "Last Name" in row:
+                    net_id = row["Net ID"]
+                    first_name = row["First Name"]
+                    last_name = row["Last Name"]
+                    if pandas.notna(net_id) and pandas.notna(first_name) and pandas.notna(last_name):
+                        names_by_netid[net_id] = (first_name, last_name)
+        except (FileNotFoundError, pandas.errors.EmptyDataError, KeyError):
+            pass  # If we can't read the CSV, just use an empty dict
+        return names_by_netid
 
     def run_grading(self, _student_grades_df, row, callback_args):
-        """Run the grading process for this item"""
+        """Run the grading process for this item.
+
+        Returns:
+            True if user requested to go back and regrade the previous student,
+            False otherwise.
+        """
         net_ids = grades_csv.get_net_ids(row)
         num_group_members = len(net_ids)
         concated_names = grades_csv.get_concated_names(row)
@@ -63,7 +88,7 @@ class GradeItem:
                 "Grade already exists for this item",
                 "(skipping)",
             )
-            return
+            return False
 
         while True:
             print_color(
@@ -219,18 +244,33 @@ class GradeItem:
                     allow_rerun=self.grader.allow_rerun,
                     student_deductions=self.student_deductions,
                     net_ids=tuple(net_ids),
+                    last_graded_net_ids=self.last_graded_net_ids,
+                    names_by_netid=self.names_by_netid,
                 )
             except KeyboardInterrupt:
                 print_color(TermColors.RED, "\nExiting")
                 sys.exit(0)
 
             if score == ScoreResult.SKIP:
-                break
+                return False
             if score == ScoreResult.REBUILD:
                 continue
             if score == ScoreResult.RERUN:
                 # run again, but don't build
                 build = False
+                continue
+            if score == ScoreResult.UNDO_LAST:
+                # Undo the last graded student and signal to go back
+                if self.last_graded_net_ids is not None:
+                    self.student_deductions.clear_student_deductions(
+                        self.last_graded_net_ids
+                    )
+                    print_color(
+                        TermColors.GREEN,
+                        f"Undid grade for {', '.join(self.last_graded_net_ids)} - going back to regrade",
+                    )
+                    self.last_graded_net_ids = None
+                    return True  # Signal to go back to previous student
                 continue
 
             # Record score - save submit_time and ensure the student is in the deductions file
@@ -238,7 +278,12 @@ class GradeItem:
             if pending_submit_time is not None:
                 self.student_deductions.set_submit_time(tuple(net_ids), pending_submit_time)
             self.student_deductions.ensure_student_in_file(tuple(net_ids))
-            break
+            # Track this student as last graded for undo functionality
+            self.last_graded_net_ids = tuple(net_ids)
+            return False  # Normal completion
+
+        # If we got here via break (CallbackFailed, build_only, dry_run, etc.)
+        return False
 
     def num_grades_needed_deductions(self, net_ids):
         """Return the number of group members who need a grade.

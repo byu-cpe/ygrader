@@ -237,6 +237,32 @@ def assemble_grades(
             last_name = str(student_row["Last Name"]).strip()
             net_id = str(student_row["Net ID"]).strip()
 
+            # Check for partial grades (graded for some items but not others)
+            items_graded = []
+            items_not_graded = []
+            for item in ls_column.items:
+                deductions_obj = subitem_deductions.get(item.name)
+                if deductions_obj and deductions_obj.is_student_graded((net_id,)):
+                    items_graded.append(item.name)
+                else:
+                    # Also check for multi-student keys containing this net_id
+                    found = False
+                    if deductions_obj:
+                        for key in deductions_obj.deductions_by_students.keys():
+                            if net_id in key:
+                                items_graded.append(item.name)
+                                found = True
+                                break
+                    if not found:
+                        items_not_graded.append(item.name)
+
+            if items_graded and items_not_graded:
+                print_color(
+                    TermColors.YELLOW,
+                    f"Partial grade: {net_id} graded for [{', '.join(items_graded)}] "
+                    f"but NOT [{', '.join(items_not_graded)}]",
+                )
+
             # Calculate score before late penalty
             score_before_late, total_possible, max_late_days = _calculate_student_score(
                 net_id=net_id,

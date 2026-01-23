@@ -448,3 +448,27 @@ class StudentDeductions:
         deduction_items = self.deductions_by_students.get(student_key, [])
 
         return sum(item.points for item in deduction_items)
+
+    def get_graded_students(self) -> List[tuple]:
+        """Get a list of all graded students.
+
+        Returns:
+            List of net_id tuples for all students who have been graded.
+        """
+        return list(self.deductions_by_students.keys())
+
+    def find_student_by_netid(self, netid: str) -> Optional[tuple]:
+        """Find a student's full net_ids tuple by a single net_id.
+
+        This is useful for finding group members when you only know one net_id.
+
+        Args:
+            netid: A single net_id to search for.
+
+        Returns:
+            The full net_ids tuple if found, None otherwise.
+        """
+        for student_key in self.deductions_by_students:
+            if netid in student_key:
+                return student_key
+        return None

@@ -459,8 +459,20 @@ class Grader:
         self._run_grading(student_grades_df, grouped_df)
 
     def _run_grading(self, student_grades_df, grouped_df):
+        # Sort by last name for consistent grading order
+        # After groupby().agg(list), "Last Name" is a list, so we sort by the first element
+        sorted_df = grouped_df.sort_values(
+            by="Last Name", key=lambda x: x.apply(lambda names: names[0].lower())
+        )
+
+        # Convert to list for index-based iteration (needed for going back)
+        rows_list = list(sorted_df.iterrows())
+        idx = 0
+        prev_idx = None  # Track previous student index for undo
+
         # Loop through all of the students/groups and perform grading
-        for _, row in grouped_df.iterrows():
+        while idx < len(rows_list):
+            _, row = rows_list[idx]
             first_names = grades_csv.get_first_names(row)
             last_names = grades_csv.get_last_names(row)
             net_ids = grades_csv.get_net_ids(row)
@@ -473,6 +485,7 @@ class Grader:
 
             if sum(num_group_members_need_grade_per_item) == 0:
                 # This student/group is already fully graded
+                idx += 1
                 continue
 
             # Print name(s) of who we are grading
@@ -491,6 +504,7 @@ class Grader:
             # Code from zip will return modified time (epoch, float). Code from github will return True.
             success = self._get_student_code(row, student_work_path)
             if not success:
+                idx += 1
                 continue
 
             # Format student code
@@ -518,13 +532,23 @@ class Grader:
                     )
                 except CallbackFailed as e:
                     print_color(TermColors.RED, repr(e))
+                    idx += 1
                     continue
                 except KeyboardInterrupt:
                     pass
 
             # Loop through all items that are to be graded
+            go_back = False
             for item in self.items:
-                item.run_grading(student_grades_df, row, callback_args)
+                go_back = item.run_grading(student_grades_df, row, callback_args)
+                if go_back:
+                    break  # Stop grading items for this student if going back
+
+            if go_back and prev_idx is not None:
+                # Go back to previous student
+                idx = prev_idx
+                prev_idx = None  # Clear so we can't go back twice in a row
+                continue
 
             if self.dry_run_first:
                 print_color(
@@ -532,6 +556,10 @@ class Grader:
                     "'dry_run_first' is set, so exiting after first student.",
                 )
                 break
+
+            # Move to next student and remember this one for potential undo
+            prev_idx = idx
+            idx += 1
 
     def _unzip_submissions(self):
         with zipfile.ZipFile(self.learning_suite_submissions_zip_path, "r") as f:
