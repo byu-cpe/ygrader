@@ -178,11 +178,13 @@ class StudentDeductions:
 
         Args:
             message: The deduction message/description
-            points: Points to deduct (can be negative for bonus points)
+            points: Points to deduct (must be non-negative)
 
         Returns:
             The ID assigned to this deduction type
         """
+        if points < 0:
+            raise ValueError(f"Deduction points must be non-negative, got {points}")
         # Find the next available ID (start at 1, reserve 0 for clear command)
         if self.deduction_types:
             next_id = max(self.deduction_types.keys()) + 1
