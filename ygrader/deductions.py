@@ -214,7 +214,9 @@ class StudentDeductions:
         # Not found, create a new one
         return self.add_deduction_type(message, points)
 
-    def create_deduction_type_interactive(self, max_points: Optional[float] = None) -> int:
+    def create_deduction_type_interactive(
+        self, max_points: Optional[float] = None
+    ) -> int:
         """Interactively prompt the user to create a new deduction type.
 
         Args:
@@ -362,7 +364,9 @@ class StudentDeductions:
         self._save()
         return True
 
-    def change_deduction_value_interactive(self, max_points: Optional[float] = None) -> bool:
+    def change_deduction_value_interactive(
+        self, max_points: Optional[float] = None
+    ) -> bool:
         """Interactively prompt the user to change a deduction type's point value.
 
         Args:
