@@ -76,12 +76,12 @@ def grading_handler(
         # Run phase: check results and return deductions
         output_file = student_code_path / "src" / "output.bin"
         if not output_file.exists():
-            return [("Build failed - no output", -10)]
+            return [("Build failed - no output", 10)]
         
         # Run tests, check results, return deductions
         result = check_output(output_file)
         if not result.passed:
-            return [("Test failed", -5)]
+            return [("Test failed", 5)]
         
         return []  # No deductions
 ```

@@ -211,6 +211,11 @@ class GradeItem:
                 # Callback returned deductions to apply automatically
                 if isinstance(callback_result, list):
                     for deduction_desc, deduction_points in callback_result:
+                        if deduction_points < 0:
+                            raise ValueError(
+                                f"Deduction points must be non-negative, got {deduction_points} "
+                                f"for '{deduction_desc}'"
+                            )
                         # Find or create the deduction type
                         deduction_id = (
                             self.student_deductions.find_or_create_deduction_type(
