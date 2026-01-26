@@ -92,6 +92,9 @@ def get_score(
 
         right_items.append(("[0]", "Clear deductions"))
 
+        right_items.append(("[v]", "Change deduction value"))
+        allowed_cmds["v"] = "change_value"
+
         # Accept score at the bottom of right column
         right_items.append(("[Enter]", "Accept score"))
 
@@ -167,7 +170,9 @@ def get_score(
 
             # Handle special cases that need to loop back
             if result == "create":
-                deduction_id = student_deductions.create_deduction_type_interactive()
+                deduction_id = student_deductions.create_deduction_type_interactive(
+                    max_points=max_points
+                )
                 if deduction_id >= 0:
                     # Auto-apply the new deduction to this student
                     student_deductions.apply_deduction_to_student(
@@ -176,6 +181,11 @@ def get_score(
                 continue
             if result == "delete":
                 student_deductions.delete_deduction_type_interactive()
+                continue
+            if result == "change_value":
+                student_deductions.change_deduction_value_interactive(
+                    max_points=max_points
+                )
                 continue
             if result == "manage":
                 _manage_grades_interactive(student_deductions, names_by_netid)
