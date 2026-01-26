@@ -214,8 +214,13 @@ class StudentDeductions:
         # Not found, create a new one
         return self.add_deduction_type(message, points)
 
-    def create_deduction_type_interactive(self) -> int:
+    def create_deduction_type_interactive(
+        self, max_points: Optional[float] = None
+    ) -> int:
         """Interactively prompt the user to create a new deduction type.
+
+        Args:
+            max_points: Optional maximum points for validation.
 
         Returns:
             The ID of the created deduction type, or -1 if cancelled.
@@ -236,6 +241,18 @@ class StudentDeductions:
                 return -1
             try:
                 points = float(points_str)
+                if points < 0:
+                    print_color(
+                        TermColors.YELLOW,
+                        "Deduction cannot be negative. Try again.",
+                    )
+                    continue
+                if max_points is not None and points > max_points:
+                    print_color(
+                        TermColors.YELLOW,
+                        f"Deduction ({points}) cannot exceed max points ({max_points}). Try again.",
+                    )
+                    continue
                 break
             except ValueError:
                 print("Invalid number. Try again.")
@@ -328,6 +345,95 @@ class StudentDeductions:
         deduction_type = self.deduction_types[deduction_id]
         self.delete_deduction_type(deduction_id)
         print(f"Deleted deduction type [{deduction_id}]: {deduction_type.message}")
+        return True
+
+    def change_deduction_value(self, deduction_id: int, new_points: float) -> bool:
+        """Change the point value of an existing deduction type.
+
+        Args:
+            deduction_id: The ID of the deduction type to modify.
+            new_points: The new point value.
+
+        Returns:
+            True if successful, False if deduction_id not found.
+        """
+        if deduction_id not in self.deduction_types:
+            return False
+
+        self.deduction_types[deduction_id].points = new_points
+        self._save()
+        return True
+
+    def change_deduction_value_interactive(
+        self, max_points: Optional[float] = None
+    ) -> bool:
+        """Interactively prompt the user to change a deduction type's point value.
+
+        Args:
+            max_points: Optional maximum points for validation.
+
+        Returns:
+            True if a deduction value was changed, False otherwise.
+        """
+        if not self.deduction_types:
+            print("No deduction types to modify.")
+            return False
+
+        print("\nChange deduction value (empty input to cancel):")
+        print("Available deduction types:")
+        for deduction_id, deduction_type in self.deduction_types.items():
+            in_use = " (IN USE)" if self.is_deduction_in_use(deduction_id) else ""
+            print(
+                f"  [{deduction_id}] -{deduction_type.points}: {deduction_type.message}{in_use}"
+            )
+
+        id_str = input("  Enter ID to modify: ").strip()
+        if not id_str:
+            print("Cancelled.")
+            return False
+
+        try:
+            deduction_id = int(id_str)
+        except ValueError:
+            print("Invalid ID.")
+            return False
+
+        if deduction_id not in self.deduction_types:
+            print("Deduction type not found.")
+            return False
+
+        deduction_type = self.deduction_types[deduction_id]
+        print(f"  Current value: {deduction_type.points} points")
+
+        while True:
+            points_str = input("  Enter new points value: ").strip()
+            if not points_str:
+                print("Cancelled.")
+                return False
+
+            try:
+                new_points = float(points_str)
+                if new_points < 0:
+                    print_color(
+                        TermColors.YELLOW,
+                        "Deduction cannot be negative. Try again.",
+                    )
+                    continue
+                if max_points is not None and new_points > max_points:
+                    print_color(
+                        TermColors.YELLOW,
+                        f"Deduction ({new_points}) cannot exceed max points ({max_points}). Try again.",
+                    )
+                    continue
+                break
+            except ValueError:
+                print("Invalid number. Try again.")
+
+        old_points = deduction_type.points
+        self.change_deduction_value(deduction_id, new_points)
+        print(
+            f"Changed deduction [{deduction_id}] from {old_points} to {new_points} points"
+        )
         return True
 
     def get_student_deductions(self, net_ids: tuple) -> List[DeductionType]:

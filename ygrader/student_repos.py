@@ -9,48 +9,114 @@ import tempfile
 from .utils import print_color, TermColors
 
 
-def clone_repo(git_path, tag, student_repo_path):
-    """Clone the student repository"""
+def clone_repo(git_path, tag, student_repo_path, output=None):
+    """Clone the student repository
+
+    Args:
+        git_path: URL to the git repository
+        tag: Tag or branch to checkout
+        student_repo_path: Path to clone into
+        output: File handle to write output to (defaults to sys.stdout)
+
+    Returns:
+        True if successful, False otherwise
+    """
+    if output is None:
+        output = sys.stdout
+
+    # Track whether we're outputting to stdout (vs a log file)
+    output_to_stdout = output is sys.stdout
 
     if student_repo_path.is_dir() and list(student_repo_path.iterdir()):
-        print_color(
-            TermColors.BLUE,
-            "Student repo",
-            student_repo_path.name,
-            "already cloned. Re-fetching tag",
+        return _fetch_and_checkout(student_repo_path, tag, output, output_to_stdout)
+
+    return _clone_fresh(git_path, tag, student_repo_path, output, output_to_stdout)
+
+
+def _fetch_and_checkout(student_repo_path, tag, output, output_to_stdout):
+    """Fetch and checkout when repo already exists."""
+    msg = f"Student repo {student_repo_path.name} already cloned. Re-fetching tag"
+    if output_to_stdout:
+        print_color(TermColors.BLUE, msg)
+    else:
+        print(msg, file=output)
+
+    # Fetch
+    cmd = ["git", "fetch", "--tags", "-f"]
+    try:
+        result = subprocess.run(
+            cmd,
+            cwd=student_repo_path,
+            check=True,
+            capture_output=True,
+            text=True,
         )
+        if result.stdout:
+            print(result.stdout, file=output, end="")
+        if result.stderr:
+            print(result.stderr, file=output, end="")
+    except subprocess.CalledProcessError as e:
+        msg = f"git fetch failed: {e}"
+        if output_to_stdout:
+            print_color(TermColors.RED, msg)
+        else:
+            print(msg, file=output)
+        if e.stdout:
+            print(e.stdout, file=output, end="")
+        if e.stderr:
+            print(e.stderr, file=output, end="")
+        return False
 
-        # Fetch
-        cmd = ["git", "fetch", "--tags", "-f"]
-        try:
-            subprocess.run(cmd, cwd=student_repo_path, check=True)
-        except subprocess.CalledProcessError:
-            print_color(TermColors.RED, "git fetch failed")
-            return False
+    # Checkout tag
+    if tag is None:
+        # Get the default branch
+        stdout = subprocess.run(
+            ["git", "symbolic-ref", "refs/remotes/origin/HEAD", "--short"],
+            cwd=student_repo_path,
+            check=True,
+            capture_output=True,
+            universal_newlines=True,
+        ).stdout
+        tag = stdout.split("/")[1].strip()
 
-        # Checkout tag
-        if tag is None:
-            # Get the default branch
-            stdout = subprocess.run(
-                ["git", "symbolic-ref", "refs/remotes/origin/HEAD", "--short"],
-                cwd=student_repo_path,
-                check=True,
-                capture_output=True,
-                universal_newlines=True,
-            ).stdout
-            tag = stdout.split("/")[1].strip()
+    if tag not in ("master", "main"):
+        tag = "tags/" + tag
+    cmd = ["git", "checkout", tag, "-f"]
+    try:
+        result = subprocess.run(
+            cmd,
+            cwd=student_repo_path,
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+        if result.stdout:
+            print(result.stdout, file=output, end="")
+        if result.stderr:
+            print(result.stderr, file=output, end="")
+    except subprocess.CalledProcessError as e:
+        msg = f"git checkout of tag failed: {e}"
+        if output_to_stdout:
+            print_color(TermColors.RED, msg)
+        else:
+            print(msg, file=output)
+        if e.stdout:
+            print(e.stdout, file=output, end="")
+        if e.stderr:
+            print(e.stderr, file=output, end="")
+        return False
 
-        if tag not in ("master", "main"):
-            tag = "tags/" + tag
-        cmd = ["git", "checkout", tag, "-f"]
-        try:
-            subprocess.run(cmd, cwd=student_repo_path, check=True)
-        except subprocess.CalledProcessError:
-            print_color(TermColors.RED, "git checkout of tag failed")
-            return False
-        return True
+    return True
 
-    print_color(TermColors.BLUE, "Cloning repo, tag =", tag)
+
+def _clone_fresh(git_path, tag, student_repo_path, output, output_to_stdout):
+    """Clone a fresh copy of the repo."""
+    msg = f"Cloning repo, tag = {tag}"
+    if output_to_stdout:
+        print_color(TermColors.BLUE, msg)
+    else:
+        print(msg, file=output)
+
     if tag:
         cmd = [
             "git",
@@ -63,7 +129,42 @@ def clone_repo(git_path, tag, student_repo_path):
     else:
         cmd = ["git", "clone", git_path, str(student_repo_path.absolute())]
 
-    # Redirect clone output to a temporary log file in /tmp
+    # If output was explicitly provided (e.g., a log file), write directly to it.
+    # Otherwise (stdout), redirect clone output to a temporary log file to keep terminal clean.
+    if not output_to_stdout:
+        return _clone_to_output(cmd, student_repo_path, output)
+
+    return _clone_to_temp_log(cmd, student_repo_path)
+
+
+def _clone_to_output(cmd, student_repo_path, output):
+    """Clone and write output to the provided file handle."""
+    try:
+        result = subprocess.run(
+            cmd,
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+        if result.stdout:
+            print(result.stdout, file=output, end="")
+        if result.stderr:
+            print(result.stderr, file=output, end="")
+    except KeyboardInterrupt:
+        shutil.rmtree(str(student_repo_path))
+        sys.exit(-1)
+    except subprocess.CalledProcessError as e:
+        print("Clone failed", file=output)
+        if e.stdout:
+            print(e.stdout, file=output, end="")
+        if e.stderr:
+            print(e.stderr, file=output, end="")
+        return False
+    return True
+
+
+def _clone_to_temp_log(cmd, student_repo_path):
+    """Clone and write output to a temporary log file."""
     log_path = None
     try:
         with tempfile.NamedTemporaryFile(
