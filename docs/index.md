@@ -8,6 +8,8 @@ maxdepth: 2
 ---
 introduction
 usage
+parallel_build
+remote_build
 documentation
 example_repos
 faq
