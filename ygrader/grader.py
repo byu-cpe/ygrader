@@ -1,14 +1,20 @@
 """Main ygrader module"""
 
+# pylint: disable=too-many-lines
+
 import enum
 import inspect
 import os
 import pathlib
 import re
 import shutil
+import sys
+import tempfile
+import threading
 import time
 import zipfile
 from collections import defaultdict
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Callable
 
 import pandas
@@ -173,7 +179,10 @@ class Grader:
             fcn_args_dict=grading_fcn_args_dict,
         )
         _verify_callback_fcn(
-            grading_fcn, item, fcn_extra_args_dict=grading_fcn_args_dict
+            grading_fcn,
+            item,
+            fcn_extra_args_dict=grading_fcn_args_dict,
+            github_configured=(self.code_source == CodeSource.GITHUB),
         )
         self.items.append(item)
 
@@ -332,6 +341,7 @@ class Grader:
         dry_run_first=False,
         dry_run_all=False,
         workflow_hash=None,
+        parallel_workers=None,
     ):
         """
         This can be used to set other options for the grader.
@@ -371,6 +381,10 @@ class Grader:
             (Optional) Expected hash of the GitHub workflow file. If provided, the workflow file will be verified
             before grading each student. If the hash doesn't match, a warning will be displayed indicating
             the student may have modified the workflow system.
+        parallel_workers: int or None
+            If set to an integer, process students in parallel using that many workers.
+            Only works with build_only mode since interactive grading cannot be parallelized.
+            Default is None (sequential processing).
         """
         self.format_code = format_code
         self.build_only = build_only
@@ -378,11 +392,16 @@ class Grader:
         self.allow_rebuild = allow_rebuild
         self.allow_rerun = allow_rerun
         self.workflow_hash = workflow_hash
+        self.parallel_workers = parallel_workers
         if prep_fcn and not isinstance(prep_fcn, Callable):
             error("The 'prep_fcn' argument must provide a callable function pointer")
         self.prep_fcn = prep_fcn
         if prep_fcn:
-            _verify_callback_fcn(prep_fcn, item=None)
+            _verify_callback_fcn(
+                prep_fcn,
+                item=None,
+                github_configured=(self.code_source == CodeSource.GITHUB),
+            )
 
         if not (self.allow_rebuild or self.allow_rerun):
             error("At least one of allow_rebuild and allow_rerun needs to be True.")
@@ -391,6 +410,9 @@ class Grader:
             error("Select only one of 'dry_run_first' and 'dry_run_all'")
         self.dry_run_first = dry_run_first
         self.dry_run_all = dry_run_all
+
+        if parallel_workers is not None and not build_only:
+            error("parallel_workers is only supported when build_only=True")
 
     def _validate_config(self):
         """Check that everything has been configured before running"""
@@ -422,29 +444,31 @@ class Grader:
         # Print starting message
         print_color(TermColors.BLUE, "Running grader for", self.lab_name)
 
-        # Read in CSV and validate.  Print # students who need a grade
+        # Read in CSV and validate.
         student_grades_df = grades_csv.parse_and_check(
             self.class_list_csv_path, self._get_all_csv_cols_to_grade()
-        )
-
-        # Filter by students who need a grade
-        grades_needed_df = grades_csv.filter_need_grade(
-            student_grades_df, self._get_all_csv_cols_to_grade()
-        )
-        print_color(
-            TermColors.BLUE,
-            str(
-                grades_csv.filter_need_grade(
-                    grades_needed_df, self._get_all_csv_cols_to_grade()
-                ).shape[0]
-            ),
-            "students need to be graded.",
         )
 
         # Add column for group name to DataFrame.
         # For github, students are grouped by their Github repo URL.
         # For learning suite, if set_groups() was never called, then  students are placed in groups by Net ID (so every student in their own group)
         grouped_df = self._group_students(student_grades_df)
+
+        # Count students who need grading based on deductions file
+        students_need_grading = 0
+        for _, row in grouped_df.iterrows():
+            net_ids = grades_csv.get_net_ids(row)
+            num_need_grade = sum(
+                item.num_grades_needed_deductions(net_ids) for item in self.items
+            )
+            if num_need_grade > 0:
+                students_need_grading += 1
+
+        print_color(
+            TermColors.BLUE,
+            str(students_need_grading),
+            "students need to be graded.",
+        )
 
         # Create working path directory
         self._create_work_path()
@@ -456,9 +480,19 @@ class Grader:
             # sys.exit(0)
             # grouped_df = self._add_submitted_zip_path_column(grouped_df)
 
-        self._run_grading(student_grades_df, grouped_df)
+        if self.parallel_workers is not None:
+            self._run_grading_parallel(student_grades_df, grouped_df)
+        else:
+            self._run_grading_sequential(student_grades_df, grouped_df)
 
     def _run_grading(self, student_grades_df, grouped_df):
+        """Alias for backwards compatibility."""
+        if self.parallel_workers is not None:
+            self._run_grading_parallel(student_grades_df, grouped_df)
+        else:
+            self._run_grading_sequential(student_grades_df, grouped_df)
+
+    def _run_grading_sequential(self, student_grades_df, grouped_df):
         # Sort by last name for consistent grading order
         # After groupby().agg(list), "Last Name" is a list, so we sort by the first element
         sorted_df = grouped_df.sort_values(
@@ -519,6 +553,10 @@ class Grader:
             callback_args["first_names"] = first_names
             callback_args["last_names"] = last_names
             callback_args["net_ids"] = net_ids
+            callback_args["output"] = sys.stdout  # Default to stdout in sequential mode
+            if self.code_source == CodeSource.GITHUB:
+                callback_args["repo_url"] = row["github_url"]
+                callback_args["tag"] = self.github_tag
             if "Section Number" in row:
                 callback_args["section"] = row["Section Number"]
             if "Course Homework ID" in row:
@@ -560,6 +598,193 @@ class Grader:
             # Move to next student and remember this one for potential undo
             prev_idx = idx
             idx += 1
+
+    def _process_single_student_build(self, row):
+        """Process a single student for parallel build mode. Returns (net_ids, success, message, log_path)."""
+        first_names = grades_csv.get_first_names(row)
+        last_names = grades_csv.get_last_names(row)
+        net_ids = grades_csv.get_net_ids(row)
+
+        # Check if student/group needs grading
+        num_group_members_need_grade_per_item = [
+            item.num_grades_needed_deductions(net_ids) for item in self.items
+        ]
+
+        if sum(num_group_members_need_grade_per_item) == 0:
+            return (net_ids, None, "Already graded", None)  # None indicates skip
+
+        # Create a temp file to capture output early so all messages go to it
+        # pylint: disable-next=consider-using-with
+        log_file = tempfile.NamedTemporaryFile(
+            mode="w", delete=False, suffix=".log", prefix=f"ygrader_{net_ids[0]}_"
+        )
+        log_path = log_file.name
+
+        student_work_path = self.work_path / utils.names_to_dir(
+            first_names, last_names, net_ids
+        )
+
+        # Build student info dict to pass to helper
+        student_info = {
+            "row": row,
+            "net_ids": net_ids,
+            "first_names": first_names,
+            "last_names": last_names,
+            "student_work_path": student_work_path,
+        }
+
+        # Run the build steps and capture any failure
+        success, message = self._run_build_steps(student_info, log_file)
+
+        log_file.close()
+        return (net_ids, success, message, log_path)
+
+    def _run_build_steps(  # pylint: disable=too-many-return-statements
+        self, student_info, log_file
+    ):
+        """Run the build steps for a single student. Returns (success, message)."""
+        row = student_info["row"]
+        student_work_path = student_info["student_work_path"]
+
+        # Get student code
+        try:
+            success = self._get_student_code(row, student_work_path, output=log_file)
+            if not success:
+                return (False, "Failed to get student code")
+        except Exception as e:  # pylint: disable=broad-exception-caught
+            return (False, f"Error getting code: {e}")
+
+        # Format student code
+        if self.format_code:
+            try:
+                utils.clang_format_code(student_work_path)
+            except Exception as e:  # pylint: disable=broad-exception-caught
+                return (False, f"Error formatting code: {e}")
+
+        callback_args = {}
+        callback_args["lab_name"] = self.lab_name
+        callback_args["student_code_path"] = student_work_path
+        callback_args["run"] = False  # build_only mode
+        callback_args["first_names"] = student_info["first_names"]
+        callback_args["last_names"] = student_info["last_names"]
+        callback_args["net_ids"] = student_info["net_ids"]
+        if self.code_source == CodeSource.GITHUB:
+            callback_args["repo_url"] = row["github_url"]
+            callback_args["tag"] = self.github_tag
+        if "Section Number" in row:
+            callback_args["section"] = row["Section Number"]
+        if "Course Homework ID" in row:
+            callback_args["homework_id"] = row["Course Homework ID"]
+
+        if self.prep_fcn is not None:
+            try:
+                self.prep_fcn(
+                    **callback_args,
+                    build=True,
+                )
+            except CallbackFailed as e:
+                return (False, f"Prep failed: {e}")
+            except Exception as e:  # pylint: disable=broad-exception-caught
+                return (False, f"Prep error: {e}")
+
+        # Call the grading callback for each item (with build=True, run=False for build_only mode)
+        for item in self.items:
+            # Add item-specific args
+            item_callback_args = callback_args.copy()
+            item_callback_args["item_name"] = item.item_name
+            if item.fcn_args_dict:
+                item_callback_args.update(item.fcn_args_dict)
+
+            try:
+                item.fcn(
+                    **item_callback_args,
+                    points=item.max_points,
+                    build=True,
+                    output=log_file,  # Redirect output to temp file
+                )
+            except CallbackFailed as e:
+                return (False, f"Grading callback failed: {e}")
+            except Exception as e:  # pylint: disable=broad-exception-caught
+                return (False, f"Grading callback error: {e}")
+
+        return (True, "Success")
+
+    def _run_grading_parallel(self, _student_grades_df, grouped_df):
+        """Run grading in parallel for build_only mode."""
+        # Sort by last name for consistent ordering
+        sorted_df = grouped_df.sort_values(
+            by="Last Name", key=lambda x: x.apply(lambda names: names[0].lower())
+        )
+
+        rows_list = list(sorted_df.iterrows())
+        total = len(rows_list)
+
+        print_color(
+            TermColors.BLUE,
+            f"Running parallel build with {self.parallel_workers} workers for {total} students...\n",
+        )
+
+        success_count = 0
+        fail_count = 0
+        skip_count = 0
+
+        # Use a lock for thread-safe printing
+        print_lock = threading.Lock()
+
+        def process_and_report(row):
+            nonlocal success_count, fail_count, skip_count
+            net_ids, success, message, log_path = self._process_single_student_build(
+                row
+            )
+            net_id_str = (
+                ", ".join(net_ids) if isinstance(net_ids, list) else str(net_ids)
+            )
+
+            with print_lock:
+                if success is None:
+                    skip_count += 1
+                    # Don't print skipped students
+                elif success:
+                    success_count += 1
+                    if log_path:
+                        print_color(
+                            TermColors.GREEN,
+                            f"[DONE] {net_id_str} - {message} (see {log_path})",
+                        )
+                    else:
+                        print_color(
+                            TermColors.GREEN, f"[DONE] {net_id_str} - {message}"
+                        )
+                else:
+                    fail_count += 1
+                    if log_path:
+                        print_color(
+                            TermColors.RED,
+                            f"[FAIL] {net_id_str} - {message} (see {log_path})",
+                        )
+                    else:
+                        print_color(TermColors.RED, f"[FAIL] {net_id_str} - {message}")
+
+        with ThreadPoolExecutor(max_workers=self.parallel_workers) as executor:
+            futures = []
+            for i, (_, row) in enumerate(rows_list):
+                futures.append(executor.submit(process_and_report, row))
+                # Stagger thread starts to avoid overwhelming SSH servers
+                if i < self.parallel_workers:
+                    time.sleep(0.5)
+
+            # Wait for all to complete
+            for future in as_completed(futures):
+                try:
+                    future.result()
+                except Exception as e:  # pylint: disable=broad-exception-caught
+                    with print_lock:
+                        print_color(TermColors.RED, f"[ERROR] Unexpected error: {e}")
+
+        print_color(
+            TermColors.BLUE,
+            f"\nCompleted: {success_count} success, {fail_count} failed, {skip_count} skipped",
+        )
 
     def _unzip_submissions(self):
         with zipfile.ZipFile(self.learning_suite_submissions_zip_path, "r") as f:
@@ -638,31 +863,38 @@ class Grader:
         # Group students into their groups
         return df.groupby(groupby_column).agg(list).reset_index()
 
-    def _get_student_code(self, row, student_work_path):
+    def _get_student_code(self, row, student_work_path, output=None):
         if self.code_source == CodeSource.GITHUB:
-            return self._get_student_code_github(row, student_work_path)
+            return self._get_student_code_github(row, student_work_path, output=output)
 
         # else:
-        return self._get_student_code_learning_suite(row, student_work_path)
+        return self._get_student_code_learning_suite(
+            row, student_work_path, output=output
+        )
 
-    def _get_student_code_github(self, row, student_work_path):
+    def _get_student_code_github(self, row, student_work_path, output=None):
+        if output is None:
+            output = sys.stdout
         student_work_path.mkdir(parents=True, exist_ok=True)
 
         # Clone student repo
-        print("Student repo url: " + row["github_url"])
+        print("Student repo url: " + row["github_url"], file=output)
         if not student_repos.clone_repo(
-            row["github_url"], self.github_tag, student_work_path
+            row["github_url"], self.github_tag, student_work_path, output=output
         ):
             return False
         return True
 
-    def _get_student_code_learning_suite(self, row, student_work_path):
+    def _get_student_code_learning_suite(self, row, student_work_path, output=None):
+        if output is None:
+            output = sys.stdout
         print(
-            "Extracting submitted files for", grades_csv.get_concated_names(row), "..."
+            f"Extracting submitted files for {grades_csv.get_concated_names(row)}...",
+            file=output,
         )
         if student_work_path.is_dir() and not directory_is_empty(student_work_path):
             # Code already extracted from Zip, return
-            print("  Files already extracted previously.")
+            print("  Files already extracted previously.", file=output)
             return True
 
         student_work_path.mkdir(parents=True, exist_ok=True)
@@ -769,7 +1001,7 @@ class Grader:
             self.work_path.mkdir(exist_ok=True, parents=True)
 
 
-def _verify_callback_fcn(fcn, item, fcn_extra_args_dict=None):
+def _verify_callback_fcn(fcn, item, fcn_extra_args_dict=None, github_configured=False):
     callback_args = [
         "lab_name",
         "item_name",
@@ -783,6 +1015,12 @@ def _verify_callback_fcn(fcn, item, fcn_extra_args_dict=None):
     if item:
         if item.max_points:
             callback_args.append("max_points")
+    if github_configured:
+        callback_args.append("repo_url")
+        callback_args.append("tag")
+
+    # output is always provided (sys.stdout in sequential, temp file in parallel)
+    callback_args.append("output")
 
     callback_args_optional = [
         "section",
