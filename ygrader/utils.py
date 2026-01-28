@@ -7,6 +7,7 @@ import shutil
 import subprocess
 import hashlib
 import time
+import os
 
 
 class TermColors:
@@ -192,6 +193,10 @@ def open_file_in_vscode(file_path, sleep_time=1.0):
     )
     if result.returncode != 0:
         error(f"VS Code exited with code {result.returncode}")
+
+    # Check if we're in an SSH connection - if so, skip sending the key combination
+    if os.environ.get("SSH_CONNECTION"):
+        return
 
     # Give VS Code a moment to open, then send Ctrl+` to toggle terminal focus
     time.sleep(sleep_time)
