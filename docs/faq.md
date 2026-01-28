@@ -30,7 +30,7 @@ A: Keep your groups in a CSV file, and use one column for each assignment.  When
 ## Other Options
 **Q: Grading each student takes a long time to compile/synthesize/simulate.  What should I do?**
 
-A: You can call `set_other_options()` and set `build_only` to True.  Run the grader with this option set first, then run it again with `run_only` set to True.  This will set the `build` and `run` boolean arguments of your callback function appropriately.  
+A: You can use two-pass grading with `build_only` and `run_only` options.  See the [Pre-Building Student Code](parallel_build.md) guide for details.
 
 **Q: Can I grade multiple items for a student at once?**
 A: Yes, you can grade multiple columns. For each column you want your callback function invoked, use a separate call to `add_item_to_grade`.
