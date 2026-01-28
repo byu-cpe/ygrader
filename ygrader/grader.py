@@ -357,7 +357,9 @@ class Grader:
         run_only: bool
             Whether you only want to run/grade and not build the students code.  This will be passed to your
             callback function, and is useful for labs that take a while to build.  You can build all the code
-            in one pass, then return and grade the code later.
+            in one pass, then return and grade the code later.  When using GitHub submissions, this will skip
+            fetching/cloning repositories and assume they already exist in a good state.  If a student's
+            repository does not exist, an error will be reported and that student will be skipped.
         allow_rebuild: bool
             By default, the program will pass build=True and run=True to your callback on the first invocation,
             and then allow the grader the option to "re-run" the student's code, where build=False and run=True
@@ -875,6 +877,22 @@ class Grader:
     def _get_student_code_github(self, row, student_work_path, output=None):
         if output is None:
             output = sys.stdout
+
+        # If run_only mode, skip fetching and just verify the repo exists
+        if self.run_only:
+            if student_work_path.is_dir() and list(student_work_path.iterdir()):
+                print(
+                    f"run_only mode: Using existing repo at {student_work_path}",
+                    file=output,
+                )
+                return True
+            msg = f"run_only mode: Repo does not exist at {student_work_path}"
+            if output is sys.stdout:
+                print_color(TermColors.RED, msg)
+            else:
+                print(msg, file=output)
+            return False
+
         student_work_path.mkdir(parents=True, exist_ok=True)
 
         # Clone student repo

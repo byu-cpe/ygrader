@@ -5,6 +5,8 @@ For labs with slow builds (e.g., FPGA synthesis taking minutes per student), you
 1. **Build Phase**: Build all student submissions using `build_only=True`
 2. **Run Phase**: Grade interactively using `run_only=True` (builds already done)
 
+**Note:** When using `run_only=True` with GitHub submissions, the grader will skip fetching/cloning repositories and assume they already exist in a good state from the build phase. If a student's repository does not exist, an error will be reported and that student will be skipped.
+
 This is useful because:
 - Builds can run unattended (e.g., overnight or while doing other work)
 - Failed builds are identified before you start grading
