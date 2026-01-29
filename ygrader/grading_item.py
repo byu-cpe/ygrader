@@ -260,6 +260,7 @@ class GradeItem:
 
             # callback_result is None - interactive mode
             # Prompt with deductions mode - handles everything internally
+            self.grader.interactive_grading_occurred = True
             try:
                 score = get_score(
                     concated_names,

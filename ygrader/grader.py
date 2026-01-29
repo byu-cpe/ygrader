@@ -100,6 +100,7 @@ class Grader:
         self.code_source = None
         self.prep_fcn = None
         self.last_graded_net_ids = None  # Track last fully graded student for undo
+        self.interactive_grading_occurred = False  # Track if any user interaction happened
         self.learning_suite_submissions_zip_path = None
         self.github_csv_path = None
         self.github_csv_col_name = None
@@ -507,6 +508,7 @@ class Grader:
         rows_list = list(sorted_df.iterrows())
         idx = 0
         prev_idx = None  # Track previous student index for undo
+        any_student_needed_grading = False  # Track if any student needed grading
 
         # Loop through all of the students/groups and perform grading
         while idx < len(rows_list):
@@ -525,6 +527,8 @@ class Grader:
                 # This student/group is already fully graded
                 idx += 1
                 continue
+
+            any_student_needed_grading = True
 
             # Print name(s) of who we are grading
             student_work_path = self.work_path / utils.names_to_dir(
@@ -614,7 +618,13 @@ class Grader:
             idx += 1
 
         # Show completion menu when all students are done (unless in special modes)
-        if not self.build_only and not self.dry_run_first and not self.dry_run_all:
+        # Show if interactive grading occurred OR if no students needed grading (all already graded)
+        if (
+            not self.build_only
+            and not self.dry_run_first
+            and not self.dry_run_all
+            and (self.interactive_grading_occurred or not any_student_needed_grading)
+        ):
             # Get names_by_netid from first item for display purposes
             names_by_netid = self.items[0].names_by_netid if self.items else None
             show_completion_menu(self.items, names_by_netid)
