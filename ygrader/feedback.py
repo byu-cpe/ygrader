@@ -293,9 +293,17 @@ def assemble_grades(
 
             if items_graded and items_not_graded:
                 print_color(
-                    TermColors.YELLOW,
+                    TermColors.RED,
                     f"Partial grade: {net_id} graded for [{', '.join(items_graded)}] "
                     f"but NOT [{', '.join(items_not_graded)}]",
+                )
+
+            # Check if student has no grades at all
+            student_graded = len(items_graded) > 0
+            if not student_graded:
+                print_color(
+                    TermColors.YELLOW,
+                    f"No grades: {net_id} has no grades, receiving 0",
                 )
 
             # Get submit info for this student
@@ -353,6 +361,7 @@ def assemble_grades(
                     late_penalty_callback=late_penalty_callback,
                     due_date=due_date,
                     due_date_exceptions=due_date_exceptions,
+                    student_graded=student_graded,
                 )
 
                 filename = (
@@ -391,6 +400,7 @@ def _generate_student_feedback(
     late_penalty_callback: Optional[LatePenaltyCallback] = None,
     due_date: Optional[datetime.datetime] = None,
     due_date_exceptions: Optional[Dict[str, datetime.datetime]] = None,
+    student_graded: bool = True,
 ) -> str:
     """Generate the feedback text content for a single student.
 
@@ -401,6 +411,7 @@ def _generate_student_feedback(
         late_penalty_callback: Optional callback for calculating late penalty.
         due_date: The default due date for the assignment.
         due_date_exceptions: Mapping from net_id to exception due date.
+        student_graded: Whether the student was graded at all (False if no submission).
 
     Returns:
         The formatted feedback text.
@@ -516,6 +527,12 @@ def _generate_student_feedback(
         )
         lines.append(
             f"{late_label:<{item_col_width}} {-late_penalty_points:>{score_col_width}.1f}"
+        )
+    elif not student_graded:
+        # Student was never graded (no submission)
+        final_score = score_before_late
+        lines.append(
+            f"{'Late Penalty:':<{item_col_width}} {'No Submission':>{score_col_width}}"
         )
     else:
         final_score = score_before_late

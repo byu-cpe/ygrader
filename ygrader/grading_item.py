@@ -144,43 +144,20 @@ class GradeItem:
                 )
 
             # Verify workflow hash if configured
-            if self.grader.workflow_hash is not None:
-                student_code_path = callback_args.get("student_code_path")
-                if student_code_path:
-                    workflow_file_path = (
-                        student_code_path / ".github" / "workflows" / "submission.yml"
+            workflow_errors = []
+            student_code_path = callback_args.get("student_code_path")
+            if self.grader.workflow_hash is not None and student_code_path:
+                workflow_file_path = (
+                    student_code_path / ".github" / "workflows" / "submission.yml"
+                )
+                try:
+                    verify_workflow_hash(
+                        workflow_file_path, self.grader.workflow_hash
                     )
-                    try:
-                        verify_workflow_hash(
-                            workflow_file_path, self.grader.workflow_hash
-                        )
-                    except WorkflowHashError as e:
-                        print("")
-                        print_color(TermColors.RED, "=" * 70)
-                        print_color(
-                            TermColors.RED,
-                            "WARNING: WORKFLOW FILE VERIFICATION FAILED!",
-                        )
-                        print_color(TermColors.RED, "=" * 70)
-                        print_color(TermColors.RED, str(e))
-                        print_color(TermColors.RED, "")
-                        print_color(
-                            TermColors.RED,
-                            "This student may have modified the GitHub workflow system.",
-                        )
-                        print_color(
-                            TermColors.RED, "The submission date CANNOT be guaranteed."
-                        )
-                        print_color(TermColors.RED, "")
-                        print_color(
-                            TermColors.RED,
-                            "Please contact the instructor before grading this student.",
-                        )
-                        print_color(TermColors.RED, "=" * 70)
-                        print("")
+                except WorkflowHashError as e:
+                    workflow_errors.append(f"Workflow hash mismatch: {e}")
 
             # Display submission date if available and store for later late calculation
-            student_code_path = callback_args.get("student_code_path")
             # Store submission time but don't save yet - will be saved only after successful grading
             pending_submit_time = None
             if student_code_path:
@@ -188,10 +165,12 @@ class GradeItem:
                 if submission_date_path.is_file():
                     try:
                         with open(submission_date_path, encoding="utf-8") as f:
-                            submission_time = datetime.datetime.strptime(
-                                f.read().strip(),
-                                "%a %b %d %H:%M:%S %Z %Y",
-                            )
+                            date_str = f.read().strip()
+                        # Expected format from workflow: "Sun Jan 12 21:51:14 MST 2026"
+                        submission_time = datetime.datetime.strptime(
+                            date_str,
+                            "%a %b %d %H:%M:%S %Z %Y",
+                        )
                         print_color(
                             TermColors.BLUE,
                             f"Submitted: {submission_time.strftime('%Y-%m-%d %H:%M:%S')}",
@@ -199,10 +178,46 @@ class GradeItem:
                         # Store as ISO format for later late calculation
                         pending_submit_time = submission_time.isoformat()
                     except (ValueError, IOError) as e:
-                        print_color(
-                            TermColors.YELLOW,
-                            f"Could not parse submission date: {e}",
-                        )
+                        workflow_errors.append(f"Submission date parsing failed: {e}")
+
+            # Print unified warning if any workflow-related errors occurred
+            if workflow_errors:
+                print("")
+                print_color(TermColors.RED, "=" * 70)
+                print_color(
+                    TermColors.RED,
+                    "WARNING: WORKFLOW VERIFICATION FAILED!",
+                )
+                print_color(TermColors.RED, "=" * 70)
+                for err in workflow_errors:
+                    print_color(TermColors.RED, f"  - {err}")
+                print_color(TermColors.RED, "")
+                print_color(
+                    TermColors.RED,
+                    "This student may have modified the GitHub workflow system.",
+                )
+                print_color(
+                    TermColors.RED, "The submission date CANNOT be guaranteed."
+                )
+                print_color(TermColors.RED, "")
+                print_color(
+                    TermColors.RED,
+                    "Please contact the instructor before grading this student.",
+                )
+                print_color(TermColors.RED, "=" * 70)
+                print("")
+
+                # Ask for confirmation before grading
+                while True:
+                    response = input(
+                        "Do you want to grade this student anyway? [y/n]: "
+                    ).strip().lower()
+                    if response in ("y", "yes"):
+                        break
+                    if response in ("n", "no"):
+                        print_color(TermColors.BLUE, "Skipping student")
+                        return False
+                    print("Please enter 'y' or 'n'")
 
             # Process callback result:
             # - None: interactive mode (prompt for deductions)

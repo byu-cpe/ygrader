@@ -896,7 +896,8 @@ class Grader:
         student_work_path.mkdir(parents=True, exist_ok=True)
 
         # Clone student repo
-        print("Student repo url: " + row["github_url"], file=output)
+        https_url = student_repos.convert_github_url_format(row["github_url"], to_https=True)
+        print("Student repo url: " + https_url, file=output)
         if not student_repos.clone_repo(
             row["github_url"], self.github_tag, student_work_path, output=output
         ):
