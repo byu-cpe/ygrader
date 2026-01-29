@@ -12,7 +12,7 @@ from .utils import (
 )
 from . import grades_csv
 from .deductions import StudentDeductions
-from .score_input import get_score, ScoreResult
+from .score_input import get_score, MenuCommand
 
 
 class GradeItem:
@@ -36,7 +36,6 @@ class GradeItem:
         self.max_points = max_points
         self.fcn_args_dict = fcn_args_dict if fcn_args_dict is not None else {}
         self.student_deductions = StudentDeductions(deductions_yaml_path)
-        self.last_graded_net_ids = None  # Track last graded student for undo
         self.names_by_netid = (
             self._build_names_lookup()
         )  # net_id -> (first_name, last_name)
@@ -151,9 +150,7 @@ class GradeItem:
                     student_code_path / ".github" / "workflows" / "submission.yml"
                 )
                 try:
-                    verify_workflow_hash(
-                        workflow_file_path, self.grader.workflow_hash
-                    )
+                    verify_workflow_hash(workflow_file_path, self.grader.workflow_hash)
                 except WorkflowHashError as e:
                     workflow_errors.append(f"Workflow hash mismatch: {e}")
 
@@ -196,9 +193,7 @@ class GradeItem:
                     TermColors.RED,
                     "This student may have modified the GitHub workflow system.",
                 )
-                print_color(
-                    TermColors.RED, "The submission date CANNOT be guaranteed."
-                )
+                print_color(TermColors.RED, "The submission date CANNOT be guaranteed.")
                 print_color(TermColors.RED, "")
                 print_color(
                     TermColors.RED,
@@ -209,9 +204,11 @@ class GradeItem:
 
                 # Ask for confirmation before grading
                 while True:
-                    response = input(
-                        "Do you want to grade this student anyway? [y/n]: "
-                    ).strip().lower()
+                    response = (
+                        input("Do you want to grade this student anyway? [y/n]: ")
+                        .strip()
+                        .lower()
+                    )
                     if response in ("y", "yes"):
                         break
                     if response in ("n", "no"):
@@ -271,35 +268,45 @@ class GradeItem:
                     allow_rerun=self.grader.allow_rerun,
                     student_deductions=self.student_deductions,
                     net_ids=tuple(net_ids),
-                    last_graded_net_ids=self.last_graded_net_ids,
+                    last_graded_net_ids=self.grader.last_graded_net_ids,
                     names_by_netid=self.names_by_netid,
+                    all_items=self.grader.items,
                 )
             except KeyboardInterrupt:
                 print_color(TermColors.RED, "\nExiting")
                 sys.exit(0)
 
-            if score == ScoreResult.SKIP:
+            if score == MenuCommand.SKIP:
                 return False
-            if score == ScoreResult.REBUILD:
+            if score == MenuCommand.BUILD:
                 continue
-            if score == ScoreResult.RERUN:
+            if score == MenuCommand.RERUN:
                 # run again, but don't build
                 build = False
                 continue
-            if score == ScoreResult.EXIT:
+            if score == MenuCommand.EXIT:
                 print_color(TermColors.BLUE, "Exiting grader")
                 sys.exit(0)
-            if score == ScoreResult.UNDO_LAST:
+            if score == MenuCommand.UNDO:
                 # Undo the last graded student and signal to go back
-                if self.last_graded_net_ids is not None:
-                    self.student_deductions.clear_student_deductions(
-                        self.last_graded_net_ids
+                if self.grader.last_graded_net_ids is not None:
+                    # Clear deductions for ALL items for the last graded student
+                    for item in self.grader.items:
+                        item.student_deductions.clear_student_deductions(
+                            self.grader.last_graded_net_ids
+                        )
+                    # Also clear any partial grades for the CURRENT student
+                    # so they start fresh when we come back to them
+                    for item in self.grader.items:
+                        item.student_deductions.clear_student_deductions(tuple(net_ids))
+                    print_color(
+                        TermColors.GREEN,
+                        f"Undid grade for {', '.join(self.grader.last_graded_net_ids)} - going back to regrade",
                     )
                     print_color(
                         TermColors.GREEN,
-                        f"Undid grade for {', '.join(self.last_graded_net_ids)} - going back to regrade",
+                        f"Also cleared partial grades for {', '.join(net_ids)}",
                     )
-                    self.last_graded_net_ids = None
                     return True  # Signal to go back to previous student
                 continue
 
@@ -310,8 +317,6 @@ class GradeItem:
                     tuple(net_ids), pending_submit_time
                 )
             self.student_deductions.ensure_student_in_file(tuple(net_ids))
-            # Track this student as last graded for undo functionality
-            self.last_graded_net_ids = tuple(net_ids)
             return False  # Normal completion
 
         # If we got here via break (CallbackFailed, build_only, dry_run, etc.)
