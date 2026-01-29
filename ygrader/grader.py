@@ -21,6 +21,7 @@ import pandas
 
 from . import grades_csv, student_repos, utils
 from .grading_item import GradeItem
+from .score_input import show_completion_menu
 from .utils import (
     CallbackFailed,
     TermColors,
@@ -98,6 +99,8 @@ class Grader:
         self.items = []
         self.code_source = None
         self.prep_fcn = None
+        self.last_graded_net_ids = None  # Track last fully graded student for undo
+        self.interactive_grading_occurred = False  # Track if any user interaction happened
         self.learning_suite_submissions_zip_path = None
         self.github_csv_path = None
         self.github_csv_col_name = None
@@ -505,6 +508,7 @@ class Grader:
         rows_list = list(sorted_df.iterrows())
         idx = 0
         prev_idx = None  # Track previous student index for undo
+        any_student_needed_grading = False  # Track if any student needed grading
 
         # Loop through all of the students/groups and perform grading
         while idx < len(rows_list):
@@ -523,6 +527,8 @@ class Grader:
                 # This student/group is already fully graded
                 idx += 1
                 continue
+
+            any_student_needed_grading = True
 
             # Print name(s) of who we are grading
             student_work_path = self.work_path / utils.names_to_dir(
@@ -588,7 +594,17 @@ class Grader:
                 # Go back to previous student
                 idx = prev_idx
                 prev_idx = None  # Clear so we can't go back twice in a row
+                self.last_graded_net_ids = None  # Clear since we're undoing
                 continue
+
+            # Track this student as last graded (only if all items completed normally)
+            if (
+                not go_back
+                and not self.build_only
+                and not self.dry_run_first
+                and not self.dry_run_all
+            ):
+                self.last_graded_net_ids = tuple(net_ids)
 
             if self.dry_run_first:
                 print_color(
@@ -600,6 +616,18 @@ class Grader:
             # Move to next student and remember this one for potential undo
             prev_idx = idx
             idx += 1
+
+        # Show completion menu when all students are done (unless in special modes)
+        # Show if interactive grading occurred OR if no students needed grading (all already graded)
+        if (
+            not self.build_only
+            and not self.dry_run_first
+            and not self.dry_run_all
+            and (self.interactive_grading_occurred or not any_student_needed_grading)
+        ):
+            # Get names_by_netid from first item for display purposes
+            names_by_netid = self.items[0].names_by_netid if self.items else None
+            show_completion_menu(self.items, names_by_netid)
 
     def _process_single_student_build(self, row):
         """Process a single student for parallel build mode. Returns (net_ids, success, message, log_path)."""
@@ -896,7 +924,9 @@ class Grader:
         student_work_path.mkdir(parents=True, exist_ok=True)
 
         # Clone student repo
-        https_url = student_repos.convert_github_url_format(row["github_url"], to_https=True)
+        https_url = student_repos.convert_github_url_format(
+            row["github_url"], to_https=True
+        )
         print("Student repo url: " + https_url, file=output)
         if not student_repos.clone_repo(
             row["github_url"], self.github_tag, student_work_path, output=output
