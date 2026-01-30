@@ -163,11 +163,26 @@ def is_wsl():
 # Track if we've already printed the focus warnings
 _FOCUS_WARNING_PRINTED = False
 
+
 def opener(file_path, sleep_time=1.0):
-    if 'OPENER' not in os.environ:
+    """Open a file using VS Code or a custom opener defined in the OPENER environment variable.
+
+    Parameters
+    ----------
+    file_path: pathlib.Path or str
+        Path to the file to open
+    sleep_time: float, optional
+        Time in seconds to wait for the editor to open (default: 1.0)
+    """
+    if "OPENER" not in os.environ:
         open_file_in_vscode(file_path, sleep_time)
     else:
-        subprocess.run(f'{os.environ["OPENER"]} {shlex.quote(str(file_path))}', shell=True)
+        subprocess.run(
+            f'{os.environ["OPENER"]} {shlex.quote(str(file_path))}',
+            shell=True,
+            check=False,
+        )
+
 
 def open_file_in_vscode(file_path, sleep_time=1.0):
     """Open a file in VS Code and return focus to terminal.
