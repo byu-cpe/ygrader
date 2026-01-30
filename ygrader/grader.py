@@ -504,10 +504,10 @@ class Grader:
             self._run_grading_sequential(student_grades_df, grouped_df)
 
     def _run_grading_sequential(self, student_grades_df, grouped_df):
-        # Sort by last name for consistent grading order
-        # After groupby().agg(list), "Last Name" is a list, so we sort by the first element
+        # Sort by first name for consistent grading order (matches display name sorting in [g] menu)
+        # After groupby().agg(list), "First Name" is a list, so we sort by the first element
         sorted_df = grouped_df.sort_values(
-            by="Last Name", key=lambda x: x.apply(lambda names: names[0].lower())
+            by="First Name", key=lambda x: x.apply(lambda names: names[0].lower())
         )
 
         # Convert to list for index-based iteration (needed for going back)
