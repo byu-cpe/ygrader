@@ -1,5 +1,7 @@
 student_deductions:
 - net_ids: [jgoeders]
   deductions: []
+  submit_time: null
 - net_ids: [tester123]
   deductions: []
+  submit_time: null

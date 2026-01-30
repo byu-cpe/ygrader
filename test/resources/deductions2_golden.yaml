@@ -5,3 +5,4 @@ deduction_types:
 student_deductions:
 - net_ids: [jgoeders]
   deductions: [1]
+  submit_time: null

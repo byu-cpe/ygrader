@@ -1,3 +1,4 @@
 student_deductions:
 - net_ids: [jgoeders]
   deductions: []
+  submit_time: null

@@ -512,124 +512,135 @@ class Grader:
 
         # Convert to list for index-based iteration (needed for going back)
         rows_list = list(sorted_df.iterrows())
-        idx = 0
-        prev_idx = None  # Track previous student index for undo
 
-        # Loop through all of the students/groups and perform grading
-        while idx < len(rows_list):
-            _, row = rows_list[idx]
-            first_names = grades_csv.get_first_names(row)
-            last_names = grades_csv.get_last_names(row)
-            net_ids = grades_csv.get_net_ids(row)
-            concated_names = grades_csv.get_concated_names(row)
+        # Outer loop to allow re-grading after deleting from completion menu
+        while True:
+            idx = 0
+            prev_idx = None  # Track previous student index for undo
 
-            # Check if student/group needs grading
-            num_group_members_need_grade_per_item = [
-                item.num_grades_needed_deductions(net_ids) for item in self.items
-            ]
+            # Loop through all of the students/groups and perform grading
+            while idx < len(rows_list):
+                _, row = rows_list[idx]
+                first_names = grades_csv.get_first_names(row)
+                last_names = grades_csv.get_last_names(row)
+                net_ids = grades_csv.get_net_ids(row)
+                concated_names = grades_csv.get_concated_names(row)
 
-            if sum(num_group_members_need_grade_per_item) == 0:
-                # This student/group is already fully graded
-                idx += 1
-                continue
+                # Check if student/group needs grading
+                num_group_members_need_grade_per_item = [
+                    item.num_grades_needed_deductions(net_ids) for item in self.items
+                ]
 
-            # Print name(s) of who we are grading
-            student_work_path = self.work_path / utils.names_to_dir(
-                first_names, last_names, net_ids
-            )
-            print_color(
-                TermColors.PURPLE,
-                "\nGrading: ",
-                concated_names,
-                "-",
-                student_work_path.relative_to(self.work_path.parent),
-            )
-
-            # Get student code from zip or github.  If this fails it returns False.
-            # Code from zip will return modified time (epoch, float). Code from github will return True.
-            success = self._get_student_code(row, student_work_path)
-            if not success:
-                idx += 1
-                continue
-
-            # Format student code
-            if self.format_code:
-                print_color(TermColors.BLUE, "Formatting code")
-                utils.clang_format_code(student_work_path)
-
-            callback_args = {}
-            callback_args["lab_name"] = self.lab_name
-            callback_args["student_code_path"] = student_work_path
-            callback_args["run"] = not self.build_only
-            callback_args["first_names"] = first_names
-            callback_args["last_names"] = last_names
-            callback_args["net_ids"] = net_ids
-            callback_args["output"] = sys.stdout  # Default to stdout in sequential mode
-            if self.code_source == CodeSource.GITHUB:
-                callback_args["repo_url"] = row["github_url"]
-                callback_args["tag"] = self.github_tag
-            if "Section Number" in row:
-                callback_args["section"] = row["Section Number"]
-            if "Course Homework ID" in row:
-                callback_args["homework_id"] = row["Course Homework ID"]
-
-            if self.prep_fcn is not None:
-                try:
-                    self.prep_fcn(
-                        **callback_args,
-                        build=not self.run_only,
-                    )
-                except CallbackFailed as e:
-                    print_color(TermColors.RED, repr(e))
+                if sum(num_group_members_need_grade_per_item) == 0:
+                    # This student/group is already fully graded
                     idx += 1
                     continue
-                except KeyboardInterrupt:
-                    pass
 
-            # Loop through all items that are to be graded
-            go_back = False
-            for item in self.items:
-                go_back = item.run_grading(student_grades_df, row, callback_args)
-                if go_back:
-                    break  # Stop grading items for this student if going back
-
-            if go_back and prev_idx is not None:
-                # Go back to previous student
-                idx = prev_idx
-                prev_idx = None  # Clear so we can't go back twice in a row
-                self.last_graded_net_ids = None  # Clear since we're undoing
-                continue
-
-            # Track this student as last graded (only if all items completed normally)
-            if (
-                not go_back
-                and not self.build_only
-                and not self.dry_run_first
-                and not self.dry_run_all
-            ):
-                self.last_graded_net_ids = tuple(net_ids)
-
-            if self.dry_run_first:
-                print_color(
-                    TermColors.YELLOW,
-                    "'dry_run_first' is set, so exiting after first student.",
+                # Print name(s) of who we are grading
+                student_work_path = self.work_path / utils.names_to_dir(
+                    first_names, last_names, net_ids
                 )
-                break
+                print_color(
+                    TermColors.PURPLE,
+                    "\nGrading: ",
+                    concated_names,
+                    "-",
+                    student_work_path.relative_to(self.work_path.parent),
+                )
 
-            # Move to next student and remember this one for potential undo
-            prev_idx = idx
-            idx += 1
+                # Get student code from zip or github.  If this fails it returns False.
+                # Code from zip will return modified time (epoch, float). Code from github will return True.
+                success = self._get_student_code(row, student_work_path)
+                if not success:
+                    idx += 1
+                    continue
 
-        # Show completion menu when all students are done (unless disabled or in special modes)
-        if (
-            self.show_completion_menu
-            and not self.build_only
-            and not self.dry_run_first
-            and not self.dry_run_all
-        ):
+                # Format student code
+                if self.format_code:
+                    print_color(TermColors.BLUE, "Formatting code")
+                    utils.clang_format_code(student_work_path)
+
+                callback_args = {}
+                callback_args["lab_name"] = self.lab_name
+                callback_args["student_code_path"] = student_work_path
+                callback_args["run"] = not self.build_only
+                callback_args["first_names"] = first_names
+                callback_args["last_names"] = last_names
+                callback_args["net_ids"] = net_ids
+                callback_args["output"] = sys.stdout  # Default to stdout in sequential mode
+                if self.code_source == CodeSource.GITHUB:
+                    callback_args["repo_url"] = row["github_url"]
+                    callback_args["tag"] = self.github_tag
+                if "Section Number" in row:
+                    callback_args["section"] = row["Section Number"]
+                if "Course Homework ID" in row:
+                    callback_args["homework_id"] = row["Course Homework ID"]
+
+                if self.prep_fcn is not None:
+                    try:
+                        self.prep_fcn(
+                            **callback_args,
+                            build=not self.run_only,
+                        )
+                    except CallbackFailed as e:
+                        print_color(TermColors.RED, repr(e))
+                        idx += 1
+                        continue
+                    except KeyboardInterrupt:
+                        pass
+
+                # Loop through all items that are to be graded
+                go_back = False
+                for item in self.items:
+                    go_back = item.run_grading(student_grades_df, row, callback_args)
+                    if go_back:
+                        break  # Stop grading items for this student if going back
+
+                if go_back and prev_idx is not None:
+                    # Go back to previous student
+                    idx = prev_idx
+                    prev_idx = None  # Clear so we can't go back twice in a row
+                    self.last_graded_net_ids = None  # Clear since we're undoing
+                    continue
+
+                # Track this student as last graded (only if all items completed normally)
+                if (
+                    not go_back
+                    and not self.build_only
+                    and not self.dry_run_first
+                    and not self.dry_run_all
+                ):
+                    self.last_graded_net_ids = tuple(net_ids)
+
+                if self.dry_run_first:
+                    print_color(
+                        TermColors.YELLOW,
+                        "'dry_run_first' is set, so exiting after first student.",
+                    )
+                    break
+
+                # Move to next student and remember this one for potential undo
+                prev_idx = idx
+                idx += 1
+
+            # Show completion menu when all students are done (unless disabled or in special modes)
+            # If a grade is deleted from the menu, re-run the grading loop
+            if (
+                not self.show_completion_menu
+                or self.build_only
+                or self.dry_run_first
+                or self.dry_run_all
+            ):
+                break  # Exit outer loop - no completion menu
+
             # Get names_by_netid from first item for display purposes
             names_by_netid = self.items[0].names_by_netid if self.items else None
-            display_completion_menu(self.items, names_by_netid)
+            if display_completion_menu(self.items, names_by_netid):
+                # A grade was deleted, continue outer loop to re-run grading
+                self.last_graded_net_ids = None
+                continue
+            # User exited normally
+            break
 
     def _process_single_student_build(self, row):
         """Process a single student for parallel build mode. Returns (net_ids, success, message, log_path)."""
