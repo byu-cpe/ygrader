@@ -50,6 +50,7 @@ class TestGithub(unittest.TestCase):
         grader.set_submission_system_github(
             "main", TEST_RESOURCES_PATH / "github.csv", use_https=True
         )
+        grader.set_other_options(show_completion_menu=False)
         grader.run()
 
         self.assertTrue(filecmp.cmp(deductions1_yaml_path, deductions1_golden_path))
@@ -83,6 +84,7 @@ class TestLearningSuite(unittest.TestCase):
         grader.set_submission_system_learning_suite(
             TEST_RESOURCES_PATH / "submissions.zip"
         )
+        grader.set_other_options(show_completion_menu=False)
         grader.run()
 
         self.assertTrue(filecmp.cmp(deductions_path, deductions_golden_path))
@@ -127,6 +129,7 @@ class TestLearningSuite(unittest.TestCase):
             TEST_RESOURCES_PATH / "submissions2.zip"
         )
         grader.set_learning_suite_groups(TEST_RESOURCES_PATH / "groups3.csv")
+        grader.set_other_options(show_completion_menu=False)
         grader.run()
 
         self.assertTrue(filecmp.cmp(deductions1_path, deductions1_golden_path))

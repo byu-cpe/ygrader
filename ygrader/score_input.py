@@ -40,7 +40,7 @@ def _print_menu_item(cmd, description, indent="    ", pad=10):
     )
 
 
-def show_completion_menu(items, names_by_netid=None):
+def display_completion_menu(items, names_by_netid=None):
     """Show a menu when all students have been graded.
 
     Allows the user to manage grades, edit deduction types, etc.
@@ -191,8 +191,8 @@ def get_score(
         )
         print(fpad2 + "Current deductions:")
         if current_deductions:
-            for d in current_deductions:
-                print(fpad2 + f"  -{d.points}: {d.message}")
+            for deduction in current_deductions:
+                print(fpad2 + f"  -{deduction.points}: {deduction.message}")
         else:
             print(fpad2 + "  (None)")
         print("")
@@ -328,8 +328,8 @@ def get_score(
                     # Fallback for single item - wrap in list
                     # Create a minimal item-like object for backwards compatibility
                     class _SingleItemWrapper:
-                        def __init__(self, sd):
-                            self.student_deductions = sd
+                        def __init__(self, student_deductions_arg):
+                            self.student_deductions = student_deductions_arg
 
                     _manage_grades_interactive(
                         [_SingleItemWrapper(student_deductions)], names_by_netid

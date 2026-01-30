@@ -1,5 +1,5 @@
 pandas
 numpy
 pyyaml
-pylint==2.14.4
+pylint>=3.0.0
 twine
