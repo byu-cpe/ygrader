@@ -50,7 +50,8 @@ def display_completion_menu(items, names_by_netid=None):
         names_by_netid: Dict mapping net_id -> (first_name, last_name) for search
 
     Returns:
-        True if user wants to exit, False to continue showing the menu
+        True if a grade was deleted (caller should re-run grading loop),
+        False otherwise (user exited normally)
     """
     if not items:
         print_color(TermColors.YELLOW, "No grade items configured.")
@@ -90,7 +91,9 @@ def display_completion_menu(items, names_by_netid=None):
         txt = input(TermColors.BLUE + ">>> " + TermColors.END).strip().lower()
 
         if txt == MenuCommand.MANAGE_GRADES.value:
-            _manage_grades_interactive(items, names_by_netid)
+            if _manage_grades_interactive(items, names_by_netid):
+                # A grade was deleted, signal caller to re-run grading
+                return True
         elif txt == MenuCommand.DELETE_DEDUCTION.value:
             selected_item = _select_item_interactive(
                 items, "delete deduction type from"
@@ -387,6 +390,9 @@ def _manage_grades_interactive(all_items, names_by_netid=None):
     Args:
         all_items: List of GradeItem objects (to access their student_deductions)
         names_by_netid: Dict mapping net_id -> (first_name, last_name) for search
+
+    Returns:
+        True if a grade was deleted, False otherwise
     """
     while True:
         # Collect graded students from ALL items
@@ -487,7 +493,7 @@ def _manage_grades_interactive(all_items, names_by_netid=None):
         choice = input("\n>>> ").strip()
 
         if choice == "":
-            continue
+            return False
 
         try:
             idx = int(choice) - 1
@@ -509,6 +515,7 @@ def _manage_grades_interactive(all_items, names_by_netid=None):
                     print_color(
                         TermColors.GREEN, f"Deleted grade for {display} from all items"
                     )
+                    return True  # Signal that a grade was deleted
                 else:
                     print("Cancelled.")
             else:

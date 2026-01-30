@@ -243,10 +243,10 @@ class GradeItem:
                             f"Applied deduction: {deduction_desc} (-{deduction_points})",
                         )
                     # Save submit_time now that grading succeeded
-                    if pending_submit_time is not None:
-                        self.student_deductions.set_submit_time(
-                            tuple(net_ids), pending_submit_time
-                        )
+                    # (may be None if no .commitdate file exists)
+                    self.student_deductions.set_submit_time(
+                        tuple(net_ids), pending_submit_time
+                    )
                     # Ensure student is in the deductions file
                     self.student_deductions.ensure_student_in_file(tuple(net_ids))
                     break
@@ -312,10 +312,8 @@ class GradeItem:
 
             # Record score - save submit_time and ensure the student is in the deductions file
             # (even if they have no deductions, to indicate they were graded)
-            if pending_submit_time is not None:
-                self.student_deductions.set_submit_time(
-                    tuple(net_ids), pending_submit_time
-                )
+            # submit_time may be None if no .commitdate file exists
+            self.student_deductions.set_submit_time(tuple(net_ids), pending_submit_time)
             self.student_deductions.ensure_student_in_file(tuple(net_ids))
             return False  # Normal completion
 
