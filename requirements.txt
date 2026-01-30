@@ -2,4 +2,5 @@ pandas
 numpy
 pyyaml
 pylint>=3.0.0
+setuptools
 twine
