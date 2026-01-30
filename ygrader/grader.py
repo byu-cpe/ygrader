@@ -639,9 +639,8 @@ class Grader:
                 # A grade was deleted, continue outer loop to re-run grading
                 self.last_graded_net_ids = None
                 continue
-            else:
-                # User exited normally
-                break
+            # User exited normally
+            break
 
     def _process_single_student_build(self, row):
         """Process a single student for parallel build mode. Returns (net_ids, success, message, log_path)."""

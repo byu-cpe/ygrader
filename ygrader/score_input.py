@@ -408,7 +408,7 @@ def _manage_grades_interactive(all_items, names_by_netid=None):
         if not all_graded_students:
             print("No students have been graded yet.")
             input("Press Enter to continue...")
-            return
+            return False
 
         print(f"{len(all_graded_students)} student(s) graded.")
         print("\nOptions:")
@@ -419,7 +419,7 @@ def _manage_grades_interactive(all_items, names_by_netid=None):
         txt = input("\nSearch: ").strip()
 
         if txt == "":
-            return
+            return False
 
         # Check for wildcard to list all
         list_all = txt == "*"
@@ -516,8 +516,7 @@ def _manage_grades_interactive(all_items, names_by_netid=None):
                         TermColors.GREEN, f"Deleted grade for {display} from all items"
                     )
                     return True  # Signal that a grade was deleted
-                else:
-                    print("Cancelled.")
+                print("Cancelled.")
             else:
                 print_color(TermColors.YELLOW, "Invalid selection.")
         except ValueError:

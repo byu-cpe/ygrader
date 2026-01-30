@@ -157,7 +157,7 @@ class StudentDeductions:
                     {
                         "net_ids": FlowList(student_key),
                         "deductions": FlowList(deduction_ids),
-                        **(            
+                        **(
                             {"submit_time": self.submit_time_by_students.get(student_key)}
                             if student_key in self.submit_time_by_students
                             else {}

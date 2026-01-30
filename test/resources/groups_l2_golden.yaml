@@ -5,5 +5,7 @@ deduction_types:
 student_deductions:
 - net_ids: [student1]
   deductions: [1]
+  submit_time: null
 - net_ids: [student2, student3]
   deductions: [1]
+  submit_time: null
