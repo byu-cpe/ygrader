@@ -7,6 +7,9 @@ this_version_path = sys.argv[2]
 pypi_version = version.parse(open(pypi_version_path).read())
 this_version = version.parse(open(this_version_path).read())
 
+print(f"pypi version: {pypi_version}")
+print(f"this version: {this_version}")
+
 if this_version <= pypi_version:
     raise Exception(
         f"This version ({this_version}) is not greater than the pypi version ({pypi_version})"

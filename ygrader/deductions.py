@@ -158,7 +158,7 @@ class StudentDeductions:
                         "net_ids": FlowList(student_key),
                         "deductions": FlowList(deduction_ids),
                         **(
-                            {"submit_time": self.submit_time_by_students[student_key]}
+                            {"submit_time": self.submit_time_by_students.get(student_key)}
                             if student_key in self.submit_time_by_students
                             else {}
                         ),
@@ -502,29 +502,35 @@ class StudentDeductions:
             self._save()
 
     def is_student_graded(self, net_ids: tuple) -> bool:
-        """Check if a student has been graded (is in the deductions file).
+        """Check if a student has been graded (grading was finalized).
+
+        A student is considered graded only if they have a submit_time set,
+        which indicates grading was finalized (Enter was pressed).
+
+        This prevents students with partial/pending deductions (from a crash before
+        pressing Enter) from being considered "graded".
 
         Args:
             net_ids: Tuple of net_ids for the student.
 
         Returns:
-            True if the student is in the deductions file (graded), False otherwise.
+            True if the student's grading was finalized, False otherwise.
         """
         student_key = tuple(net_ids) if not isinstance(net_ids, tuple) else net_ids
-        return student_key in self.deductions_by_students
+        return student_key in self.submit_time_by_students
 
     def set_submit_time(self, net_ids: tuple, submit_time: Optional[str]):
         """Set the submission time for a student.
 
+        This also marks the student as graded (grading finalized).
+        The submit_time can be None if no submission time is available.
+
         Args:
             net_ids: Tuple of net_ids for the student.
-            submit_time: ISO format timestamp string, or None to remove.
+            submit_time: ISO format timestamp string, or None if not available.
         """
         student_key = tuple(net_ids) if not isinstance(net_ids, tuple) else net_ids
-        if submit_time:
-            self.submit_time_by_students[student_key] = submit_time
-        elif student_key in self.submit_time_by_students:
-            del self.submit_time_by_students[student_key]
+        self.submit_time_by_students[student_key] = submit_time
         self._save()
 
     def get_submit_time(self, net_ids: tuple) -> Optional[str]:
