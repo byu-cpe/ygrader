@@ -21,7 +21,7 @@ import pandas
 
 from . import grades_csv, student_repos, utils
 from .grading_item import GradeItem
-from .score_input import show_completion_menu
+from .score_input import display_completion_menu
 from .utils import (
     CallbackFailed,
     TermColors,
@@ -100,7 +100,7 @@ class Grader:
         self.code_source = None
         self.prep_fcn = None
         self.last_graded_net_ids = None  # Track last fully graded student for undo
-        self.interactive_grading_occurred = False  # Track if any user interaction happened
+        self.show_completion_menu = True  # Show menu when grading completes
         self.learning_suite_submissions_zip_path = None
         self.github_csv_path = None
         self.github_csv_col_name = None
@@ -345,6 +345,7 @@ class Grader:
         dry_run_all=False,
         workflow_hash=None,
         parallel_workers=None,
+        show_completion_menu=True,
     ):
         """
         This can be used to set other options for the grader.
@@ -390,6 +391,9 @@ class Grader:
             If set to an integer, process students in parallel using that many workers.
             Only works with build_only mode since interactive grading cannot be parallelized.
             Default is None (sequential processing).
+        show_completion_menu: bool
+            Whether to show the completion menu when all students are graded.
+            Default is True.
         """
         self.format_code = format_code
         self.build_only = build_only
@@ -418,6 +422,8 @@ class Grader:
 
         if parallel_workers is not None and not build_only:
             error("parallel_workers is only supported when build_only=True")
+
+        self.show_completion_menu = show_completion_menu
 
     def _validate_config(self):
         """Check that everything has been configured before running"""
@@ -508,7 +514,6 @@ class Grader:
         rows_list = list(sorted_df.iterrows())
         idx = 0
         prev_idx = None  # Track previous student index for undo
-        any_student_needed_grading = False  # Track if any student needed grading
 
         # Loop through all of the students/groups and perform grading
         while idx < len(rows_list):
@@ -527,8 +532,6 @@ class Grader:
                 # This student/group is already fully graded
                 idx += 1
                 continue
-
-            any_student_needed_grading = True
 
             # Print name(s) of who we are grading
             student_work_path = self.work_path / utils.names_to_dir(
@@ -617,17 +620,16 @@ class Grader:
             prev_idx = idx
             idx += 1
 
-        # Show completion menu when all students are done (unless in special modes)
-        # Show if interactive grading occurred OR if no students needed grading (all already graded)
+        # Show completion menu when all students are done (unless disabled or in special modes)
         if (
-            not self.build_only
+            self.show_completion_menu
+            and not self.build_only
             and not self.dry_run_first
             and not self.dry_run_all
-            and (self.interactive_grading_occurred or not any_student_needed_grading)
         ):
             # Get names_by_netid from first item for display purposes
             names_by_netid = self.items[0].names_by_netid if self.items else None
-            show_completion_menu(self.items, names_by_netid)
+            display_completion_menu(self.items, names_by_netid)
 
     def _process_single_student_build(self, row):
         """Process a single student for parallel build mode. Returns (net_ids, success, message, log_path)."""
