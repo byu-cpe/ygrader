@@ -86,6 +86,31 @@ def names_to_dir(first_names, last_names, net_ids):
     )
 
 
+def github_url_to_repo_name(url):
+    """Extract the repository name from a GitHub URL.
+
+    Works with both SSH and HTTPS formats:
+    >>> github_url_to_repo_name("git@github.com:byu-ecen123-classroom/123-labs-team01.git")
+    '123-labs-team01'
+    >>> github_url_to_repo_name("https://github.com/byu-ecen123-classroom/123-labs-team01")
+    '123-labs-team01'
+    >>> github_url_to_repo_name("https://github.com/byu-ecen123-classroom/123-labs-team01.git")
+    '123-labs-team01'
+    """
+    # Try SSH format: git@github.com:org/repo.git
+    match = re.search(r"git@github\.com:.*?/(.*?)(?:\.git)?$", url)
+    if match:
+        return match.group(1)
+
+    # Try HTTPS format: https://github.com/org/repo or https://github.com/org/repo.git
+    match = re.search(r"github\.com/.*?/(.*?)(?:\.git)?$", url)
+    if match:
+        return match.group(1)
+
+    # Fallback: return the URL as-is (shouldn't happen with valid GitHub URLs)
+    return url
+
+
 def hash_file(file_path):
     """Returns a hash of a file"""
 

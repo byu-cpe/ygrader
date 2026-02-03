@@ -537,8 +537,8 @@ class Grader:
                     continue
 
                 # Print name(s) of who we are grading
-                student_work_path = self.work_path / utils.names_to_dir(
-                    first_names, last_names, net_ids
+                student_work_path = self._get_student_work_path(
+                    row, first_names, last_names, net_ids
                 )
                 print_color(
                     TermColors.PURPLE,
@@ -567,7 +567,9 @@ class Grader:
                 callback_args["first_names"] = first_names
                 callback_args["last_names"] = last_names
                 callback_args["net_ids"] = net_ids
-                callback_args["output"] = sys.stdout  # Default to stdout in sequential mode
+                callback_args["output"] = (
+                    sys.stdout
+                )  # Default to stdout in sequential mode
                 if self.code_source == CodeSource.GITHUB:
                     callback_args["repo_url"] = row["github_url"]
                     callback_args["tag"] = self.github_tag
@@ -663,8 +665,8 @@ class Grader:
         )
         log_path = log_file.name
 
-        student_work_path = self.work_path / utils.names_to_dir(
-            first_names, last_names, net_ids
+        student_work_path = self._get_student_work_path(
+            row, first_names, last_names, net_ids
         )
 
         # Build student info dict to pass to helper
@@ -867,6 +869,19 @@ class Grader:
         df["submitted_zip_path"] = pandas.Series(df_idx_to_zip_path)
         df["submitted_zip_path"] = df["submitted_zip_path"].fillna(value="")
         return df
+
+    def _get_student_work_path(self, row, first_names, last_names, net_ids):
+        """Get the work path for a student/group.
+
+        For GitHub submissions, the folder is named after the repository name.
+        For Learning Suite submissions, it uses the first student's name.
+        """
+        if self.code_source == CodeSource.GITHUB:
+            # Use the repository name from the GitHub URL
+            repo_name = utils.github_url_to_repo_name(row["github_url"])
+            return self.work_path / repo_name
+        # Learning Suite: use first student's name
+        return self.work_path / utils.names_to_dir(first_names, last_names, net_ids)
 
     def _group_students(self, df):
         if self.code_source == CodeSource.GITHUB:
