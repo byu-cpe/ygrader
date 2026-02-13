@@ -24,21 +24,24 @@ class TermColors:
     UNDERLINE = "\033[4m"
 
 
-def print_color(color, *msg):
+def print_color(color, *msg, file=None):
     """Print a message in color"""
-    print(color + " ".join(str(item) for item in msg), TermColors.END)
+    if file is None:
+        print(color + " ".join(str(item) for item in msg), TermColors.END)
+    else:
+        print(" ".join(str(item) for item in msg), file=file)
 
 
-def error(*msg, returncode=-1):
+def error(*msg, returncode=-1, file=None):
     """Print an error message and exit program"""
-    print_color(TermColors.RED, "ERROR:", *msg)
+    print_color(TermColors.RED, "ERROR:", *msg, file=file)
     # print(traceback.print_stack())
     sys.exit(returncode)
 
 
-def warning(*msg):
+def warning(*msg, file=None):
     """Print a warning message in yellow"""
-    print_color(TermColors.YELLOW, "Warning:", *msg)
+    print_color(TermColors.YELLOW, "Warning:", *msg, file=file)
 
 
 def copy_all_files_in_dir(src_dir, dest, exts=None, exclude=()):
