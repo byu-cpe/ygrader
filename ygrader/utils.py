@@ -26,7 +26,7 @@ class TermColors:
 
 def print_color(color, *msg, file=None):
     """Print a message in color"""
-    if file is None:
+    if file is None or file == sys.stdout:
         print(color + " ".join(str(item) for item in msg), TermColors.END)
     else:
         print(" ".join(str(item) for item in msg), file=file)
