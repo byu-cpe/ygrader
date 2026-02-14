@@ -1091,7 +1091,7 @@ def _verify_callback_fcn(fcn, item, fcn_extra_args_dict=None, github_configured=
     ]
     if item:
         if item.max_points:
-            callback_args.append("max_points")
+            callback_args.append("points")
     if github_configured:
         callback_args.append("repo_url")
         callback_args.append("tag")
