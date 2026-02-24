@@ -102,6 +102,7 @@ class GradeItem:
                 "Running callback function",
                 "(" + str(self.fcn.__name__) + ")",
                 "to grade item:",
+                self.item_name,
             )
 
             callback_result = None
