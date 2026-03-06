@@ -8,6 +8,7 @@ import os
 import pathlib
 import re
 import shutil
+import subprocess
 import sys
 import tempfile
 import threading
@@ -935,19 +936,47 @@ class Grader:
             output = sys.stdout
 
         # If run_only mode, skip fetching and just verify the repo exists
+        # and the correct tag is checked out
         if self.run_only:
-            if student_work_path.is_dir() and list(student_work_path.iterdir()):
-                print(
-                    f"run_only mode: Using existing repo at {student_work_path}",
-                    file=output,
-                )
-                return True
-            msg = f"run_only mode: Repo does not exist at {student_work_path}"
-            if output is sys.stdout:
-                print_color(TermColors.RED, msg)
-            else:
-                print(msg, file=output)
-            return False
+            if not (student_work_path.is_dir() and list(student_work_path.iterdir())):
+                msg = f"run_only mode: Repo does not exist at {student_work_path}"
+                if output is sys.stdout:
+                    print_color(TermColors.RED, msg)
+                else:
+                    print(msg, file=output)
+                return False
+
+            # Verify the expected tag is checked out
+            if self.github_tag and self.github_tag not in ("master", "main"):
+                try:
+                    result = subprocess.run(
+                        ["git", "describe", "--tags", "--exact-match", "HEAD"],
+                        cwd=student_work_path,
+                        capture_output=True,
+                        text=True,
+                        check=True,
+                    )
+                    checked_out_tag = result.stdout.strip()
+                except subprocess.CalledProcessError:
+                    checked_out_tag = None
+
+                if checked_out_tag != self.github_tag:
+                    msg = (
+                        f"run_only mode: Skipping {student_work_path.name} — "
+                        f"expected tag '{self.github_tag}' but "
+                        f"found '{checked_out_tag or '(no tag)'}'"
+                    )
+                    if output is sys.stdout:
+                        print_color(TermColors.YELLOW, msg)
+                    else:
+                        print(msg, file=output)
+                    return False
+
+            print(
+                f"run_only mode: Using existing repo at {student_work_path}",
+                file=output,
+            )
+            return True
 
         student_work_path.mkdir(parents=True, exist_ok=True)
 
