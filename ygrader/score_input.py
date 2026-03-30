@@ -110,7 +110,7 @@ def display_completion_menu(items, names_by_netid=None):
                 )
         elif txt == MenuCommand.EXIT.value:
             print_color(TermColors.BLUE, "Exiting grader")
-            sys.exit(0)
+            return False
         else:
             print_color(TermColors.YELLOW, "Invalid option. Try again.")
 
@@ -213,7 +213,9 @@ def get_score(
             left_items.append((MenuCommand.RERUN, desc))
         left_items.append((MenuCommand.MANAGE_GRADES, "Manage grades"))
         if last_graded_net_ids is not None:
-            left_items.append((MenuCommand.UNDO, f"Undo last ({last_graded_net_ids[0]})"))
+            left_items.append(
+                (MenuCommand.UNDO, f"Undo last ({last_graded_net_ids[0]})")
+            )
         left_items.append((MenuCommand.EXIT, "Exit grader"))
 
         right_items = [
