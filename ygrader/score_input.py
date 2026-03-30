@@ -1,6 +1,5 @@
 """Module for prompting users for scores during grading."""
 
-import sys
 from enum import Enum
 
 from .utils import TermColors, print_color
