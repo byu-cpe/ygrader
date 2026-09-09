@@ -221,28 +221,43 @@ class GradeItem:
             # - None: interactive mode (prompt for deductions)
             # - List of (str, int) tuples: automatic deductions to apply
             if callback_result is not None:
+                if not isinstance(callback_result, list):
+                    print_color(
+                        TermColors.RED,
+                        f"Invalid callback return type: {type(callback_result)}. Expected None or list of (str, int) tuples.",
+                    )
+                    # Don't mark student as graded - just skip to next student
+                    break
+
+                # Deductions already on file for this student were entered by the TA
+                # (e.g. via [n] before choosing [b]/[r]).  The automatic deductions are
+                # applied on top, but the TA gets the score menu to review the total
+                # rather than having the grade finalized silently.
+                manual_deductions = self.student_deductions.get_student_deductions(
+                    tuple(net_ids)
+                )
+
                 # Callback returned deductions to apply automatically
-                if isinstance(callback_result, list):
-                    for deduction_desc, deduction_points in callback_result:
-                        if deduction_points < 0:
-                            raise ValueError(
-                                f"Deduction points must be non-negative, got {deduction_points} "
-                                f"for '{deduction_desc}'"
-                            )
-                        # Find or create the deduction type
-                        deduction_id = (
-                            self.student_deductions.find_or_create_deduction_type(
-                                deduction_desc, deduction_points
-                            )
+                for deduction_desc, deduction_points in callback_result:
+                    if deduction_points < 0:
+                        raise ValueError(
+                            f"Deduction points must be non-negative, got {deduction_points} "
+                            f"for '{deduction_desc}'"
                         )
-                        # Apply to this student
-                        self.student_deductions.apply_deduction_to_student(
-                            tuple(net_ids), deduction_id
-                        )
-                        print_color(
-                            TermColors.BLUE,
-                            f"Applied deduction: {deduction_desc} (-{deduction_points})",
-                        )
+                    # Find or create the deduction type
+                    deduction_id = self.student_deductions.find_or_create_deduction_type(
+                        deduction_desc, deduction_points
+                    )
+                    # Apply to this student
+                    self.student_deductions.apply_deduction_to_student(
+                        tuple(net_ids), deduction_id
+                    )
+                    print_color(
+                        TermColors.BLUE,
+                        f"Applied deduction: {deduction_desc} (-{deduction_points})",
+                    )
+
+                if not manual_deductions:
                     # Save submit_time now that grading succeeded
                     # (may be None if no .commitdate file exists)
                     self.student_deductions.set_submit_time(
@@ -253,13 +268,12 @@ class GradeItem:
                     break
 
                 print_color(
-                    TermColors.RED,
-                    f"Invalid callback return type: {type(callback_result)}. Expected None or list of (str, int) tuples.",
+                    TermColors.YELLOW,
+                    "Student already had manually entered deduction(s); review the score below.",
                 )
-                # Don't mark student as graded - just skip to next student
-                break
+                # Fall through to the interactive prompt
 
-            # callback_result is None - interactive mode
+            # callback_result is None (or manual deductions exist) - interactive mode
             # Prompt with deductions mode - handles everything internally
             try:
                 score = get_score(

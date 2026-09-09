@@ -11,7 +11,7 @@ When you configure the script correctly, the expected flow is:
 
    * Student code is retrieved (from Github or Learning Suite zip file) and copied into a per-group working folder.
    * *Callbacks are made to your code*, where you can build and run the student's code.
-   * If your callback returns `None`, the TA is prompted to enter deductions interactively. If your callback returns a list of deduction tuples, those are applied automatically.
+   * If your callback returns `None`, the TA is prompted to enter deductions interactively. If your callback returns a list of deduction tuples, those are applied automatically. If the TA had already entered deductions by hand (e.g. before choosing *Build & run* or *Re-run*), the returned deductions are applied on top and the TA is shown the score menu to review the total instead of the grade being finalized silently.
    * Deductions YAML file is updated to track the student's grade.
 
 In the above process, *you will only need to write the callback code to build and run the student's code*.
