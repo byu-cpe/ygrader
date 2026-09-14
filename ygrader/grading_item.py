@@ -286,6 +286,7 @@ class GradeItem:
                     last_graded_net_ids=self.grader.last_graded_net_ids,
                     names_by_netid=self.names_by_netid,
                     all_items=self.grader.items,
+                    code_path=self._display_code_path(student_code_path),
                 )
             except KeyboardInterrupt:
                 print_color(TermColors.RED, "\nExiting")
@@ -334,6 +335,16 @@ class GradeItem:
 
         # If we got here via break (CallbackFailed, build_only, dry_run, etc.)
         return False
+
+    def _display_code_path(self, student_code_path):
+        """Student code path relative to the parent of the work path (e.g.
+        'repos/427-labs-user'), matching the 'Grading:' line printed at clone time."""
+        if student_code_path is None:
+            return None
+        try:
+            return student_code_path.relative_to(self.grader.work_path.parent)
+        except ValueError:
+            return student_code_path
 
     def num_grades_needed_deductions(self, net_ids):
         """Return the number of group members who need a grade.
