@@ -158,6 +158,7 @@ def get_score(
     last_graded_net_ids=None,
     names_by_netid=None,
     all_items=None,
+    code_path=None,
 ):
     """Prompts the user for a score for the grade column.
 
@@ -171,6 +172,8 @@ def get_score(
         last_graded_net_ids: Tuple of net_ids for the last graded student (for undo)
         names_by_netid: Dict mapping net_id -> (first_name, last_name) for search
         all_items: List of all GradeItem objects (for multi-item operations like [g], [d], [v])
+        code_path: Path to the student's code, shown in the menu header so the
+            grader can find the code to inspect it manually (optional)
 
     Returns:
         Either a numeric score (float) or a ScoreResult enum value
@@ -185,6 +188,13 @@ def get_score(
 
         print("")
         print("-" * 60)
+
+        # Show who is being graded and where their code is.  The "Grading:"
+        # line printed when the student was cloned has usually scrolled off
+        # behind the build/run output by now.
+        print(fpad2 + f"Grading: {names} ({', '.join(net_ids)})")
+        if code_path is not None:
+            print(fpad2 + f"Code: {code_path}")
 
         # Show current deductions for this student
         current_deductions = student_deductions.get_student_deductions(tuple(net_ids))
