@@ -18,6 +18,7 @@ class MenuCommand(Enum):
     DELETE_DEDUCTION = "d"
     CLEAR_DEDUCTIONS = "0"
     CHANGE_VALUE = "v"
+    CHANGE_DESCRIPTION = "c"
     MANAGE_GRADES = "g"
     UNDO = "u"
     EXIT = "e"
@@ -80,6 +81,7 @@ def display_completion_menu(items, names_by_netid=None):
             (MenuCommand.MANAGE_GRADES, "Manage grades (view/delete student grades)"),
             (MenuCommand.DELETE_DEDUCTION, "Delete deduction type"),
             (MenuCommand.CHANGE_VALUE, "Change deduction value"),
+            (MenuCommand.CHANGE_DESCRIPTION, "Change deduction description"),
             (MenuCommand.EXIT, "Exit grader"),
         ]
         print(fpad2 + "Options:")
@@ -107,6 +109,12 @@ def display_completion_menu(items, names_by_netid=None):
                 selected_item.student_deductions.change_deduction_value_interactive(
                     max_points=selected_item.max_points
                 )
+        elif txt == MenuCommand.CHANGE_DESCRIPTION.value:
+            selected_item = _select_item_interactive(
+                items, "change deduction description for"
+            )
+            if selected_item:
+                selected_item.student_deductions.change_deduction_description_interactive()
         elif txt == MenuCommand.EXIT.value:
             print_color(TermColors.BLUE, "Exiting grader")
             return False
@@ -232,6 +240,7 @@ def get_score(
             (MenuCommand.DELETE_DEDUCTION, "Delete deduction"),
             (MenuCommand.CLEAR_DEDUCTIONS, "Clear deductions"),
             (MenuCommand.CHANGE_VALUE, "Change deduction value"),
+            (MenuCommand.CHANGE_DESCRIPTION, "Change deduction description"),
             (None, "Accept score"),  # [Enter] - special case
         ]
 
@@ -334,6 +343,16 @@ def get_score(
                     student_deductions.change_deduction_value_interactive(
                         max_points=max_points
                     )
+                continue
+            if cmd == MenuCommand.CHANGE_DESCRIPTION:
+                if all_items and len(all_items) > 1:
+                    selected_item = _select_item_interactive(
+                        all_items, "change deduction description for"
+                    )
+                    if selected_item:
+                        selected_item.student_deductions.change_deduction_description_interactive()
+                else:
+                    student_deductions.change_deduction_description_interactive()
                 continue
             if cmd == MenuCommand.MANAGE_GRADES:
                 if all_items:

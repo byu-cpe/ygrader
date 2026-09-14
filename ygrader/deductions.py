@@ -366,6 +366,69 @@ class StudentDeductions:
         self._save()
         return True
 
+    def change_deduction_description(self, deduction_id: int, new_message: str) -> bool:
+        """Change the description of an existing deduction type.
+
+        Args:
+            deduction_id: The ID of the deduction type to modify.
+            new_message: The new description text.
+
+        Returns:
+            True if successful, False if deduction_id not found.
+        """
+        if deduction_id not in self.deduction_types:
+            return False
+
+        self.deduction_types[deduction_id].message = new_message
+        self._save()
+        return True
+
+    def change_deduction_description_interactive(self) -> bool:
+        """Interactively prompt the user to change a deduction type's description.
+
+        Returns:
+            True if a description was changed, False otherwise.
+        """
+        if not self.deduction_types:
+            print("No deduction types to modify.")
+            return False
+
+        print("\nChange deduction description (empty input to cancel):")
+        print("Available deduction types:")
+        for deduction_id, deduction_type in self.deduction_types.items():
+            in_use = " (IN USE)" if self.is_deduction_in_use(deduction_id) else ""
+            print(
+                f"  [{deduction_id}] -{deduction_type.points}: {deduction_type.message}{in_use}"
+            )
+
+        id_str = input("  Enter ID to modify: ").strip()
+        if not id_str:
+            print("Cancelled.")
+            return False
+
+        try:
+            deduction_id = int(id_str)
+        except ValueError:
+            print("Invalid ID.")
+            return False
+
+        if deduction_id not in self.deduction_types:
+            print("Deduction type not found.")
+            return False
+
+        deduction_type = self.deduction_types[deduction_id]
+        print(f"  Current description: {deduction_type.message}")
+
+        new_message = input("  Enter new description: ").strip()
+        if not new_message:
+            print("Cancelled.")
+            return False
+
+        old_message = deduction_type.message
+        self.change_deduction_description(deduction_id, new_message)
+        print(f"Changed deduction [{deduction_id}] from '{old_message}' to '{new_message}'")
+        return True
+
     def change_deduction_value_interactive(
         self, max_points: Optional[float] = None
     ) -> bool:
