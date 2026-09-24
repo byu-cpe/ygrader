@@ -1118,9 +1118,10 @@ def _verify_callback_fcn(fcn, item, fcn_extra_args_dict=None, github_configured=
         "last_names",
         "net_ids",
     ]
-    if item:
-        if item.max_points:
-            callback_args.append("points")
+    if item is not None:
+        # grading_item.py always passes points=self.max_points, even when it is
+        # 0 (an item that is reported but not deducted, e.g. valgrind in lab 2).
+        callback_args.append("points")
     if github_configured:
         callback_args.append("repo_url")
         callback_args.append("tag")
