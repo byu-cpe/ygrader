@@ -15,6 +15,23 @@ from .deductions import StudentDeductions
 from .score_input import get_score, MenuCommand
 
 
+# .commitdate is written by the submission workflow with `date`, e.g.
+# "Sun Jan 12 21:51:14 MST 2026".  It is always in the course's time zone
+# (Mountain), as are the lab due dates, so the zone token is dropped and the
+# time is kept naive.  (strptime's %Z only accepts the names of the grader's
+# own local zone, so parsing it would fail for a TA grading from elsewhere.)
+_COMMITDATE_FORMAT = "%a %b %d %H:%M:%S %Y"
+
+
+def parse_commitdate(date_str):
+    """Parse the contents of a .commitdate file into a naive datetime in the
+    course time zone, independent of the local machine's time zone."""
+    fields = date_str.split()
+    if len(fields) == 6:
+        del fields[4]  # the time zone abbreviation
+    return datetime.datetime.strptime(" ".join(fields), _COMMITDATE_FORMAT)
+
+
 class GradeItem:
     """Class to track each item that needs to be graded (ie, each item for which a grading callback
     function will be invoked.  This is used to grade one column from the CSV file.
@@ -164,11 +181,7 @@ class GradeItem:
                     try:
                         with open(submission_date_path, encoding="utf-8") as f:
                             date_str = f.read().strip()
-                        # Expected format from workflow: "Sun Jan 12 21:51:14 MST 2026"
-                        submission_time = datetime.datetime.strptime(
-                            date_str,
-                            "%a %b %d %H:%M:%S %Z %Y",
-                        )
+                        submission_time = parse_commitdate(date_str)
                         print_color(
                             TermColors.BLUE,
                             f"Submitted: {submission_time.strftime('%Y-%m-%d %H:%M:%S')}",
