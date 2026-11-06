@@ -451,7 +451,7 @@ def _generate_student_feedback(
 
         subitem_points_deducted = 0
         item_deduction_list = []
-        student_graded = False
+        item_graded = False
 
         # Get deductions for this student in this item
         student_deductions_obj = subitem_deductions.get(item.name)
@@ -468,14 +468,14 @@ def _generate_student_feedback(
                         break
 
             if student_key:
-                student_graded = True
+                item_graded = True
                 deductions = student_deductions_obj.deductions_by_students[student_key]
                 for deduction in deductions:
                     item_deduction_list.append((deduction.message, deduction.points))
                     subitem_points_deducted += deduction.points
 
         # Calculate item score (0 if not graded)
-        if student_graded:
+        if item_graded:
             subitem_score = max(0, subitem_points_possible - subitem_points_deducted)
         else:
             subitem_score = 0
