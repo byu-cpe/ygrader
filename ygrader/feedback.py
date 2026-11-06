@@ -294,7 +294,7 @@ def assemble_grades(
             if items_graded and items_not_graded:
                 print_color(
                     TermColors.RED,
-                    f"Partial grade: {net_id} graded for [{', '.join(items_graded)}] "
+                    f"Partial grade: {first_name} {last_name} ({net_id}) graded for [{', '.join(items_graded)}] "
                     f"but NOT [{', '.join(items_not_graded)}]",
                 )
 
@@ -303,7 +303,7 @@ def assemble_grades(
             if not student_graded:
                 print_color(
                     TermColors.YELLOW,
-                    f"No grades: {net_id} has no grades, receiving 0",
+                    f"No grades: {first_name} {last_name} ({net_id}) has no grades, receiving 0",
                 )
 
             # Get submit info for this student
@@ -342,7 +342,7 @@ def assemble_grades(
                 )
                 print_color(
                     TermColors.YELLOW,
-                    f"Late: {net_id} (submitted {submitted_datetime}): "
+                    f"Late: {first_name} {last_name} ({net_id}) (submitted {submitted_datetime}): "
                     f"{score_before_late:.1f} -> {final_score:.1f}",
                 )
 
