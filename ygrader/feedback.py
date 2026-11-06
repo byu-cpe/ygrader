@@ -20,6 +20,9 @@ LatePenaltyCallback = Callable[
     [datetime.datetime, Optional[datetime.datetime], float, float], float
 ]
 
+# Width in characters of each line in a student's feedback file
+FEEDBACK_WIDTH = 80
+
 
 def _load_due_date_exceptions(
     exceptions_path: pathlib.Path,
@@ -422,21 +425,25 @@ def _generate_student_feedback(
 
     lines = []
     lines.append(f"Feedback for {first_name} {last_name} ({net_id})")
-    lines.append("=" * 60)
+    lines.append("=" * FEEDBACK_WIDTH)
     lines.append("")
 
     total_points_possible = 0
     total_points_deducted = 0
 
-    # Column widths for formatting
-    # Total width is 60 characters to match separator lines
-    # Item name column + score column (e.g., "10.0 / 10.0")
-    item_col_width = 42
+    # Column widths for formatting. Every line is FEEDBACK_WIDTH characters
+    # wide to match the separator lines.
+    # Item lines: item name column + space + score column (e.g., "10.0 / 10.0")
     score_col_width = 17
-    # For deduction lines: "  - " prefix (4 chars) + message + points
+    item_col_width = FEEDBACK_WIDTH - 1 - score_col_width
+    # Deduction lines: "  - " prefix + message + space + points (e.g., "-2.0").
+    # Wrapped continuation lines are indented to line up with the message text.
     deduction_prefix = "  - "
-    deduction_msg_width = 38
-    deduction_pts_width = 17
+    deduction_continuation_prefix = " " * len(deduction_prefix)
+    deduction_pts_width = 8
+    deduction_msg_width = (
+        FEEDBACK_WIDTH - len(deduction_prefix) - 1 - deduction_pts_width
+    )
 
     for item in ls_column.items:
         subitem_points_possible = item.points
@@ -493,7 +500,7 @@ def _generate_student_feedback(
                     )
                 else:
                     # Continuation lines - no points
-                    lines.append(f"{deduction_prefix}{line_text}")
+                    lines.append(f"{deduction_continuation_prefix}{line_text}")
 
         total_points_deducted += subitem_points_deducted
 
@@ -507,7 +514,7 @@ def _generate_student_feedback(
 
     # Late penalty section
     lines.append("")
-    lines.append("=" * 60)
+    lines.append("=" * FEEDBACK_WIDTH)
     if (
         submitted_datetime is not None
         and late_penalty_callback
@@ -545,7 +552,7 @@ def _generate_student_feedback(
     lines.append(
         f"{'TOTAL SCORE:':<{item_col_width}} {total_score_str:>{score_col_width}}"
     )
-    lines.append("=" * 60)
+    lines.append("=" * FEEDBACK_WIDTH)
 
     return "\n".join(lines)
 
